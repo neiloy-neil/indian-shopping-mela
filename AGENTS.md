@@ -30,9 +30,9 @@ This repository contains the full-stack codebase for **Indian Shopping Mela (ISM
 5. **Atomic Inventory Locking**:
    - Checkout uses a 15-minute temporary reservation via `reserve_inventory_atomic()` followed by atomic row-level locking (`FOR UPDATE`) on payment confirmation (`commit_inventory_reservation()`).
 6. **Immutable Financial Ledger**:
-   - Historical seller settlements and customer charges are recorded as append-only double-entry ledger records in `ledger_entries`. Never compute historical payouts from live product pricing or current commission rates.
+   - Historical seller settlements and customer charges are recorded as append-only double-entry ledger records in `payout_ledger`. Never derive historical payouts from live product pricing or current commission rates.
 7. **Tasklist Completion Integrity**:
-   - Never mark a task `[x]` in `resources/tasklist2.md` simply because a scaffolding file or function was created. A task is only complete when end-to-end operational functionality, database persistence, and acceptance criteria are verified.
+   - Never mark a task `[x]` in `resources/tasklist3.md` simply because a scaffolding file or function was created. A task is only complete when end-to-end operational functionality, database persistence, and acceptance criteria are verified.
 
 ---
 
@@ -42,7 +42,7 @@ This repository contains the full-stack codebase for **Indian Shopping Mela (ISM
 ├── resources/
 │   ├── Indian_Shopping_Mela_Developer_Architecture_Master_Plan_V1.pdf  # Primary Architecture Blueprint
 │   ├── roadmap.md                                                     # Production Delivery Roadmap
-│   ├── tasklist2.md                                                   # Master Production Tasklist V2
+│   ├── tasklist3.md                                                   # Master Production Completion Runbook V3
 │   └── supabase_setup_guide.md                                        # Database Setup Guide
 ├── src/
 │   ├── lib/
@@ -61,6 +61,7 @@ This repository contains the full-stack codebase for **Indian Shopping Mela (ISM
 ## 3. Mandatory Pre-Commit Validation
 
 Before submitting changes or marking tasks complete:
-1. Run `npx tsc --noEmit` to verify type safety.
-2. Run `npm run build` to ensure SSR and client bundles compile cleanly with zero server secret leaks.
-3. Update the Progress Log in `resources/tasklist2.md`.
+1. Run `npm test` to run automated test assertions (GST arithmetic, commission, return windows, payout maturation, bulk upload validation).
+2. Run `npx tsc --noEmit` to verify type safety.
+3. Run `npm run build` to ensure SSR and client bundles compile cleanly with zero server secret leaks.
+4. Update the Progress Log in `resources/tasklist3.md`.
