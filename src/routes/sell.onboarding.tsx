@@ -115,7 +115,7 @@ function OnboardingPage() {
           country: "Australia",
         },
         termsAcceptedVersion: "V1_2026",
-        status: "DRAFT",
+        status: "draft",
       }).catch(() => {
         // Optimistic local state when running without live Supabase credentials
       });
@@ -149,7 +149,7 @@ function OnboardingPage() {
           country: "Australia",
         },
         termsAcceptedVersion: "V1_2026",
-        status: "SUBMITTED",
+        status: "submitted",
       }).catch(() => {
         // Optimistic local state
       });

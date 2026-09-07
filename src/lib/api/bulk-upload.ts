@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase/client";
+import { createServerFn } from "@tanstack/react-start";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export interface BulkUploadRow {
   seller_sku: string;
@@ -41,6 +42,24 @@ export interface BulkProcessResult {
   errors: BulkValidationError[];
   batchId: string;
 }
+
+/**
+ * Server Function: Validate rows and return preview metrics
+ */
+export const validateBulkRowsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { rows: Partial<BulkUploadRow>[] }) => data)
+  .handler(async ({ data }) => {
+    return validateBulkRows(data.rows);
+  });
+
+/**
+ * Server Function: Commit valid rows in transactional chunks
+ */
+export const commitBulkImportChunkServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string; rows: BulkUploadRow[]; mode?: "CREATE" | "UPDATE" }) => data)
+  .handler(async ({ data }) => {
+    return commitBulkImportChunk(data.sellerId, data.rows, data.mode);
+  });
 
 /**
  * Validate a batch of parsed CSV/XLSX rows according to Master Plan V1 (Section 8.2).
@@ -212,7 +231,7 @@ export async function commitBulkImportChunk(
       const slug = `${row.product_title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.random().toString(36).substring(2, 6)}`;
 
       // 1. Upsert product
-      const { data: product, error: productError } = await supabase
+      const { data: product, error: productError } = await (supabaseAdmin as any)
         .from("products")
         .upsert(
           {
@@ -230,7 +249,7 @@ export async function commitBulkImportChunk(
             width_cm: row.width_cm ?? null,
             height_cm: row.height_cm ?? null,
             status: "LIVE",
-          } as any,
+          },
           { onConflict: "seller_id,slug" }
         )
         .select()
@@ -254,7 +273,7 @@ export async function commitBulkImportChunk(
 
       const variantTitle = row.size || row.colour ? `${row.size ?? ""} ${row.colour ?? ""}`.trim() : "Default Variant";
 
-      const { error: variantError } = await supabase
+      const { error: variantError } = await (supabaseAdmin as any)
         .from("product_variants")
         .upsert(
           {
@@ -266,7 +285,7 @@ export async function commitBulkImportChunk(
             stock_quantity: row.stock_qty,
             attributes,
             images,
-          } as any,
+          },
           { onConflict: "product_id,seller_sku" }
         );
 

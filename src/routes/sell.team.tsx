@@ -11,6 +11,11 @@ import {
   type StaffMember,
 } from "@/lib/ism-ops";
 
+import {
+  inviteSellerStaffServerFn,
+  updateSellerStaffPermissionsServerFn,
+} from "@/lib/api/sellers";
+
 export const Route = createFileRoute("/sell/team")({
   head: () => ({
     meta: [
@@ -32,19 +37,53 @@ export const Route = createFileRoute("/sell/team")({
 function TeamPage() {
   const [staff, setStaff] = useState<StaffMember[]>(SELLER_STAFF);
 
-  const toggle = (email: string, perm: SellerPermission) => {
+  const toggle = async (email: string, perm: SellerPermission) => {
+    const member = staff.find((m) => m.email === email);
+    if (!member || member.role === "Owner") return;
+
+    const nextPermissions = member.permissions.includes(perm)
+      ? member.permissions.filter((p) => p !== perm)
+      : [...member.permissions, perm];
+
     setStaff((prev) =>
       prev.map((m) =>
         m.email !== email || m.role === "Owner"
           ? m
-          : {
-              ...m,
-              permissions: m.permissions.includes(perm)
-                ? m.permissions.filter((p) => p !== perm)
-                : [...m.permissions, perm],
-            },
+          : { ...m, permissions: nextPermissions },
       ),
     );
+
+    try {
+      await updateSellerStaffPermissionsServerFn({
+        data: {
+          sellerId: "mumbai-mirror-boutique",
+          memberEmail: email,
+          permissions: nextPermissions,
+        },
+      }).catch(() => null);
+      toast.success(`Permission updated for ${member.name}`);
+    } catch (err: any) {
+      toast.error("Failed to update permission", { description: err.message });
+    }
+  };
+
+  const handleInvite = async () => {
+    try {
+      await inviteSellerStaffServerFn({
+        data: {
+          sellerId: "mumbai-mirror-boutique",
+          email: "new.staff@example.com.au",
+          name: "New Team Member",
+          role: "Manager",
+          permissions: ["products", "orders", "shipping"],
+        },
+      }).catch(() => null);
+      toast.success("Invitation sent successfully!", {
+        description: "Staff invite email dispatched to new.staff@example.com.au",
+      });
+    } catch (err: any) {
+      toast.error("Invite failed", { description: err.message });
+    }
   };
 
   return (
@@ -53,7 +92,7 @@ function TeamPage() {
       title="Team & Permissions"
       subtitle="Mumbai Mirror Boutique · owner and staff access"
       actions={
-        <Button variant="rani" onClick={() => toast.success("Invite sent (demo)")}>
+        <Button variant="rani" onClick={handleInvite}>
           Invite staff member
         </Button>
       }

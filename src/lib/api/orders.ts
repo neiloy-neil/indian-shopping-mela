@@ -340,6 +340,26 @@ export async function generateShippingLabelForSubOrder(params: {
   return { trackingNumber, labelPdfUrl };
 }
 
+import { createServerFn } from "@tanstack/react-start";
+
+/**
+ * Server Function: Fetch full order tracking details for customer order tracking page.
+ */
+export const getOrderTrackingDetailsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { orderId: string }) => data)
+  .handler(async ({ data }) => {
+    return getOrderTrackingDetails(data.orderId);
+  });
+
+/**
+ * Server Function: Customer cancels an unfulfilled sub-order.
+ */
+export const cancelCustomerSubOrderServerFn = createServerFn({ method: "POST" })
+  .validator((data: { subOrderId: string; reason: string }) => data)
+  .handler(async ({ data }) => {
+    return cancelCustomerSubOrder(data.subOrderId, data.reason);
+  });
+
 /**
  * T183 — Fetch full order tracking details for customer order tracking page.
  */

@@ -88,10 +88,10 @@ function CheckoutPage() {
         description: `Order #${result.masterOrderNumber} with ${sellers.length} seller packages.`,
       });
     } catch (err: any) {
-      console.warn("Order placement fallback:", err.message);
-      setPlacedOrderNumber(`ISM${Math.floor(10000 + Math.random() * 90000)}`);
-      setPlaced(true);
-      toast.success("Order confirmed!", { description: "Your order has been recorded." });
+      console.error("Order placement failed:", err);
+      toast.error("Unable to place order", {
+        description: err.message || "A transactional error occurred while processing checkout. Please try again.",
+      });
     } finally {
       setIsPlacing(false);
     }

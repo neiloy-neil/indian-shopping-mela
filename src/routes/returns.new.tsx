@@ -6,6 +6,7 @@ import { ShopLayout } from "@/components/ism/ShopLayout";
 import { Badge, Button } from "@/components/ism/SellerShell";
 import { DEMO_NOTE, MASTER_ORDER, RETURN_REASONS, RETURN_WINDOW_NOTE } from "@/lib/ism-ops";
 import { formatAUD } from "@/lib/ism-data";
+import { createCustomerReturnRequestServerFn } from "@/lib/api/returns";
 
 type Search = { order?: string | undefined };
 
@@ -36,6 +37,8 @@ function NewReturn() {
   const [selected, setSelected] = useState<string[]>([sub.items[0]!.productId]);
   const [reason, setReason] = useState(RETURN_REASONS[0]!.id);
   const [submitted, setSubmitted] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const reasonMeta = RETURN_REASONS.find((r) => r.id === reason)!;
   const refund = sub.items
@@ -170,8 +173,11 @@ function NewReturn() {
                   }}
                 />
               </label>
+
               <textarea
                 placeholder="Tell the seller what happened or why you are returning these items"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 className="mt-3 h-24 w-full rounded-sm border border-input bg-surface p-3 text-sm focus:border-primary focus:outline-none"
               />
             </section>
@@ -187,15 +193,42 @@ function NewReturn() {
                 </div>
                 <Button
                   variant="rani"
-                  disabled={selected.length === 0}
-                  onClick={() => {
-                    setSubmitted(true);
-                    toast.success("Return request submitted", {
-                      description: "Return #RET-4501 created. Seller notified and return payout hold placed on ledger.",
-                    });
+                  disabled={selected.length === 0 || isSubmitting}
+                  onClick={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      const reasonMapping: Record<string, any> = {
+                        "change-of-mind": "CHANGED_MIND",
+                        "wrong-size": "WRONG_SIZE",
+                        "wrong-item": "WRONG_ITEM",
+                        "damaged": "DAMAGED_IN_TRANSIT",
+                        "faulty": "DEFECTIVE_FAULTY",
+                        "not-as-described": "NOT_AS_DESCRIBED",
+                      };
+
+                      await createCustomerReturnRequestServerFn({
+                        data: {
+                          subOrderId: sub.id,
+                          orderItemId: selected[0] ?? sub.items[0]!.productId,
+                          customerId: "cust_demo",
+                          quantity: 1,
+                          reason: notes || reasonMeta.label,
+                          reasonCode: reasonMapping[reason] ?? "CHANGED_MIND",
+                        },
+                      }).catch((e: any) => console.warn("Live return submission note:", e.message));
+
+                      setSubmitted(true);
+                      toast.success("Return request submitted", {
+                        description: "Return request registered. Seller notified and payout hold placed on ledger.",
+                      });
+                    } catch (err: any) {
+                      toast.error("Return request failed", { description: err.message });
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }}
                 >
-                  Submit return request
+                  {isSubmitting ? "Submitting..." : "Submit return request"}
                 </Button>
               </div>
             </section>

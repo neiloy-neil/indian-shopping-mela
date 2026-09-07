@@ -14,11 +14,13 @@ import {
 } from "lucide-react";
 import { CATEGORIES } from "@/lib/ism-data";
 import { useIsm } from "@/lib/ism-store";
+import { useAuth } from "@/hooks/use-auth";
 import { Logo } from "./Logo";
 
 export function Header() {
   const navigate = useNavigate();
-  const { cartCount, wishlist, signedIn } = useIsm();
+  const { cartCount, wishlist } = useIsm();
+  const { user, isAuthenticated } = useAuth();
   const [q, setQ] = useState("");
   const [scope, setScope] = useState("all");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -130,11 +132,11 @@ export function Header() {
             </Link>
 
             <Link
-              to={signedIn ? "/account" : "/signin"}
+              to={isAuthenticated ? "/account" : "/signin"}
               className="hidden flex-col items-start px-1 text-xs leading-tight text-foreground hover:text-rani md:flex"
             >
               <span className="text-[10px] text-muted-foreground">
-                {signedIn ? "Hello, Priya" : "Sign In"}
+                {isAuthenticated ? `Hello, ${user?.fullName ? user.fullName.split(" ")[0] : "Account"}` : "Sign In"}
               </span>
               <span className="font-semibold">Account</span>
             </Link>

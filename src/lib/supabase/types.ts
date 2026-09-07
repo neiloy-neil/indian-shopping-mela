@@ -2633,4 +2633,144 @@ export const Constants = {
       ],
     },
   },
-} as const
+} as const;
+
+// ----------------------------------------------------------------------------
+// Canonical Domain Type Aliases
+// ----------------------------------------------------------------------------
+export type UserRole =
+  | "customer"
+  | "seller"
+  | "seller_owner"
+  | "seller_staff"
+  | "admin"
+  | "admin_support"
+  | "admin_catalogue"
+  | "admin_finance"
+  | "admin_super";
+
+export type SellerStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "approved"
+  | "suspended"
+  | "rejected";
+
+export type OnboardingStatus = SellerStatus;
+
+export type ProductStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "PENDING_REVIEW"
+  | "NEEDS_CHANGES"
+  | "APPROVED"
+  | "LIVE"
+  | "PAUSED"
+  | "OUT_OF_STOCK"
+  | "REJECTED"
+  | "ARCHIVED";
+
+export type OrderStatus =
+  | "PENDING"
+  | "PAYMENT_PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "PARTIALLY_SHIPPED"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "REFUNDED";
+
+export type SubOrderStatus =
+  | "NEW_ORDER"
+  | "ORDER_CREATED"
+  | "SELLER_NOTIFIED"
+  | "ACCEPTED"
+  | "SELLER_ACCEPTED"
+  | "PREPARING"
+  | "PACKED"
+  | "READY_TO_SHIP"
+  | "LABEL_CREATED"
+  | "SHIPPED"
+  | "IN_TRANSIT"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "RETURN_REQUESTED"
+  | "RETURNED"
+  | "REFUNDED"
+  | "DISPUTED";
+
+export type OrderPaymentStatus =
+  | "PENDING"
+  | "PAYMENT_PENDING"
+  | "AUTHORIZED"
+  | "PAID"
+  | "FAILED"
+  | "PAYMENT_FAILED"
+  | "REFUNDED"
+  | "PARTIALLY_REFUNDED";
+
+export type ReturnStatus =
+  | "REQUESTED"
+  | "RETURN_REQUESTED"
+  | "APPROVED"
+  | "RETURN_APPROVED"
+  | "REJECTED"
+  | "IN_TRANSIT"
+  | "RETURN_IN_TRANSIT"
+  | "RECEIVED"
+  | "RETURN_RECEIVED"
+  | "INSPECTED"
+  | "REFUND_PENDING"
+  | "REFUNDED"
+  | "CLOSED";
+
+export type PayoutStatus =
+  | "PENDING"
+  | "PAYOUT_HOLD"
+  | "PAYOUT_ELIGIBLE"
+  | "SCHEDULED"
+  | "PROCESSING"
+  | "PAYOUT_PROCESSING"
+  | "TRANSFERRED"
+  | "PAID_TO_SELLER"
+  | "FAILED"
+  | "CANCELLED";
+
+export type ShipmentStatus =
+  | "PENDING"
+  | "LABEL_CREATED"
+  | "PICKED_UP"
+  | "IN_TRANSIT"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "FAILED_ATTEMPT"
+  | "EXCEPTION"
+  | "RETURNED_TO_SENDER";
+
+export type LedgerEntryType =
+  | "CUSTOMER_CHARGE"
+  | "SELLER_GROSS"
+  | "ISM_COMMISSION"
+  | "GST_COLLECTED"
+  | "SHIPPING_FEE"
+  | "SELLER_PAYOUT"
+  | "CUSTOMER_REFUND"
+  | "DISPUTE_HOLD"
+  | "DISPUTE_RELEASE"
+  | "ADJUSTMENT"
+  | "SALE_CREDIT";
+
+export interface Address {
+  line1: string;
+  line2?: string;
+  suburb: string;
+  state: string;
+  postcode: string;
+  country: string;
+  fullName?: string;
+  phone?: string;
+  businessName?: string;
+}

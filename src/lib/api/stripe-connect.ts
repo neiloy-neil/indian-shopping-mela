@@ -1,5 +1,5 @@
+import { createServerFn } from "@tanstack/react-start";
 import Stripe from "stripe";
-import { supabase } from "@/lib/supabase/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const env = typeof process !== "undefined" && process.env ? process.env : {};
@@ -16,6 +16,43 @@ export interface StripeAccountStatus {
   chargesEnabled: boolean;
   requiresInformation: boolean;
 }
+
+/**
+ * Server Function: Create or retrieve an existing Stripe Custom/Express connected account for an Australian seller.
+ */
+export const createOrGetSellerStripeAccountServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    sellerId: string;
+    email: string;
+    businessName: string;
+    abn?: string | undefined;
+  }) => data)
+  .handler(async ({ data }) => {
+    return createOrGetSellerStripeAccount(data);
+  });
+
+/**
+ * Server Function: Create a Stripe Connect Onboarding Link for seller verification.
+ */
+export const createSellerOnboardingLinkServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    sellerId: string;
+    stripeAccountId: string;
+    returnUrl: string;
+    refreshUrl: string;
+  }) => data)
+  .handler(async ({ data }) => {
+    return createSellerOnboardingLink(data);
+  });
+
+/**
+ * Server Function: Sync capability and onboarding readiness flags from Stripe to Supabase seller table.
+ */
+export const syncSellerStripeAccountStatusServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string }) => data)
+  .handler(async ({ data }) => {
+    return syncSellerStripeAccountStatus(data.sellerId);
+  });
 
 /**
  * T118 — Create or retrieve an existing Stripe Custom/Express connected account for an Australian seller.
@@ -42,47 +79,35 @@ export async function createOrGetSellerStripeAccount(params: {
   }
 
   // 2. Create Stripe Express Connected Account in Australia (AUD currency)
-  try {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "AU",
-      email: params.email,
-      business_type: "individual", // or company based on entity
-      capabilities: {
-        transfers: { requested: true },
-      },
-      business_profile: {
-        name: params.businessName,
-        mcc: "5691", // Men's and Women's Clothing Stores / General Retail
-        product_description: "Indian ethnic wear, jewellery, handicrafts, and home goods on Indian Shopping Mela.",
-      },
-      metadata: {
-        sellerId: params.sellerId,
-        abn: params.abn ?? "",
-        platform: "Indian Shopping Mela",
-      },
-    });
+  const account = await stripe.accounts.create({
+    type: "express",
+    country: "AU",
+    email: params.email,
+    business_type: "individual",
+    capabilities: {
+      transfers: { requested: true },
+    },
+    business_profile: {
+      name: params.businessName,
+      mcc: "5691",
+      product_description: "Indian ethnic wear, jewellery, handicrafts, and home goods on Indian Shopping Mela.",
+    },
+    metadata: {
+      sellerId: params.sellerId,
+      abn: params.abn ?? "",
+      platform: "Indian Shopping Mela",
+    },
+  });
 
-    // 3. Persist stripe_account_id to seller record
-    await (supabaseAdmin.from("sellers") as any)
-      .update({
-        stripe_account_id: account.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", params.sellerId);
+  // 3. Persist stripe_account_id to seller record
+  await (supabaseAdmin.from("sellers") as any)
+    .update({
+      stripe_account_id: account.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.sellerId);
 
-    return account.id;
-  } catch (err: any) {
-    console.warn("Stripe Connected Account creation mock fallback (API key missing or test mode):", err.message);
-    const mockId = `acct_ism_mock_${params.sellerId.substring(0, 8)}`;
-    await (supabaseAdmin.from("sellers") as any)
-      .update({
-        stripe_account_id: mockId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", params.sellerId);
-    return mockId;
-  }
+  return account.id;
 }
 
 /**
@@ -94,27 +119,14 @@ export async function createSellerOnboardingLink(params: {
   returnUrl: string;
   refreshUrl: string;
 }): Promise<{ url: string }> {
-  if (params.stripeAccountId.startsWith("acct_ism_mock_")) {
-    return {
-      url: `${params.returnUrl}?stripe_status=simulated_success&seller_id=${params.sellerId}`,
-    };
-  }
+  const accountLink = await stripe.accountLinks.create({
+    account: params.stripeAccountId,
+    refresh_url: params.refreshUrl,
+    return_url: params.returnUrl,
+    type: "account_onboarding",
+  });
 
-  try {
-    const accountLink = await stripe.accountLinks.create({
-      account: params.stripeAccountId,
-      refresh_url: params.refreshUrl,
-      return_url: params.returnUrl,
-      type: "account_onboarding",
-    });
-
-    return { url: accountLink.url };
-  } catch (err: any) {
-    console.warn("Error creating Stripe Account Link, falling back to returnUrl:", err.message);
-    return {
-      url: `${params.returnUrl}?stripe_status=error&message=${encodeURIComponent(err.message)}`,
-    };
-  }
+  return { url: accountLink.url };
 }
 
 /**
@@ -127,14 +139,8 @@ export async function syncSellerStripeAccountStatus(sellerId: string): Promise<S
     .single();
 
   const stripeAccountId = seller?.stripe_account_id;
-  if (!stripeAccountId || stripeAccountId.startsWith("acct_ism_mock_")) {
-    return {
-      stripeAccountId: stripeAccountId ?? "none",
-      detailsSubmitted: true,
-      payoutsEnabled: true,
-      chargesEnabled: true,
-      requiresInformation: false,
-    };
+  if (!stripeAccountId) {
+    throw new Error("Seller does not have an attached Stripe connected account.");
   }
 
   try {
@@ -172,8 +178,14 @@ export async function syncSellerStripeAccountStatus(sellerId: string): Promise<S
 }
 
 /**
- * T121 — Gate seller payouts strictly if Stripe Connect account is not eligible.
+ * Server Function: Gate seller payouts strictly if Stripe Connect account is not eligible.
  */
+export const checkSellerPayoutEligibilityServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string }) => data)
+  .handler(async ({ data }) => {
+    return checkSellerPayoutEligibility(data.sellerId);
+  });
+
 export async function checkSellerPayoutEligibility(sellerId: string): Promise<{
   eligible: boolean;
   reason?: string;
@@ -187,7 +199,7 @@ export async function checkSellerPayoutEligibility(sellerId: string): Promise<{
     return { eligible: false, reason: "Seller record does not exist." };
   }
 
-  if (seller.status !== "ACTIVE") {
+  if (seller.status !== "ACTIVE" && seller.status !== "APPROVED") {
     return { eligible: false, reason: `Seller is not active (current status: ${seller.status}).` };
   }
 

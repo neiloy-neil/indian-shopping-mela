@@ -17,6 +17,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as PoliciesRouteImport } from './routes/policies'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SigninRouteImport } from './routes/signin'
+import { Route as ApiHealthRouteImport } from './routes/api.health'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as OrdersIdRouteImport } from './routes/orders.$id'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
@@ -28,6 +29,7 @@ import { Route as SellBulkUploadRouteImport } from './routes/sell.bulk-upload'
 import { Route as SellOnboardingRouteImport } from './routes/sell.onboarding'
 import { Route as SellTeamRouteImport } from './routes/sell.team'
 import { Route as SellerSlugRouteImport } from './routes/seller.$slug'
+import { Route as ApiWebhooksStripeRouteImport } from './routes/api.webhooks.stripe'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -67,6 +69,11 @@ const SearchRoute = SearchRouteImport.update({
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
@@ -124,6 +131,11 @@ const SellerSlugRoute = SellerSlugRouteImport.update({
   path: '/seller/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
+  id: '/api/webhooks/stripe',
+  path: '/api/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -134,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/policies': typeof PoliciesRoute
   '/search': typeof SearchRoute
   '/signin': typeof SigninRoute
+  '/api/health': typeof ApiHealthRoute
   '/category/$slug': typeof CategorySlugRoute
   '/orders/$id': typeof OrdersIdRoute
   '/product/$id': typeof ProductIdRoute
@@ -145,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/sell/team': typeof SellTeamRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/sell/': typeof SellIndexRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -155,6 +169,7 @@ export interface FileRoutesByTo {
   '/policies': typeof PoliciesRoute
   '/search': typeof SearchRoute
   '/signin': typeof SigninRoute
+  '/api/health': typeof ApiHealthRoute
   '/category/$slug': typeof CategorySlugRoute
   '/orders/$id': typeof OrdersIdRoute
   '/product/$id': typeof ProductIdRoute
@@ -166,6 +181,7 @@ export interface FileRoutesByTo {
   '/sell/team': typeof SellTeamRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/sell': typeof SellIndexRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -177,6 +193,7 @@ export interface FileRoutesById {
   '/policies': typeof PoliciesRoute
   '/search': typeof SearchRoute
   '/signin': typeof SigninRoute
+  '/api/health': typeof ApiHealthRoute
   '/category/$slug': typeof CategorySlugRoute
   '/orders/$id': typeof OrdersIdRoute
   '/product/$id': typeof ProductIdRoute
@@ -188,6 +205,7 @@ export interface FileRoutesById {
   '/sell/team': typeof SellTeamRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/sell/': typeof SellIndexRoute
+  '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -200,6 +218,7 @@ export interface FileRouteTypes {
     | '/policies'
     | '/search'
     | '/signin'
+    | '/api/health'
     | '/category/$slug'
     | '/orders/$id'
     | '/product/$id'
@@ -211,6 +230,7 @@ export interface FileRouteTypes {
     | '/sell/team'
     | '/seller/$slug'
     | '/sell/'
+    | '/api/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -221,6 +241,7 @@ export interface FileRouteTypes {
     | '/policies'
     | '/search'
     | '/signin'
+    | '/api/health'
     | '/category/$slug'
     | '/orders/$id'
     | '/product/$id'
@@ -232,6 +253,7 @@ export interface FileRouteTypes {
     | '/sell/team'
     | '/seller/$slug'
     | '/sell'
+    | '/api/webhooks/stripe'
   id:
     | '__root__'
     | '/'
@@ -242,6 +264,7 @@ export interface FileRouteTypes {
     | '/policies'
     | '/search'
     | '/signin'
+    | '/api/health'
     | '/category/$slug'
     | '/orders/$id'
     | '/product/$id'
@@ -253,6 +276,7 @@ export interface FileRouteTypes {
     | '/sell/team'
     | '/seller/$slug'
     | '/sell/'
+    | '/api/webhooks/stripe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -264,6 +288,7 @@ export interface RootRouteChildren {
   PoliciesRoute: typeof PoliciesRoute
   SearchRoute: typeof SearchRoute
   SigninRoute: typeof SigninRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   CategorySlugRoute: typeof CategorySlugRoute
   OrdersIdRoute: typeof OrdersIdRoute
   ProductIdRoute: typeof ProductIdRoute
@@ -275,6 +300,7 @@ export interface RootRouteChildren {
   SellTeamRoute: typeof SellTeamRoute
   SellerSlugRoute: typeof SellerSlugRoute
   SellIndexRoute: typeof SellIndexRoute
+  ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -333,6 +359,13 @@ declare module '@tanstack/react-router' {
       path: '/signin'
       fullPath: '/signin'
       preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/category/$slug': {
@@ -412,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/stripe': {
+      id: '/api/webhooks/stripe'
+      path: '/api/webhooks/stripe'
+      fullPath: '/api/webhooks/stripe'
+      preLoaderRoute: typeof ApiWebhooksStripeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -424,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   PoliciesRoute: PoliciesRoute,
   SearchRoute: SearchRoute,
   SigninRoute: SigninRoute,
+  ApiHealthRoute: ApiHealthRoute,
   CategorySlugRoute: CategorySlugRoute,
   OrdersIdRoute: OrdersIdRoute,
   ProductIdRoute: ProductIdRoute,
@@ -435,6 +476,7 @@ const rootRouteChildren: RootRouteChildren = {
   SellTeamRoute: SellTeamRoute,
   SellerSlugRoute: SellerSlugRoute,
   SellIndexRoute: SellIndexRoute,
+  ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

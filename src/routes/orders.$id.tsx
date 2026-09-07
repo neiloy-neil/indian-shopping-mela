@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Check, MapPin, Package, ShieldCheck, Truck, XCircle } from "lucide-react";
@@ -6,6 +6,7 @@ import { ShopLayout } from "@/components/ism/ShopLayout";
 import { Badge, Button } from "@/components/ism/SellerShell";
 import { DEMO_NOTE, MASTER_ORDER, RETURN_WINDOW_NOTE } from "@/lib/ism-ops";
 import { formatAUD } from "@/lib/ism-data";
+import { cancelCustomerSubOrderServerFn, getOrderTrackingDetailsServerFn } from "@/lib/api/orders";
 
 export const Route = createFileRoute("/orders/$id")({
   head: () => ({
@@ -25,50 +26,79 @@ export const Route = createFileRoute("/orders/$id")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: async ({ params }) => {
+    try {
+      const data = await getOrderTrackingDetailsServerFn({ data: { orderId: params.id } });
+      return { order: data };
+    } catch {
+      return { order: null };
+    }
+  },
   component: OrderDetail,
 });
 
 function OrderDetail() {
   const { id } = Route.useParams();
-  const [orderState, setOrderState] = useState(MASTER_ORDER);
+  const loaderData = Route.useLoaderData();
+  const [orderState, setOrderState] = useState(loaderData?.order ?? MASTER_ORDER);
   const [cancellingSubOrderId, setCancellingSubOrderId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  const handleCancelSubOrder = (subOrderId: string) => {
+  useEffect(() => {
+    if (loaderData?.order) {
+      setOrderState(loaderData.order);
+    }
+  }, [loaderData?.order]);
+
+  const handleCancelSubOrder = async (subOrderId: string) => {
     if (!cancelReason.trim()) {
       toast.error("Please provide a reason for cancellation.");
       return;
     }
 
-    setOrderState((prev) => ({
-      ...prev,
-      subOrders: prev.subOrders.map((so) =>
-        so.id === subOrderId
-          ? {
-              ...so,
-              status: "CANCELLED" as any,
-              canCancel: false,
-              payout: "Cancelled — refund processing",
-              timeline: [
-                ...so.timeline,
-                {
-                  label: "Package Cancelled by Customer",
-                  at: new Date().toLocaleDateString("en-AU"),
-                  done: true,
-                  note: `Reason: ${cancelReason}`,
-                },
-              ],
-            }
-          : so
-      ),
-    }));
+    setIsCancelling(true);
+    try {
+      const res = await cancelCustomerSubOrderServerFn({
+        data: { subOrderId, reason: cancelReason },
+      });
 
-    toast.success(`Package ${subOrderId} cancelled`, {
-      description: "Inventory has been released and refund will be processed to original card.",
-    });
-
-    setCancellingSubOrderId(null);
-    setCancelReason("");
+      if (res.success) {
+        setOrderState((prev: any) => ({
+          ...prev,
+          subOrders: prev.subOrders.map((so: any) =>
+            so.id === subOrderId
+              ? {
+                  ...so,
+                  status: "CANCELLED" as any,
+                  canCancel: false,
+                  payout: "Cancelled — refund processing",
+                  timeline: [
+                    ...so.timeline,
+                    {
+                      label: "Package Cancelled by Customer",
+                      at: new Date().toLocaleDateString("en-AU"),
+                      done: true,
+                      note: `Reason: ${cancelReason}`,
+                    },
+                  ],
+                }
+              : so
+          ),
+        }));
+        toast.success(`Package ${subOrderId} cancelled`, {
+          description: "Inventory has been released and refund will be processed to original card.",
+        });
+        setCancellingSubOrderId(null);
+        setCancelReason("");
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err: any) {
+      toast.error("Cancellation failed", { description: err.message });
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const o = orderState;
@@ -110,7 +140,7 @@ function OrderDetail() {
         </header>
 
         <div className="mt-5 space-y-4">
-          {o.subOrders.map((s) => (
+          {o.subOrders.map((s: any) => (
             <section key={s.id} className="rounded-md border border-border bg-surface">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b border-border p-4">
                 <div className="min-w-0">
@@ -147,7 +177,7 @@ function OrderDetail() {
               <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                 <div>
                   <ul className="divide-y divide-border text-sm">
-                    {s.items.map((it) => (
+                    {s.items.map((it: any) => (
                       <li key={it.productId} className="flex items-start justify-between gap-3 py-2.5">
                         <div className="min-w-0">
                           <Link
@@ -230,7 +260,7 @@ function OrderDetail() {
                           const invoiceWindow = window.open("", "_blank");
                           if (invoiceWindow) {
                             invoiceWindow.document.write(
-                              `<html><head><title>Tax Invoice - ${o.id}</title></head><body style="font-family: sans-serif; padding: 40px;"><h2>Indian Shopping Mela — Tax Invoice</h2><p><strong>Order #:</strong> ${o.id}</p><p><strong>Sub-Order:</strong> ${s.id}</p><p><strong>Seller:</strong> ${s.seller}</p><p><strong>Total:</strong> ${formatAUD(s.items.reduce((acc, i) => acc + i.price * i.qty, 0) + s.shipping)} (GST incl.)</p></body></html>`
+                              `<html><head><title>Tax Invoice - ${o.id}</title></head><body style="font-family: sans-serif; padding: 40px;"><h2>Indian Shopping Mela — Tax Invoice</h2><p><strong>Order #:</strong> ${o.id}</p><p><strong>Sub-Order:</strong> ${s.id}</p><p><strong>Seller:</strong> ${s.seller}</p><p><strong>Total:</strong> ${formatAUD(s.items.reduce((acc: number, i: any) => acc + i.price * i.qty, 0) + s.shipping)} (GST incl.)</p></body></html>`
                             );
                             invoiceWindow.document.close();
                           }
@@ -243,7 +273,7 @@ function OrderDetail() {
                 </div>
 
                 <ol className="space-y-2.5 rounded-sm border border-border bg-cream/60 p-3.5">
-                  {s.timeline.map((t) => (
+                  {s.timeline.map((t: any) => (
                     <li key={t.label} className="flex gap-2.5 text-sm">
                       <span
                         className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ${

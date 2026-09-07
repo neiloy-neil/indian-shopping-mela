@@ -1,3 +1,4 @@
+import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export interface FinanceSummaryMetrics {
@@ -17,6 +18,55 @@ export interface SellerPayoutBatchItem {
   totalPayoutAud: number;
   subOrderIds: string[];
 }
+
+/**
+ * Server Function: Get finance summary metrics
+ */
+export const getMarketplaceFinanceMetricsServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    return getMarketplaceFinanceMetrics();
+  });
+
+/**
+ * Server Function: Reconcile and unlock eligible payouts
+ */
+export const reconcileAndUnlockEligiblePayoutsServerFn = createServerFn({ method: "POST" })
+  .handler(async () => {
+    return reconcileAndUnlockEligiblePayouts();
+  });
+
+/**
+ * Server Function: Generate payout batch CSV
+ */
+export const generateSellerPayoutBatchCsvServerFn = createServerFn({ method: "POST" })
+  .handler(async () => {
+    return generateSellerPayoutBatchCsv();
+  });
+
+/**
+ * Server Function: Moderate seller status (APPROVE, REJECT, SUSPEND)
+ */
+export const moderateSellerStatusServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string; status: "APPROVED" | "REJECTED" | "SUSPENDED"; reason?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await (supabaseAdmin.from("sellers") as any)
+      .update({
+        status: data.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.sellerId);
+
+    if (error) throw new Error(`Failed to update seller status: ${error.message}`);
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      action: `SELLER_${data.status}`,
+      entity_type: "SELLER",
+      entity_id: data.sellerId,
+      payload: { status: data.status, reason: data.reason },
+    });
+
+    return { success: true };
+  });
 
 /**
  * Fetch marketplace financial aggregates.

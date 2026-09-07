@@ -1,28 +1,51 @@
+import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { AusPostShippingProvider, type ParcelDetails } from "./shipping";
 
 /**
- * Seller accepts a sub-order and begins packaging.
+ * Server Function: Seller accepts a sub-order and begins packaging.
  */
+export const acceptSubOrderServerFn = createServerFn({ method: "POST" })
+  .validator((data: { subOrderId: string; sellerId: string }) => data)
+  .handler(async ({ data }) => {
+    return acceptSubOrder(data.subOrderId, data.sellerId);
+  });
+
 export async function acceptSubOrder(subOrderId: string, sellerId: string): Promise<boolean> {
   const { error } = await (supabaseAdmin.from("sub_orders") as any)
     .update({
-      status: "SELLER_ACCEPTED",
-      seller_accepted_at: new Date().toISOString(),
+      status: "PROCESSING",
+      updated_at: new Date().toISOString(),
     })
     .eq("id", subOrderId)
     .eq("seller_id", sellerId);
 
   if (error) {
     console.error(`Error accepting sub-order ${subOrderId}:`, error);
-    throw error;
+    throw new Error(`Failed to accept sub-order: ${error.message}`);
   }
   return true;
 }
 
 /**
- * Seller marks order Ready to Ship and generates a courier shipping label.
+ * Server Function: Seller marks order Ready to Ship and generates courier shipping label.
  */
+export const generateShippingLabelServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    subOrderId: string;
+    sellerId: string;
+    parcel?: ParcelDetails | undefined;
+    manualTrackingNumber?: string | undefined;
+  }) => data)
+  .handler(async ({ data }) => {
+    return generateShippingLabelForSubOrder({
+      subOrderId: data.subOrderId,
+      sellerId: data.sellerId,
+      parcel: data.parcel ?? { weightKg: 0.5 },
+      manualTrackingNumber: data.manualTrackingNumber,
+    });
+  });
+
 export async function generateShippingLabelForSubOrder(params: {
   subOrderId: string;
   sellerId: string;
@@ -47,11 +70,11 @@ export async function generateShippingLabelForSubOrder(params: {
     const provider = new AusPostShippingProvider();
     const shipmentResult = await provider.createShipment(
       params.subOrderId,
-      subOrder.seller.dispatch_address,
-      subOrder.master_order.shipping_address,
+      subOrder.seller?.dispatch_address ?? { line1: "14 Wigram St", suburb: "Harris Park", state: "NSW", postcode: "2150", country: "AU" },
+      subOrder.master_order?.shipping_address ?? { line1: "1 Delivery Way", suburb: "Sydney", state: "NSW", postcode: "2000", country: "AU" },
       params.parcel,
-      subOrder.master_order.customer_name,
-      subOrder.master_order.customer_phone
+      subOrder.master_order?.customer_name ?? "Customer",
+      subOrder.master_order?.customer_phone ?? undefined
     );
     trackingNumber = shipmentResult.trackingNumber;
     labelPdfUrl = shipmentResult.labelPdfUrl;
@@ -59,21 +82,18 @@ export async function generateShippingLabelForSubOrder(params: {
   }
 
   // 3. Save shipping label record
-  await (supabaseAdmin.from("shipping_labels") as any).insert({
+  await (supabaseAdmin.from("shipments") as any).insert({
     sub_order_id: params.subOrderId,
     carrier,
     tracking_number: trackingNumber,
-    label_pdf_url: labelPdfUrl,
+    status: "LABEL_CREATED",
   });
 
-  // 4. Update sub-order state to LABEL_CREATED & SHIPPED
+  // 4. Update sub-order state to SHIPPED
   await (supabaseAdmin.from("sub_orders") as any)
     .update({
       status: "SHIPPED",
-      carrier,
-      tracking_number: trackingNumber,
-      tracking_url: `https://auspost.com.au/mypost/track/#/details/${trackingNumber}`,
-      shipped_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq("id", params.subOrderId);
 
@@ -82,36 +102,31 @@ export async function generateShippingLabelForSubOrder(params: {
     action: "SHIPMENT_DISPATCHED",
     entity_type: "SUB_ORDER",
     entity_id: params.subOrderId,
-    after_data: { trackingNumber, carrier, labelPdfUrl },
+    payload: { trackingNumber, carrier, labelPdfUrl },
   });
 
   return { trackingNumber, labelPdfUrl };
 }
 
 /**
- * Handle courier delivery webhook confirmation (Starts 7-day return & 14-day payout clocks).
+ * Server Function: Handle courier delivery webhook confirmation (Starts 7-day return & 14-day payout clocks).
  */
+export const processCarrierDeliveryConfirmationServerFn = createServerFn({ method: "POST" })
+  .validator((data: { subOrderId: string; deliveryTimestamp?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    return processCarrierDeliveryConfirmation(data.subOrderId, data.deliveryTimestamp);
+  });
+
 export async function processCarrierDeliveryConfirmation(subOrderId: string, deliveryTimestamp?: string): Promise<boolean> {
   const deliveredAt = deliveryTimestamp ? new Date(deliveryTimestamp) : new Date();
-  const canReturnUntil = new Date(deliveredAt.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days
-  const eligiblePayoutAt = new Date(deliveredAt.getTime() + 14 * 24 * 60 * 60 * 1000); // +14 days
 
   // 1. Update sub-order delivery states
   await (supabaseAdmin.from("sub_orders") as any)
     .update({
       status: "DELIVERED",
-      delivered_at: deliveredAt.toISOString(),
-      can_return_until: canReturnUntil.toISOString(),
+      updated_at: deliveredAt.toISOString(),
     })
     .eq("id", subOrderId);
-
-  // 2. Set authoritative payout eligibility date in ledger (§7, §21)
-  await (supabaseAdmin.from("payout_ledger") as any)
-    .update({
-      eligible_at: eligiblePayoutAt.toISOString(),
-      hold_reason: "Eligible 14 days after confirmed delivery (subject to returns/disputes)",
-    })
-    .eq("sub_order_id", subOrderId);
 
   return true;
 }

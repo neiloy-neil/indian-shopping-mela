@@ -3,7 +3,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ShopLayout } from "@/components/ism/ShopLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { useIsm } from "@/lib/ism-store";
 
 export const Route = createFileRoute("/signin")({
   head: () => ({
@@ -22,7 +21,6 @@ export const Route = createFileRoute("/signin")({
 
 function SignInPage() {
   const navigate = useNavigate();
-  const { setSignedIn } = useIsm();
   const { signIn, signUp, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
@@ -39,7 +37,6 @@ function SignInPage() {
     try {
       if (mode === "signin") {
         await signIn(email, password);
-        setSignedIn(true);
         toast.success(`Welcome back!`);
         navigate({ to: "/account", search: { tab: "overview" } });
       } else if (mode === "signup") {
@@ -47,7 +44,6 @@ function SignInPage() {
         if (result.requiresEmailVerification) {
           toast.success("Account created! Please check your email to verify.");
         } else {
-          setSignedIn(true);
           toast.success("Account created successfully!");
           navigate({ to: "/account", search: { tab: "overview" } });
         }

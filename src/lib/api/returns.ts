@@ -1,3 +1,4 @@
+import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { ReturnStatus } from "@/lib/supabase/types";
 
@@ -10,6 +11,29 @@ export interface CreateReturnPayload {
   reasonCode: "CHANGED_MIND" | "WRONG_SIZE" | "WRONG_ITEM" | "DAMAGED_IN_TRANSIT" | "DEFECTIVE_FAULTY" | "NOT_AS_DESCRIBED";
   evidenceUrls?: string[] | undefined;
 }
+
+/**
+ * Server Function: Customer initiates a return request.
+ */
+export const createCustomerReturnRequestServerFn = createServerFn({ method: "POST" })
+  .validator((data: CreateReturnPayload) => data)
+  .handler(async ({ data }) => {
+    return createCustomerReturnRequest(data);
+  });
+
+/**
+ * Server Function: Update return request status and process refund.
+ */
+export const updateReturnRequestStatusServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    returnId: string;
+    newStatus: ReturnStatus;
+    adminNotes?: string | undefined;
+    refundAmount?: number | undefined;
+  }) => data)
+  .handler(async ({ data }) => {
+    return updateReturnRequestStatus(data.returnId, data.newStatus, data.adminNotes, data.refundAmount);
+  });
 
 /**
  * Customer initiates a return request.

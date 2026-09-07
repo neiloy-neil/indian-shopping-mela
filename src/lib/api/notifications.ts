@@ -1,3 +1,5 @@
+import { createServerFn } from "@tanstack/react-start";
+
 export interface TransactionalEmailPayload {
   toEmail: string;
   toName: string;
@@ -5,6 +7,39 @@ export interface TransactionalEmailPayload {
   htmlContent: string;
   textContext?: string | undefined;
 }
+
+/**
+ * Server Function: Send Order Confirmation Email
+ */
+export const sendOrderConfirmationEmailServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    customerEmail: string;
+    customerName: string;
+    masterOrderId: string;
+    totalAmountAud: number;
+    gstTotalAud: number;
+    packageCount: number;
+  }) => data)
+  .handler(async ({ data }) => {
+    return sendOrderConfirmationEmail(data);
+  });
+
+/**
+ * Server Function: Send Package Dispatched Email
+ */
+export const sendPackageDispatchedEmailServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    customerEmail: string;
+    customerName: string;
+    subOrderId: string;
+    sellerBusinessName: string;
+    carrier: string;
+    trackingNumber: string;
+    trackingUrl: string;
+  }) => data)
+  .handler(async ({ data }) => {
+    return sendPackageDispatchedEmail(data);
+  });
 
 /**
  * Brevo Transactional Email Client

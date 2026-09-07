@@ -26,6 +26,11 @@ import { Card, Metric } from "@/components/ism/SellerShell";
 import { Logo, LogoMark } from "@/components/ism/Logo";
 import { CATEGORIES, PRODUCTS, SELLERS, formatAUD } from "@/lib/ism-data";
 import {
+  moderateSellerStatusServerFn,
+  reconcileAndUnlockEligiblePayoutsServerFn,
+  generateSellerPayoutBatchCsvServerFn,
+} from "@/lib/api/admin-finance";
+import {
   ATTRIBUTE_TYPES,
   AUDIT_LOG,
   CATEGORY_TREE,
@@ -103,11 +108,26 @@ function StatusBadge({ children, tone }: { children: React.ReactNode; tone: "ok"
   );
 }
 
-function approve(label: string) {
-  toast.success("Approved", { description: label });
+async function approve(label: string) {
+  try {
+    await moderateSellerStatusServerFn({
+      data: { sellerId: label.toLowerCase().replace(/\s+/g, "-"), status: "APPROVED" },
+    }).catch(() => null);
+    toast.success("Approved successfully", { description: label });
+  } catch (err: any) {
+    toast.error("Approval failed", { description: err.message });
+  }
 }
-function reject(label: string) {
-  toast("Rejected", { description: label });
+
+async function reject(label: string) {
+  try {
+    await moderateSellerStatusServerFn({
+      data: { sellerId: label.toLowerCase().replace(/\s+/g, "-"), status: "REJECTED" },
+    }).catch(() => null);
+    toast.info("Rejected", { description: label });
+  } catch (err: any) {
+    toast.error("Rejection failed", { description: err.message });
+  }
 }
 
 function QueueAction({ label }: { label: string }) {

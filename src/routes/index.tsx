@@ -140,14 +140,32 @@ const COLLECTIONS = [
 
 
 function Home() {
-  const women = byCategory("women").slice(0, 8);
-  const jewellery = byCategory("jewellery").slice(0, 8);
-  const home = byCategory("home-living").slice(0, 8);
-  const festival = [...byCategory("festivals"), ...byTag("trending")].slice(0, 8);
-  const wedding = PRODUCTS.filter((p) => p.tags.includes("wedding")).slice(0, 8);
-  const pooja = byCategory("pooja").slice(0, 8);
-  const footwear = byCategory("footwear");
-  const gifts = PRODUCTS.filter((p) => p.tags.includes("gift")).slice(0, 8);
+  const feed = Route.useLoaderData();
+  const trending = feed?.trendingProducts && feed.trendingProducts.length > 0 ? feed.trendingProducts : PRODUCTS;
+  const women = trending.filter((p) => p.category === "women" || p.category === "sarees").slice(0, 8).length > 0
+    ? trending.filter((p) => p.category === "women" || p.category === "sarees").slice(0, 8)
+    : byCategory("women").slice(0, 8);
+  const jewellery = trending.filter((p) => p.category === "jewellery").slice(0, 8).length > 0
+    ? trending.filter((p) => p.category === "jewellery").slice(0, 8)
+    : byCategory("jewellery").slice(0, 8);
+  const home = trending.filter((p) => p.category === "home-living" || p.category === "home").slice(0, 8).length > 0
+    ? trending.filter((p) => p.category === "home-living" || p.category === "home").slice(0, 8)
+    : byCategory("home-living").slice(0, 8);
+  const festival = feed?.festiveSpotlight && feed.festiveSpotlight.length > 0
+    ? feed.festiveSpotlight.slice(0, 8)
+    : [...byCategory("festivals"), ...byTag("trending")].slice(0, 8);
+  const wedding = trending.filter((p) => p.tags.includes("wedding")).slice(0, 8).length > 0
+    ? trending.filter((p) => p.tags.includes("wedding")).slice(0, 8)
+    : PRODUCTS.filter((p) => p.tags.includes("wedding")).slice(0, 8);
+  const pooja = trending.filter((p) => p.category === "pooja").slice(0, 8).length > 0
+    ? trending.filter((p) => p.category === "pooja").slice(0, 8)
+    : byCategory("pooja").slice(0, 8);
+  const footwear = trending.filter((p) => p.category === "footwear").length > 0
+    ? trending.filter((p) => p.category === "footwear")
+    : byCategory("footwear");
+  const gifts = trending.filter((p) => p.tags.includes("gift")).slice(0, 8).length > 0
+    ? trending.filter((p) => p.tags.includes("gift")).slice(0, 8)
+    : PRODUCTS.filter((p) => p.tags.includes("gift")).slice(0, 8);
 
   return (
     <ShopLayout>

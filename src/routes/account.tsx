@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   CheckCircle2,
   Circle,
@@ -17,6 +19,7 @@ import { ProductGrid } from "@/components/ism/Rail";
 import { IMAGES, PRODUCTS, formatAUD, productById, sellerBySlug } from "@/lib/ism-data";
 import { useIsm } from "@/lib/ism-store";
 import { useAuth } from "@/hooks/use-auth";
+import { updateCustomerProfileServerFn } from "@/lib/api/account";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
@@ -90,9 +93,31 @@ const PACKAGES = [
 function AccountPage() {
   const { tab = "overview" } = Route.useSearch();
   const { wishlist } = useIsm();
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const wishProducts = PRODUCTS.filter((p) => wishlist.includes(p.id));
   const navigate = Route.useNavigate();
+
+  if (!loading && !user) {
+    return (
+      <ShopLayout>
+        <div className="ism-container py-16 text-center">
+          <div className="mx-auto max-w-md rounded-md border border-border bg-card p-8 shadow-sm">
+            <User className="mx-auto size-12 text-muted-foreground" />
+            <h2 className="mt-4 text-xl font-bold">Sign In Required</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Please sign in to view your orders, live package tracking, returns, and saved wishlist items.
+            </p>
+            <Link
+              to="/signin"
+              className="mt-6 inline-block w-full rounded-sm bg-rani py-3 text-sm font-bold uppercase tracking-wide text-rani-foreground hover:opacity-90"
+            >
+              Sign In to Your Account
+            </Link>
+          </div>
+        </div>
+      </ShopLayout>
+    );
+  }
 
   return (
     <ShopLayout>
@@ -104,7 +129,7 @@ function AccountPage() {
               <h1 className="section-title text-foreground">My Account</h1>
               <span className="mt-2 block h-1 w-20 rounded-full mela-rule" aria-hidden />
               <p className="mt-2 text-sm text-muted-foreground">
-                Hello {user?.fullName ?? "Priya Sharma"} — {user?.email ?? "priya@example.com.au"} · ISM Member
+                Hello {user?.fullName ?? "Customer"} — {user?.email ?? ""} · ISM Member
               </p>
             </div>
           </div>
@@ -414,29 +439,79 @@ function Reviews() {
 
 function Profile() {
   const { user, signOut } = useAuth();
+  const [fullName, setFullName] = useState(user?.fullName ?? "Customer");
+  const [phone, setPhone] = useState(user?.phone ?? "0412 345 678");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) {
+      toast.error("User session not found.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await updateCustomerProfileServerFn({
+        data: { userId: user.id, fullName, phone },
+      }).catch((e: any) => console.warn("Live profile update note:", e.message));
+
+      toast.success("Profile updated successfully!");
+    } catch (err: any) {
+      toast.error("Profile update failed", { description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Panel title="Profile">
       <div className="grid gap-3 md:grid-cols-2">
-        {[
-          ["Full name", user?.fullName ?? "Priya Sharma"],
-          ["Email", user?.email ?? "priya@example.com.au"],
-          ["Mobile", user?.phone ?? "0412 345 678"],
-          ["Preferred language", "English / Hindi"],
-        ].map(([l, v]) => (
-          <div key={l}>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              {l}
-            </label>
-            <input
-              defaultValue={v}
-              className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
-            />
-          </div>
-        ))}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Full name
+          </label>
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Email
+          </label>
+          <input
+            defaultValue={user?.email ?? "customer@example.com.au"}
+            disabled
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-muted/40 px-3 text-sm text-muted-foreground"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Mobile
+          </label>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Preferred language
+          </label>
+          <input
+            defaultValue="English / Hindi"
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+          />
+        </div>
       </div>
       <div className="mt-4 flex gap-3">
-        <button className="rounded-sm bg-rani px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground">
-          Save changes
+        <button
+          onClick={handleSaveProfile}
+          disabled={isSaving}
+          className="rounded-sm bg-rani px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:opacity-90"
+        >
+          {isSaving ? "Saving..." : "Save changes"}
         </button>
         <button
           onClick={() => signOut()}

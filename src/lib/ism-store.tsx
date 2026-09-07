@@ -13,8 +13,6 @@ type Ctx = {
   toggleWishlist: (id: string) => void;
   isWishlisted: (id: string) => boolean;
   subtotal: number;
-  signedIn: boolean;
-  setSignedIn: (v: boolean) => void;
 };
 
 const IsmContext = createContext<Ctx | null>(null);
@@ -42,8 +40,6 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       return [];
     }
   });
-
-  const [signedIn, setSignedIn] = useState(false);
 
   const updateCart = useCallback((updater: (prev: CartLine[]) => CartLine[]) => {
     setCart((prev) => {
@@ -110,10 +106,8 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       toggleWishlist,
       isWishlisted: (id: string) => wishlist.includes(id),
       subtotal,
-      signedIn,
-      setSignedIn,
     };
-  }, [cart, wishlist, signedIn, addToCart, setQty, removeFromCart, toggleWishlist]);
+  }, [cart, wishlist, addToCart, setQty, removeFromCart, toggleWishlist]);
 
   return <IsmContext.Provider value={value}>{children}</IsmContext.Provider>;
 }
