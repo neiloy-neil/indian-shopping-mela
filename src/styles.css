@@ -1,0 +1,251 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 1px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 3px);
+  --radius-2xl: calc(var(--radius) + 6px);
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-rani: var(--rani);
+  --color-rani-foreground: var(--rani-foreground);
+  --color-marigold: var(--marigold);
+  --color-marigold-foreground: var(--marigold-foreground);
+  --color-teal: var(--teal);
+  --color-teal-foreground: var(--teal-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+
+  --color-chart-1: var(--primary);
+  --color-chart-2: var(--rani);
+  --color-chart-3: var(--marigold);
+  --color-chart-4: var(--teal);
+  --color-chart-5: var(--gold);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.992 0.004 85);
+  --foreground: oklch(0.22 0.03 300);
+  --ink: oklch(0.18 0.035 300);
+  --surface: oklch(1 0 0);
+  --cream: oklch(0.968 0.014 80);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 300);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 300);
+
+  /* Deep indigo-purple from the logo wordmark "SHOPPING" */
+  --primary: oklch(0.32 0.145 300);
+  --primary-foreground: oklch(0.985 0.01 85);
+
+  --secondary: oklch(0.955 0.014 300);
+  --secondary-foreground: oklch(0.3 0.11 300);
+
+  --muted: oklch(0.962 0.008 300);
+  --muted-foreground: oklch(0.5 0.03 300);
+
+  --accent: oklch(0.955 0.024 355);
+  --accent-foreground: oklch(0.44 0.22 355);
+
+  /* Rani magenta from "INDIAN" + bag */
+  --rani: oklch(0.565 0.245 355);
+  --rani-foreground: oklch(0.99 0.005 355);
+  /* Vivid orange from "MELA" */
+  --marigold: oklch(0.705 0.19 48);
+  --marigold-foreground: oklch(0.2 0.05 48);
+  /* Turquoise from the bunting flags */
+  --teal: oklch(0.66 0.125 185);
+  --teal-foreground: oklch(0.18 0.04 185);
+  --gold: oklch(0.81 0.14 82);
+  --gold-foreground: oklch(0.24 0.05 82);
+
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
+
+  --border: oklch(0.905 0.012 300);
+  --input: oklch(0.9 0.012 300);
+  --ring: oklch(0.58 0.235 350);
+
+  --sidebar: oklch(0.26 0.1 305);
+  --sidebar-foreground: oklch(0.95 0.012 305);
+  --sidebar-primary: oklch(0.58 0.235 350);
+  --sidebar-primary-foreground: oklch(0.99 0.005 350);
+  --sidebar-accent: oklch(0.32 0.1 305);
+  --sidebar-accent-foreground: oklch(0.97 0.01 305);
+  --sidebar-border: oklch(0.36 0.08 305);
+  --sidebar-ring: oklch(0.58 0.235 350);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+  }
+}
+
+@utility ism-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 90rem;
+  padding-inline: 1rem;
+  @media (min-width: 1024px) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility section-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-size: 1.25rem;
+  @media (min-width: 768px) {
+    font-size: 1.6rem;
+  }
+}
+
+@utility hairline {
+  border: 1px solid var(--color-border);
+}
+
+@utility mela-rule {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--rani) 0 10px,
+    var(--marigold) 10px 20px,
+    var(--gold) 20px 30px,
+    var(--teal) 30px 40px
+  );
+}
+
+/* ── Festive brand decoration ─────────────────────────────── */
+
+@utility festive-bar {
+  background-image: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    var(--rani) 35%,
+    var(--marigold) 62%,
+    var(--teal) 85%,
+    var(--primary) 100%
+  );
+}
+
+@utility festive-warm {
+  background-color: var(--cream);
+  background-image:
+    radial-gradient(60rem 24rem at 8% -10%, color-mix(in oklab, var(--marigold) 22%, transparent), transparent 70%),
+    radial-gradient(48rem 22rem at 96% 0%, color-mix(in oklab, var(--rani) 16%, transparent), transparent 70%),
+    radial-gradient(40rem 26rem at 50% 120%, color-mix(in oklab, var(--gold) 22%, transparent), transparent 70%);
+}
+
+@utility festive-deep {
+  background-color: var(--primary);
+  background-image:
+    radial-gradient(38rem 20rem at 0% 0%, color-mix(in oklab, var(--rani) 55%, transparent), transparent 70%),
+    radial-gradient(32rem 18rem at 100% 100%, color-mix(in oklab, var(--teal) 40%, transparent), transparent 70%);
+}
+
+/* Subtle mandala / lotus linework overlay */
+@utility mandala {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-radial-gradient(circle at 100% 0%, transparent 0 38px, color-mix(in oklab, var(--gold) 45%, transparent) 38px 39px),
+      repeating-radial-gradient(circle at 0% 100%, transparent 0 52px, color-mix(in oklab, var(--rani) 22%, transparent) 52px 53px);
+    opacity: 0.5;
+    mask-image: radial-gradient(120% 120% at 50% 40%, black, transparent 78%);
+  }
+}
+
+/* Bunting strip inspired by the logo flags */
+@utility bunting {
+  height: 14px;
+  background-image:
+    linear-gradient(135deg, var(--rani) 50%, transparent 50%),
+    linear-gradient(45deg, var(--rani) 50%, transparent 50%);
+  background-size: 28px 14px;
+  background-position: 0 0;
+  background-repeat: repeat-x;
+}
+
+@utility bunting-alt {
+  height: 14px;
+  background-image:
+    linear-gradient(135deg, var(--marigold) 50%, transparent 50%),
+    linear-gradient(45deg, var(--marigold) 50%, transparent 50%);
+  background-size: 28px 14px;
+  background-repeat: repeat-x;
+}
+
+@utility gold-hairline {
+  border: 1px solid color-mix(in oklab, var(--gold) 55%, transparent);
+}
+
+@utility sparkle-dots {
+  background-image:
+    radial-gradient(circle, color-mix(in oklab, var(--gold) 80%, transparent) 1px, transparent 1.4px),
+    radial-gradient(circle, color-mix(in oklab, var(--rani) 60%, transparent) 1px, transparent 1.4px);
+  background-size: 34px 34px, 54px 54px;
+  background-position: 0 0, 17px 21px;
+}
