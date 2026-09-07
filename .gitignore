@@ -18,6 +18,7 @@ dist-ssr
 .env
 .env*.local
 *.local
+supabase/.temp/
 
 # Wrangler / Cloudflare
 .wrangler/

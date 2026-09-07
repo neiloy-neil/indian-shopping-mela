@@ -1,7 +1,24 @@
--- ============================================================================
--- Indian Shopping Mela — Phase C Migration: Identity, Roles & Sellers
--- Baseline: Developer Architecture Master Plan (V1) & Runbook tasklist1.md
--- ============================================================================
+-- 0. Security helper functions supporting single or double parameter signatures
+CREATE OR REPLACE FUNCTION public.is_admin(user_uuid UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = user_uuid AND (role::text LIKE 'admin_%' OR role::text = 'admin' OR role::text = 'super_admin')
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_seller_member(seller_uuid UUID, user_uuid UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.sellers WHERE id = seller_uuid AND owner_id = user_uuid
+    ) OR EXISTS (
+        SELECT 1 FROM public.seller_staff WHERE seller_id = seller_uuid AND user_id = user_uuid AND is_active = TRUE
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 1. Automatic User Profile Provisioning Trigger
 CREATE OR REPLACE FUNCTION public.handle_new_user()

@@ -3,12 +3,29 @@
 -- Baseline: Developer Architecture Master Plan (V1) & Runbook tasklist1.md (§11, §12, §13)
 -- ============================================================================
 
+DO $$ BEGIN
+    CREATE TYPE return_status AS ENUM (
+        'RETURN_REQUESTED', 'SELLER_REVIEW', 'APPROVED', 'SHIPPED_BACK', 'RECEIVED',
+        'INSPECTED', 'REFUND_APPROVED', 'REFUND_PROCESSED', 'REJECTED', 'DISPUTED'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE payout_status AS ENUM (
+        'PAYOUT_HOLD', 'ELIGIBLE', 'BATCHED', 'TRANSFER_INITIATED', 'PAID', 'FAILED', 'MANUAL_HOLD'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 -- ----------------------------------------------------------------------------
 -- 1. SHIPPING & CARRIER TRACKING (§11, T075, T076)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.shipments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sub_order_id UUID NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
+    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
     carrier TEXT NOT NULL DEFAULT 'Australia Post',
     shipping_service TEXT NOT NULL,
     provider_shipment_id TEXT,
@@ -40,9 +57,9 @@ CREATE TABLE IF NOT EXISTS public.tracking_events (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.returns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sub_order_id UUID NOT NULL REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
+    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
     customer_id UUID REFERENCES public.profiles(id) ON DELETE RESTRICT,
-    status ReturnStatus NOT NULL DEFAULT 'RETURN_REQUESTED',
+    status return_status NOT NULL DEFAULT 'RETURN_REQUESTED',
     reason TEXT NOT NULL,
     reason_code TEXT NOT NULL DEFAULT 'CHANGE_OF_MIND',
     payout_hold_placed BOOLEAN NOT NULL DEFAULT TRUE,
@@ -69,8 +86,8 @@ CREATE TABLE IF NOT EXISTS public.return_items (
 CREATE TABLE IF NOT EXISTS public.refunds (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     return_id UUID REFERENCES public.returns(id) ON DELETE SET NULL,
-    order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
-    sub_order_id UUID REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
+    order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
+    sub_order_id TEXT REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
     provider_refund_id TEXT UNIQUE,
     amount_cents INT NOT NULL,
     reason TEXT NOT NULL,
@@ -86,7 +103,7 @@ CREATE TABLE IF NOT EXISTS public.payouts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
     amount_cents INT NOT NULL,
-    status PayoutStatus NOT NULL DEFAULT 'PAYOUT_HOLD',
+    status payout_status NOT NULL DEFAULT 'PAYOUT_HOLD',
     provider_transfer_id TEXT,
     payout_batch_id TEXT,
     cleared_at TIMESTAMPTZ,
@@ -119,10 +136,16 @@ CREATE TABLE IF NOT EXISTS public.marketplace_configs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS provider_event_id TEXT;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS signature_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'RECEIVED';
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0;
+ALTER TABLE public.webhook_events ADD COLUMN IF NOT EXISTS last_error TEXT;
+
 CREATE TABLE IF NOT EXISTS public.webhook_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY,
     provider TEXT NOT NULL, -- 'stripe', 'auspost', 'sendle', 'mux', 'brevo'
-    provider_event_id TEXT NOT NULL,
+    provider_event_id TEXT,
     event_type TEXT NOT NULL,
     signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
     payload JSONB NOT NULL,
@@ -130,8 +153,7 @@ CREATE TABLE IF NOT EXISTS public.webhook_events (
     attempts INT NOT NULL DEFAULT 0,
     last_error TEXT,
     processed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (provider, provider_event_id)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.notifications (

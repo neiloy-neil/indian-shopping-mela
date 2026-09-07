@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS public.product_moderation_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 5.1 Ensure inventory_reservations columns
+ALTER TABLE public.inventory_reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'RESERVED';
+ALTER TABLE public.inventory_reservations ADD COLUMN IF NOT EXISTS order_id TEXT;
+ALTER TABLE public.inventory_reservations ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES public.profiles(id);
+
 -- 6. APPEND-ONLY INVENTORY AUDIT LEDGER (§8, T056)
 CREATE TABLE IF NOT EXISTS public.inventory_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -140,6 +145,6 @@ CREATE INDEX IF NOT EXISTS idx_categories_dept_sort ON public.categories(departm
 CREATE INDEX IF NOT EXISTS idx_products_dept_status ON public.products(department, status);
 CREATE INDEX IF NOT EXISTS idx_products_cat_status ON public.products(category_id, status);
 CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON public.product_variants(seller_sku);
-CREATE INDEX IF NOT EXISTS idx_product_media_prod_pos ON public.product_media(product_id, position);
+CREATE INDEX IF NOT EXISTS idx_product_media_prod_pos ON public.product_media(product_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_inventory_res_exp ON public.inventory_reservations(expires_at) WHERE status = 'RESERVED';
 CREATE INDEX IF NOT EXISTS idx_inventory_tx_variant ON public.inventory_transactions(variant_id, created_at DESC);

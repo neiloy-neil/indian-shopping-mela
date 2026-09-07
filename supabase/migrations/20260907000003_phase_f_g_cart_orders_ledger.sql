@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS public.wishlists (
 -- 4. ORDER STATUS HISTORY & AUDIT (§10, T069)
 CREATE TABLE IF NOT EXISTS public.order_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
-    sub_order_id UUID REFERENCES public.sub_orders(id) ON DELETE CASCADE,
+    order_id TEXT REFERENCES public.orders(id) ON DELETE CASCADE,
+    sub_order_id TEXT REFERENCES public.sub_orders(id) ON DELETE CASCADE,
     from_status TEXT,
     to_status TEXT NOT NULL,
     actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.order_status_history (
 -- 5. PAYMENTS TABLE (§10, T071)
 CREATE TABLE IF NOT EXISTS public.payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
+    order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
     provider TEXT NOT NULL DEFAULT 'stripe',
     provider_payment_id TEXT NOT NULL UNIQUE,
     amount_cents INT NOT NULL,
@@ -101,8 +101,8 @@ CREATE TABLE IF NOT EXISTS public.ledger_entries (
     amount_cents INT NOT NULL, -- Integer minor currency units (e.g. 18950 = $189.50)
     currency TEXT NOT NULL DEFAULT 'AUD',
     seller_id UUID REFERENCES public.sellers(id) ON DELETE RESTRICT,
-    order_id UUID REFERENCES public.orders(id) ON DELETE RESTRICT,
-    sub_order_id UUID REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
+    order_id TEXT REFERENCES public.orders(id) ON DELETE RESTRICT,
+    sub_order_id TEXT REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
     payout_batch_id TEXT,
     description TEXT,
     metadata JSONB DEFAULT '{}'::jsonb,
