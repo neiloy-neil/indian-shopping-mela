@@ -1791,7 +1791,9 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 
 | Date | Task | Result | Test/Evidence | Commit |
 |---|---|---|---|---|
-|  |  |  |  |  |
+| 2026-09-07 | T013-T019 | Completed repository baseline, AGENTS.md update, and quality check baselines | npm test, npx tsc, npm run build | e0bc218 |
+| 2026-09-07 | T020-T045 | Isolated 6 legacy SQL migrations into legacy_migrations, validated canonical schema & RPCs | check-canonical-schema.ts (100% pass) | 15b71b6 |
+| 2026-09-08 | T045, T056-T059 | Canonical schema verification script, hardened Stripe/Supabase client validation, fail-closed runtime | npm test (20/20 assertions pass), npx tsc (0 errors), npm run build (0 errors) | in-progress |
 
 ---
 

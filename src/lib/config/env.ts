@@ -31,7 +31,7 @@ export const serverEnvSchema = z.object({
   BREVO_SENDER_NAME: z.string().default("Indian Shopping Mela"),
   MARKETPLACE_LEGAL_NAME: z.string().default("Indian Shopping Mela Pty Ltd"),
   MARKETPLACE_ABN: z.string().default("12 345 678 901"),
-  MARKETPLACE_COMMISSION_PERCENT: z.coerce.number().default(10.0),
+  MARKETPLACE_COMMISSION_PERCENT: z.coerce.number().default(12.0),
 });
 
 export type ClientEnv = z.infer<typeof clientEnvSchema>;

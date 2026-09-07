@@ -1,15 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import Stripe from "stripe";
+import type Stripe from "stripe";
+import { stripe } from "@/lib/stripe-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { confirmOrderPaymentSuccess } from "@/lib/api/checkout";
 
-const stripeSecret = process.env["STRIPE_SECRET_KEY"] ?? "sk_test_placeholder";
 const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"] ?? "";
-
-const stripe = new Stripe(stripeSecret, {
-  apiVersion: "2025-02-24.acacia" as any,
-});
 
 export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
   .validator((data: { rawBody: string; signature?: string }) => data)

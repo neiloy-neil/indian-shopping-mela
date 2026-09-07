@@ -181,6 +181,26 @@ CREATE TABLE IF NOT EXISTS public.departments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.collections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    description TEXT,
+    banner_url TEXT,
+    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.collection_products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    collection_id UUID NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(collection_id, product_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
@@ -212,15 +232,7 @@ CREATE TABLE IF NOT EXISTS public.attribute_options (
     sort_order INT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS public.collections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    description TEXT,
-    banner_image TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+
 
 CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -433,6 +445,27 @@ BEGIN
     WHERE id = p_reservation_id;
 
     RETURN jsonb_build_object('success', true, 'balance_after', v_new_stock);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Explicitly Release a Specific Reservation
+CREATE OR REPLACE FUNCTION public.release_inventory_reservation(
+    p_reservation_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_updated INT;
+BEGIN
+    UPDATE public.inventory_reservations
+    SET status = 'cancelled'
+    WHERE id = p_reservation_id AND status = 'active';
+
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    IF v_updated = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Reservation not found or not active');
+    END IF;
+
+    RETURN jsonb_build_object('success', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -778,6 +811,19 @@ CREATE TABLE IF NOT EXISTS public.bulk_import_rows (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.product_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    title TEXT,
+    body TEXT,
+    is_verified_purchase BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT NOT NULL DEFAULT 'APPROVED',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.marketplace_configs (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
@@ -811,6 +857,7 @@ ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.category_attributes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attribute_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collection_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_variant_options ENABLE ROW LEVEL SECURITY;
@@ -834,6 +881,7 @@ ALTER TABLE public.return_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payout_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhook_events ENABLE ROW LEVEL SECURITY;
@@ -951,6 +999,20 @@ USING (EXISTS (
 CREATE POLICY "Users can view own notifications"
 ON public.notifications FOR ALL
 USING (auth.uid() = user_id OR public.is_admin());
+
+-- Product Reviews Policy
+CREATE POLICY "Public can view approved reviews"
+ON public.product_reviews FOR SELECT
+USING (status = 'APPROVED' OR auth.uid() = user_id OR public.is_admin());
+
+CREATE POLICY "Authenticated users can submit reviews"
+ON public.product_reviews FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+-- Collection Products Policy
+CREATE POLICY "Public read collection products"
+ON public.collection_products FOR SELECT
+USING (true);
 
 -- Storage Bucket RLS Policies
 CREATE POLICY "Public Access for Product Media"

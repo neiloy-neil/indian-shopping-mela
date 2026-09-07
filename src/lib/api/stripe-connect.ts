@@ -1,13 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import Stripe from "stripe";
+import { stripe } from "@/lib/stripe-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-
-const env = typeof process !== "undefined" && process.env ? process.env : {};
-const stripeSecretKey = env["STRIPE_SECRET_KEY"] ?? "sk_test_placeholder";
-
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2025-02-24.acacia" as any,
-});
 
 export interface StripeAccountStatus {
   stripeAccountId: string;

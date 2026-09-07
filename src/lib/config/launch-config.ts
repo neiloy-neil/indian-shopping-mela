@@ -41,7 +41,7 @@ export const ISM_LAUNCH_CONFIG: MarketplaceConfig = {
   gstRate: 0.10, // 10%
   returnWindowDays: 7, // 7 days ordinary change-of-mind per Master Architecture Plan
   payoutDelayDays: 14, // 14 days after confirmed delivery
-  defaultCommissionRate: 10.0, // 10% ISM commission
+  defaultCommissionRate: 12.0, // 12% ISM commission
   stockReservationMinutes: 15, // 15-min stock hold
   maxProductImages: 12, // 12 gallery images
   maxVideoDurationSeconds: 60, // 60s video limit

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "npx tsx scripts/run-production-tests.ts"
+    "test": "npx tsx scripts/check-canonical-schema.ts && npx tsx scripts/run-production-tests.ts",
+    "check:schema": "npx tsx scripts/check-canonical-schema.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

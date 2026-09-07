@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
 /**
@@ -14,21 +14,44 @@ import type { Database } from "./types";
 
 const getServiceRoleKey = (): string => {
   if (typeof process !== "undefined" && process.env) {
-    return process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "placeholder-service-key";
+    const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+    if (key && key.trim() !== "") return key;
+  }
+  if (process.env["NODE_ENV"] === "production") {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required in production runtime.");
   }
   return "placeholder-service-key";
 };
 
 const getSupabaseUrl = (): string => {
   if (typeof process !== "undefined" && process.env) {
-    return process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "https://placeholder-project.supabase.co";
+    const url = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"];
+    if (url && url.trim() !== "") return url;
+  }
+  if (process.env["NODE_ENV"] === "production") {
+    throw new Error("SUPABASE_URL or VITE_SUPABASE_URL is required in production runtime.");
   }
   return "https://placeholder-project.supabase.co";
 };
 
-export const supabaseAdmin = createClient<Database>(getSupabaseUrl(), getServiceRoleKey(), {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
+let _adminClient: SupabaseClient<Database> | null = null;
+
+export const getSupabaseAdmin = (): SupabaseClient<Database> => {
+  if (!_adminClient) {
+    _adminClient = createClient<Database>(getSupabaseUrl(), getServiceRoleKey(), {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return _adminClient;
+};
+
+export const supabaseAdmin = new Proxy({} as SupabaseClient<Database>, {
+  get(_target, prop) {
+    const client = getSupabaseAdmin();
+    const value = (client as any)[prop];
+    return typeof value === "function" ? value.bind(client) : value;
   },
 });
