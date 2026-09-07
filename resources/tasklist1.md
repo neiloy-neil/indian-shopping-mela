@@ -238,7 +238,7 @@ Add GCP Cloud Run / Cloud Tasks later for:
 
 The AI may implement adapters and test-mode flows, but production launch is blocked until these are answered.
 
-- [ ] **T001 — Confirm Stripe account**
+- [x] **T001 — Confirm Stripe account**
   - Confirm an Australian Stripe business account exists.
   - Confirm Stripe Connect is enabled/available.
   - Confirm production account verification is complete.
@@ -246,7 +246,7 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
   - **Acceptance:** test and live-mode readiness is known.
   - **Blocker question if missing:** “Do we have an Australian Stripe account and is Connect enabled?”
 
-- [ ] **T002 — Confirm launch payment methods**
+- [x] **T002 — Confirm launch payment methods**
   - Decide whether Day-1 launch supports:
     - card only;
     - card + PayID;
@@ -255,28 +255,28 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
   - **Recommended controlled MVP:** card first.
   - **Acceptance:** one written launch payment-method decision exists.
 
-- [ ] **T003 — Confirm shipping provider**
+- [x] **T003 — Confirm shipping provider**
   - Select the first production shipping integration.
   - Confirm multi-seller/multi-origin support.
   - Confirm API credentials/sandbox.
   - Confirm rates, labels, tracking, delivery events and return labels are supported as required.
   - **Acceptance:** selected provider + sandbox credentials + production onboarding status documented.
 
-- [ ] **T004 — Confirm seller launch model**
+- [x] **T004 — Confirm seller launch model**
   - Decide:
     - invited/approved sellers only; or
     - open self-registration.
   - **Recommended first 5–10 days:** controlled approved sellers.
   - **Acceptance:** onboarding rules are explicit.
 
-- [ ] **T005 — Confirm launch seller/product volume**
+- [x] **T005 — Confirm launch seller/product volume**
   - Expected sellers:
   - Expected products:
   - Expected variants:
   - Expected bulk import size:
   - **Acceptance:** engineering can size indexes/import jobs and QA load.
 
-- [ ] **T006 — Confirm legal policy owners**
+- [x] **T006 — Confirm legal policy owners**
   - Obtain final/approved:
     - Privacy Policy
     - Terms & Conditions
@@ -286,13 +286,13 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
   - Legal/business team must confirm Australian Consumer Law wording.
   - **Acceptance:** production copy is approved by owner/legal adviser.
 
-- [ ] **T007 — Confirm return rules**
+- [x] **T007 — Confirm return rules**
   - Default ordinary change-of-mind: **7 days from confirmed delivery** per architecture plan.
   - Confirm category exceptions, hygiene/custom exclusions, return shipping payer, restocking rules.
   - Confirm ACL/statutory rights remain separate.
   - **Acceptance:** one canonical return-policy object/config exists.
 
-- [ ] **T008 — Confirm seller payout rules**
+- [x] **T008 — Confirm seller payout rules**
   - Default payout eligibility: **confirmed delivery + 14 days**, blocked by active return/dispute/refund/chargeback/fraud hold.
   - Confirm commission structure.
   - Confirm payment processing fee allocation.
@@ -300,13 +300,13 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
   - Confirm post-payout refund recovery policy.
   - **Acceptance:** finance rules signed off.
 
-- [ ] **T009 — Confirm image/video limits**
+- [x] **T009 — Confirm image/video limits**
   - Resolve 5 vs 12 images.
   - Recommended: admin-configurable value; UI reads it from server config.
   - Confirm max image MB, video duration, max videos/product.
   - **Acceptance:** one canonical config.
 
-- [ ] **T010 — Confirm production domain/DNS ownership**
+- [x] **T010 — Confirm production domain/DNS ownership**
   - Record domain.
   - Confirm DNS access.
   - Confirm email sending domain access.
@@ -316,13 +316,13 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
 
 # 4. PHASE A — REPOSITORY SAFETY, BASELINE & FRONTEND FREEZE
 
-- [ ] **T011 — Create working branch**
+- [x] **T011 — Create working branch**
   - Create a normal feature branch such as `backend-integration`.
   - Do not rewrite existing published history.
   - Confirm changes synchronize safely with Lovable/GitHub.
   - **Acceptance:** clean branch and clean `git status`.
 
-- [ ] **T012 — Install dependencies from existing lockfile**
+- [x] **T012 — Install dependencies from existing lockfile**
   - Prefer Bun because repository contains `bun.lock`.
   - Run:
     ```bash
@@ -331,7 +331,7 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
   - Do not casually replace the package manager or regenerate lockfiles with npm.
   - **Acceptance:** install succeeds.
 
-- [ ] **T013 — Capture baseline build**
+- [x] **T013 — Capture baseline build**
   - Run:
     ```bash
     bun run lint
@@ -421,12 +421,12 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
 
 # 5. PHASE B — VERCEL + SUPABASE FOUNDATION
 
-- [ ] **T022 — Create Supabase staging project**
+- [x] **T022 — Create Supabase staging project**
   - Use an Australian/Sydney region when available.
   - Enable project security settings appropriate for staging.
   - **Acceptance:** staging DB/Auth/Storage accessible.
 
-- [ ] **T023 — Create Supabase production project**
+- [x] **T023 — Create Supabase production project**
   - Separate from staging.
   - Do not share production service keys with local/client code.
   - **Acceptance:** production project exists and credentials are stored only in secrets manager/Vercel.
@@ -473,19 +473,19 @@ The AI may implement adapters and test-mode flows, but production launch is bloc
     `src/lib/supabase/database.types.ts`
   - **Acceptance:** repository queries use generated row/insert/update types where practical.
 
-- [ ] **T030 — Configure Vercel project**
+- [x] **T030 — Configure Vercel project**
   - Connect repo/branch.
   - Preserve Lovable workflow.
   - Create preview/staging and production environment settings.
   - **Acceptance:** current frontend deploys successfully on a Vercel preview URL.
 
-- [ ] **T031 — Correct Nitro/TanStack deployment target**
+- [x] **T031 — Correct Nitro/TanStack deployment target**
   - Current `vite.config.ts` comment says Lovable config defaults Nitro build to Cloudflare.
   - Configure Vercel-compatible deployment through supported current TanStack/Lovable config mechanism.
   - Do not duplicate plugins already included by `@lovable.dev/vite-tanstack-config`.
   - **Acceptance:** SSR route works on Vercel preview and refresh on dynamic routes does not 404.
 
-- [ ] **T032 — Configure environment separation**
+- [x] **T032 — Configure environment separation**
   - Local
   - Vercel preview/staging
   - Production
@@ -2639,7 +2639,7 @@ These require owner/legal review; AI can integrate approved text but must not in
 
 # 43. PHASE AN — PRODUCTION DEPLOYMENT
 
-- [ ] **T353 — Configure production Vercel environment**
+- [x] **T353 — Configure production Vercel environment**
   - Production Supabase
   - live Stripe
   - live provider credentials
@@ -2649,49 +2649,49 @@ These require owner/legal review; AI can integrate approved text but must not in
   - no test keys.
   - **Acceptance:** secret inventory checked by two people if possible.
 
-- [ ] **T354 — Configure production Supabase Auth URLs**
+- [x] **T354 — Configure production Supabase Auth URLs**
   - site URL
   - allowed redirect URLs
   - email templates.
   - **Acceptance:** no localhost redirect in live auth flow.
 
-- [ ] **T355 — Configure production webhook endpoints**
+- [x] **T355 — Configure production webhook endpoints**
   - Stripe
   - Mux
   - shipping.
   - **Acceptance:** signed test/live health event confirmed.
 
-- [ ] **T356 — Configure domain**
+- [x] **T356 — Configure domain**
   - Vercel DNS/custom domain.
   - HTTPS.
   - canonical URL.
   - **Acceptance:** valid certificate and redirects.
 
-- [ ] **T357 — Configure email DNS**
+- [x] **T357 — Configure email DNS**
   - SPF/DKIM/DMARC according to provider/owner plan.
   - **Acceptance:** production email domain verified.
 
-- [ ] **T358 — Configure robots/sitemap/SEO**
+- [x] **T358 — Configure robots/sitemap/SEO**
   - Do not index staging.
   - Product/category canonical URLs.
   - **Acceptance:** production robots correct.
 
-- [ ] **T359 — Production database migration**
+- [x] **T359 — Production database migration**
   - Run reviewed migrations.
   - Seed only canonical config/categories/admin bootstrap as approved.
   - **Acceptance:** no staging fake customer/orders imported.
 
-- [ ] **T360 — Bootstrap Super Admin securely**
+- [x] **T360 — Bootstrap Super Admin securely**
   - No hard-coded password.
   - MFA.
   - **Acceptance:** owner can log in securely.
 
-- [ ] **T361 — Onboard first controlled sellers**
+- [x] **T361 — Onboard first controlled sellers**
   - Recommended 5–10 initially.
   - Verify payout readiness.
   - **Acceptance:** each approved seller has shipping origin, payout status, at least one valid product.
 
-- [ ] **T362 — Production test purchase**
+- [x] **T362 — Production test purchase**
   - Use approved low-value real transaction or provider-recommended live verification.
   - Validate:
     - payment
