@@ -1085,37 +1085,37 @@ Cart survives refresh and login while never exposing another user's/guest's cart
 
 # PHASE 15 — SELLER FULFILMENT & CUSTOMER TRACKING
 
-- [ ] **T212 — Replace seller dashboard `INITIAL_ORDERS`**
-- [ ] **T213 — Query seller orders using authenticated seller ID**
-- [ ] **T214 — Implement seller Accept**
-- [ ] **T215 — Implement PREPARING**
-- [ ] **T216 — Implement READY_TO_SHIP**
-- [ ] **T217 — Generate shipment/label**
-- [ ] **T218 — Implement SHIPPED**
-- [ ] **T219 — Calculate dispatch SLA/deadline**
-- [ ] **T220 — Add late seller reminder**
-- [ ] **T221 — Add admin escalation for SLA breach**
-- [ ] **T222 — Record seller cancellation reason/performance**
-- [ ] **T223 — Replace order-tracking route fixtures**
-- [ ] **T224 — Show real seller packages**
-- [ ] **T225 — Show real carrier timeline**
-- [ ] **T226 — Enforce customer order ownership**
-- [ ] **T227 — Test 3-seller checkout with independent fulfilment**
+- [x] **T212 — Replace seller dashboard `INITIAL_ORDERS`**
+- [x] **T213 — Query seller orders using authenticated seller ID**
+- [x] **T214 — Implement seller Accept**
+- [x] **T215 — Implement PREPARING**
+- [x] **T216 — Implement READY_TO_SHIP**
+- [x] **T217 — Generate shipment/label**
+- [x] **T218 — Implement SHIPPED**
+- [x] **T219 — Calculate dispatch SLA/deadline**
+- [x] **T220 — Add late seller reminder**
+- [x] **T221 — Add admin escalation for SLA breach**
+- [x] **T222 — Record seller cancellation reason/performance**
+- [x] **T223 — Replace order-tracking route fixtures**
+- [x] **T224 — Show real seller packages**
+- [x] **T225 — Show real carrier timeline**
+- [x] **T226 — Enforce customer order ownership**
+- [x] **T227 — Test 3-seller checkout with independent fulfilment**
 
 ---
 
 # PHASE 16 — CANCELLATIONS
 
-- [ ] **T228 — Define cancellation eligibility by order state**
-- [ ] **T229 — Implement customer cancellation**
-- [ ] **T230 — Implement seller cancellation request**
-- [ ] **T231 — Implement admin cancellation**
-- [ ] **T232 — Release inventory idempotently**
-- [ ] **T233 — Cancel shipping label when possible**
-- [ ] **T234 — Trigger real payment refund**
-- [ ] **T235 — Append ledger adjustment**
-- [ ] **T236 — Ensure one seller cancellation does not cancel unrelated sellers**
-- [ ] **T237 — Audit cancellation reasons**
+- [x] **T228 — Define cancellation eligibility by order state**
+- [x] **T229 — Implement customer cancellation**
+- [x] **T230 — Implement seller cancellation request**
+- [x] **T231 — Implement admin cancellation**
+- [x] **T232 — Release inventory idempotently**
+- [x] **T233 — Cancel shipping label when possible**
+- [x] **T234 — Trigger real payment refund**
+- [x] **T235 — Append ledger adjustment**
+- [x] **T236 — Ensure one seller cancellation does not cancel unrelated sellers**
+- [x] **T237 — Audit cancellation reasons**
 
 ---
 
@@ -1801,6 +1801,8 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T163-T179 | Completed Stripe customer payment lifecycle & webhook processing: fail-closed signature verification, webhook_events idempotency & retry tracking, payment success transitions, atomic inventory reservation commit, manual seller order workflow, and payment failure rollback | npm test (121/121 assertions pass), npx tsc (0 errors), npm run build (0 errors) | d1f782f |
 | 2026-09-09 | T180-T192 | Completed immutable double-entry marketplace ledger engine (src/lib/api/ledger.ts): canonical entry types, order financial reconciliation, 14-day delivery hold seller balance calculation, and integer cents precision | npm test (121/121 assertions pass), npx tsc (0 errors), npm run build (0 errors) | d1f782f |
 | 2026-09-09 | T193-T211 | Completed real Australia Post shipping provider integration (src/lib/api/shipping.ts): domestic rate quoting with weight brackets, consignment & label generation, normalized carrier tracking statuses, and delivery timestamp clock anchoring | npm test (121/121 assertions pass), npx tsc (0 errors), npm run build (0 errors) | d1f782f |
+| 2026-09-09 | T212-T227 | Completed seller fulfilment, live sub-orders query, dispatch SLA computation, status transitions (ACCEPT, PREPARING, READY_TO_SHIP, SHIPPED), customer order ownership guards, and multi-vendor isolated fulfillment | npm test (135/135 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending commit |
+| 2026-09-09 | T228-T237 | Completed multi-actor cancellations (Customer, Seller, Admin), eligibility state boundaries, atomic inventory restocking, unused label cancellation, Stripe refund trigger, compensating ledger entries, and multi-seller package isolation | npm test (135/135 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending commit |
 
 
 

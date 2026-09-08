@@ -186,6 +186,74 @@ export const releaseExpiredReservationsServerFn = createServerFn({ method: "POST
   });
 
 /**
+ * Restock variant inventory on return or order cancellation
+ */
+export async function restockVariantInventory(data: {
+  variantId: string;
+  quantity: number;
+  reason: "RETURN_RESTOCK" | "CANCELLED_ORDER" | "MANUAL_ADJUSTMENT";
+  referenceId?: string | undefined;
+  actorId?: string | undefined;
+  note?: string | undefined;
+}): Promise<{
+  success: boolean;
+  variantId: string;
+  newStock: number;
+  parentTotalStock: number;
+}> {
+  const qty = Math.max(1, data.quantity);
+
+  // Fetch current variant stock
+  const { data: variant, error: fetchErr } = await (supabaseAdmin.from("product_variants") as any)
+    .select("id, product_id, stock_quantity")
+    .eq("id", data.variantId)
+    .single();
+
+  if (fetchErr || !variant) {
+    throw new Error(`Variant not found: ${data.variantId}`);
+  }
+
+  const newStock = Number(variant.stock_quantity) + qty;
+
+  // Update variant stock
+  await (supabaseAdmin.from("product_variants") as any)
+    .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
+    .eq("id", data.variantId);
+
+  // Recalculate and update parent product total stock
+  const { data: allVariants } = await (supabaseAdmin.from("product_variants") as any)
+    .select("stock_quantity")
+    .eq("product_id", variant.product_id);
+
+  const totalProductStock = (allVariants || []).reduce(
+    (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
+    0
+  );
+
+  await (supabaseAdmin.from("products") as any)
+    .update({ stock_quantity: totalProductStock, updated_at: new Date().toISOString() })
+    .eq("id", variant.product_id);
+
+  // Append-only audit record in inventory_transactions
+  await (supabaseAdmin.from("inventory_transactions") as any).insert({
+    variant_id: data.variantId,
+    delta: qty,
+    balance_after: newStock,
+    reason: data.reason,
+    order_id: data.referenceId ?? null,
+    actor_id: data.actorId ?? null,
+    note: data.note ?? `Stock restored via ${data.reason}`,
+  });
+
+  return {
+    success: true,
+    variantId: data.variantId,
+    newStock,
+    parentTotalStock: totalProductStock,
+  };
+}
+
+/**
  * Server Function: Restock variant inventory on return or order cancellation
  */
 export const restockVariantInventoryServerFn = createServerFn({ method: "POST" })
@@ -198,54 +266,6 @@ export const restockVariantInventoryServerFn = createServerFn({ method: "POST" }
     note?: string | undefined;
   }) => data)
   .handler(async ({ data }) => {
-    const qty = Math.max(1, data.quantity);
-
-    // Fetch current variant stock
-    const { data: variant, error: fetchErr } = await (supabaseAdmin.from("product_variants") as any)
-      .select("id, product_id, stock_quantity")
-      .eq("id", data.variantId)
-      .single();
-
-    if (fetchErr || !variant) {
-      throw new Error(`Variant not found: ${data.variantId}`);
-    }
-
-    const newStock = Number(variant.stock_quantity) + qty;
-
-    // Update variant stock
-    await (supabaseAdmin.from("product_variants") as any)
-      .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
-      .eq("id", data.variantId);
-
-    // Recalculate and update parent product total stock
-    const { data: allVariants } = await (supabaseAdmin.from("product_variants") as any)
-      .select("stock_quantity")
-      .eq("product_id", variant.product_id);
-
-    const totalProductStock = (allVariants || []).reduce(
-      (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
-      0
-    );
-
-    await (supabaseAdmin.from("products") as any)
-      .update({ stock_quantity: totalProductStock, updated_at: new Date().toISOString() })
-      .eq("id", variant.product_id);
-
-    // Append-only audit record in inventory_transactions
-    await (supabaseAdmin.from("inventory_transactions") as any).insert({
-      variant_id: data.variantId,
-      delta: qty,
-      balance_after: newStock,
-      reason: data.reason,
-      order_id: data.referenceId ?? null,
-      actor_id: data.actorId ?? null,
-      note: data.note ?? `Stock restored via ${data.reason}`,
-    });
-
-    return {
-      success: true,
-      variantId: data.variantId,
-      newStock,
-      parentTotalStock: totalProductStock,
-    };
+    return restockVariantInventory(data);
   });
+

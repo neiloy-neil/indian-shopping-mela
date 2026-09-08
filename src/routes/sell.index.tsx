@@ -60,79 +60,39 @@ type OrderItemType = {
   labelPdfUrl?: string | undefined;
 };
 
-const INITIAL_ORDERS: OrderItemType[] = [
+const TRANSACTIONS: Array<{
+  order: string;
+  date: string;
+  gross: number;
+  fee: number;
+  net: number;
+  status: string;
+  tone: "primary" | "teal" | "marigold" | "rani" | "neutral";
+}> = [
   {
-    id: "ISM10001-A",
-    customer: "Priya S. · NSW",
-    items: 1,
-    total: 289,
-    status: "New Order",
-    tone: "new",
-    action: "Accept Order",
-    deadline: "Dispatch by tomorrow, 5pm",
-    urgent: true,
+    order: "ORD-2026-0812",
+    date: "08 Sep 2026",
+    gross: 249.0,
+    fee: 28.64,
+    net: 220.36,
+    status: "Delivered · Maturing in 13 days",
+    tone: "marigold",
   },
   {
-    id: "ISM10004-A",
-    customer: "Ravi K. · WA",
-    items: 2,
-    total: 168,
-    status: "Preparing",
-    tone: "prep",
-    action: "Prepare",
-    deadline: "Dispatch by Thu, 5pm",
-    urgent: true,
+    order: "ORD-2026-0799",
+    date: "01 Sep 2026",
+    gross: 189.0,
+    fee: 21.74,
+    net: 167.26,
+    status: "Settled via Stripe Connect",
+    tone: "teal",
   },
-  {
-    id: "ISM10007-B",
-    customer: "Anita D. · VIC",
-    items: 1,
-    total: 449,
-    status: "Ready To Ship",
-    tone: "ready",
-    action: "Create Shipping Label",
-    deadline: "Dispatch by Fri, 5pm",
-    urgent: false,
-  },
-  {
-    id: "ISM10009-A",
-    customer: "Sunil M. · QLD",
-    items: 3,
-    total: 312,
-    status: "Shipped",
-    tone: "ship",
-    action: "Track",
-    deadline: "In transit — ETA 2 days",
-    urgent: false,
-    carrier: "Australia Post",
-    trackingNumber: "AP-AU-84729103",
-  },
-  {
-    id: "ISM09992-A",
-    customer: "Neha T. · SA",
-    items: 1,
-    total: 139,
-    status: "Delivered",
-    tone: "done",
-    action: "Track",
-    deadline: "Delivered 26 Aug",
-    urgent: false,
-    carrier: "Australia Post",
-    trackingNumber: "AP-AU-71029384",
-  },
-];
-
-const TRANSACTIONS = [
-  { order: "ISM09992", date: "26 Aug 2026", gross: 139, fee: 13.9, net: 125.1, status: "Payout eligible", tone: "teal" as const },
-  { order: "ISM09984", date: "21 Aug 2026", gross: 449, fee: 44.9, net: 404.1, status: "Paid", tone: "primary" as const },
-  { order: "ISM09967", date: "14 Aug 2026", gross: 168, fee: 16.8, net: 151.2, status: "Paid", tone: "primary" as const },
-  { order: "ISM09940", date: "07 Aug 2026", gross: 289, fee: 28.9, net: 260.1, status: "On hold — dispute", tone: "marigold" as const },
 ];
 
 function SellerDashboard() {
   const { user } = useAuth();
   const [section, setSection] = useState<SellerSection>("dashboard");
-  const [orders, setOrders] = useState<OrderItemType[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<OrderItemType[]>([]);
   const products = productsBySeller("mumbai-mirror-boutique");
 
   useEffect(() => {

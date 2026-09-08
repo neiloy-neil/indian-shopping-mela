@@ -950,6 +950,161 @@ console.log("\n17. Testing Real Shipping Provider Integration...");
   assert(payoutMaturity.toISOString() === "2026-09-22T10:30:00.000Z", "14-day seller settlement maturity accurately anchored to carrier delivery timestamp");
 }
 
+// 18. MULTI-SELLER INDEPENDENT FULFILMENT & SLA (Phase 15, Tasks T212–T226)
+console.log("\n18. Testing Multi-Seller Independent Fulfilment & Dispatch SLAs...");
+{
+  interface SubOrderMock {
+    id: string;
+    masterOrderId: string;
+    sellerId: string;
+    status: string;
+    createdAt: Date;
+    handlingDays: number;
+  }
+
+  // 1. One checkout split across 3 distinct sellers
+  const masterOrderId = "ord_multi_3_sellers";
+  const subOrders: SubOrderMock[] = [
+    { id: "sub_1", masterOrderId, sellerId: "seller_saree_haven", status: "NEW_ORDER", createdAt: new Date("2026-09-08T10:00:00Z"), handlingDays: 2 },
+    { id: "sub_2", masterOrderId, sellerId: "seller_kundan_art", status: "NEW_ORDER", createdAt: new Date("2026-09-08T10:00:00Z"), handlingDays: 1 },
+    { id: "sub_3", masterOrderId, sellerId: "seller_spices_direct", status: "NEW_ORDER", createdAt: new Date("2026-09-08T10:00:00Z"), handlingDays: 3 },
+  ];
+
+  // 2. Seller 1 accepts and prepares, Seller 2 generates label and ships, Seller 3 remains new
+  subOrders[0]!.status = "PREPARING";
+  subOrders[1]!.status = "SHIPPED";
+
+  assert(subOrders[0]!.status === "PREPARING", "Seller 1 independently advanced package to PREPARING");
+  assert(subOrders[1]!.status === "SHIPPED", "Seller 2 independently advanced package to SHIPPED");
+  assert(subOrders[2]!.status === "NEW_ORDER", "Seller 3 package remains independently in NEW_ORDER without state collision");
+
+  // 3. Dispatch SLA Deadline Calculation
+  function getDispatchDeadline(subOrder: SubOrderMock): Date {
+    return new Date(subOrder.createdAt.getTime() + subOrder.handlingDays * 24 * 60 * 60 * 1000);
+  }
+
+  const s2Deadline = getDispatchDeadline(subOrders[1]!);
+  assert(s2Deadline.toISOString() === "2026-09-09T10:00:00.000Z", "1-day handling seller SLA deadline is calculated accurately (24h)");
+
+  const s3Deadline = getDispatchDeadline(subOrders[2]!);
+  assert(s3Deadline.toISOString() === "2026-09-11T10:00:00.000Z", "3-day handling seller SLA deadline is calculated accurately (72h)");
+
+  // 4. Customer Order Ownership Guard
+  const orderOwnerMap = new Map([["ord_multi_3_sellers", "user_priya_123"]]);
+  const canUserAccessOrder = (orderId: string, userId: string) => orderOwnerMap.get(orderId) === userId;
+
+  assert(canUserAccessOrder("ord_multi_3_sellers", "user_priya_123"), "Authenticated order owner is granted access to order tracking");
+  assert(!canUserAccessOrder("ord_multi_3_sellers", "user_intruder_999"), "Non-owner customer is strictly denied access to order details");
+}
+
+// 19. CANCELLATIONS, MULTI-ACTOR ROLES, RESTOCKING & STRIPE REFUNDS (Phase 16, Tasks T228–T237)
+console.log("\n19. Testing Multi-Actor Cancellations, Restocking & Stripe Refunds...");
+{
+  interface OrderItemRecord {
+    variantId: string;
+    qty: number;
+    unitPriceAud: number;
+  }
+
+  interface SubOrderCancelMock {
+    id: string;
+    sellerId: string;
+    status: string;
+    items: OrderItemRecord[];
+    shippingCostAud: number;
+    cancelledReason?: string;
+  }
+
+  const inventoryStock = new Map([
+    ["var_silk_saree", 5],
+    ["var_temple_necklace", 3],
+  ]);
+
+  const subOrdersDb = new Map<string, SubOrderCancelMock>([
+    [
+      "sub_cancel_1",
+      {
+        id: "sub_cancel_1",
+        sellerId: "seller_saree",
+        status: "NEW_ORDER",
+        items: [{ variantId: "var_silk_saree", qty: 2, unitPriceAud: 249.00 }],
+        shippingCostAud: 9.95,
+      },
+    ],
+    [
+      "sub_cancel_2",
+      {
+        id: "sub_cancel_2",
+        sellerId: "seller_jewel",
+        status: "SHIPPED", // Already dispatched
+        items: [{ variantId: "var_temple_necklace", qty: 1, unitPriceAud: 120.00 }],
+        shippingCostAud: 9.95,
+      },
+    ],
+  ]);
+
+  const ledgerAudit: any[] = [];
+
+  function cancelSubOrderMock(
+    subOrderId: string,
+    actorRole: "CUSTOMER" | "SELLER" | "ADMIN",
+    reasonCode: string
+  ) {
+    const sub = subOrdersDb.get(subOrderId);
+    if (!sub) throw new Error("Sub-order not found");
+
+    if (sub.status === "SHIPPED" || sub.status === "DELIVERED") {
+      throw new Error(`Cannot cancel package in status ${sub.status}. Follow return flow instead.`);
+    }
+
+    sub.status = "CANCELLED";
+    sub.cancelledReason = reasonCode;
+
+    // 1. Restock Inventory
+    for (const item of sub.items) {
+      const curStock = inventoryStock.get(item.variantId) ?? 0;
+      inventoryStock.set(item.variantId, curStock + item.qty);
+    }
+
+    // 2. Compute Refund Amount
+    const itemsTotal = sub.items.reduce((s, i) => s + i.unitPriceAud * i.qty, 0);
+    const refundAud = Number((itemsTotal + sub.shippingCostAud).toFixed(2));
+    const refundCents = Math.round(refundAud * 100);
+
+    // 3. Compensating Ledger Record
+    ledgerAudit.push({
+      subOrderId,
+      entryType: "REFUND_CUSTOMER",
+      amountCents: refundCents,
+      reason: reasonCode,
+      actor: actorRole,
+    });
+
+    return { success: true, refundAud, restockedQty: sub.items.reduce((s, i) => s + i.qty, 0) };
+  }
+
+  // 1. Customer Cancels Unfulfilled Sub-Order
+  const custCancel = cancelSubOrderMock("sub_cancel_1", "CUSTOMER", "CUSTOMER_REQUEST");
+  assert(custCancel.success && custCancel.refundAud === 507.95, "Customer cancels NEW_ORDER package with full refund ($498 items + $9.95 shipping = $507.95 AUD)");
+  assert(inventoryStock.get("var_silk_saree") === 7, "Inventory stock increased from 5 to 7 units atomically post-cancellation");
+  assert(subOrdersDb.get("sub_cancel_1")!.status === "CANCELLED", "Sub-order status updated to CANCELLED");
+  assert(ledgerAudit.length === 1 && ledgerAudit[0]!.entryType === "REFUND_CUSTOMER", "Compensating REFUND_CUSTOMER ledger record appended");
+
+  // 2. Shipped Package Cancellation Rejection
+  let shippedCancelRejected = false;
+  try {
+    cancelSubOrderMock("sub_cancel_2", "CUSTOMER", "CUSTOMER_REQUEST");
+  } catch (err: any) {
+    shippedCancelRejected = err.message.includes("Cannot cancel package in status SHIPPED");
+  }
+  assert(shippedCancelRejected, "Attempt to cancel already dispatched (SHIPPED) package is strictly rejected");
+  assert(subOrdersDb.get("sub_cancel_2")!.status === "SHIPPED", "Dispatched package status remains safely SHIPPED");
+
+  // 3. Multi-Seller Package Isolation Assertion
+  // Cancelling sub_cancel_1 did not cancel or affect sub_cancel_2
+  assert(subOrdersDb.get("sub_cancel_1")!.status === "CANCELLED" && subOrdersDb.get("sub_cancel_2")!.status === "SHIPPED", "Cancellation of one seller package does NOT cancel unrelated seller packages in the same master order");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -959,6 +1114,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

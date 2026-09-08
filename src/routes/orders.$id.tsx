@@ -6,7 +6,7 @@ import { ShopLayout } from "@/components/ism/ShopLayout";
 import { Badge, Button } from "@/components/ism/SellerShell";
 import { DEMO_NOTE, MASTER_ORDER, RETURN_WINDOW_NOTE } from "@/lib/ism-ops";
 import { formatAUD } from "@/lib/ism-data";
-import { cancelCustomerSubOrderServerFn, getOrderTrackingDetailsServerFn } from "@/lib/api/orders";
+import { cancelSubOrderServerFn, getOrderTrackingDetailsServerFn } from "@/lib/api/orders";
 
 export const Route = createFileRoute("/orders/$id")({
   head: () => ({
@@ -59,8 +59,13 @@ function OrderDetail() {
 
     setIsCancelling(true);
     try {
-      const res = await cancelCustomerSubOrderServerFn({
-        data: { subOrderId, reason: cancelReason },
+      const res = await cancelSubOrderServerFn({
+        data: {
+          subOrderId,
+          reasonCode: "CUSTOMER_REQUEST",
+          notes: cancelReason,
+          actorRole: "CUSTOMER",
+        },
       });
 
       if (res.success) {
