@@ -1,8 +1,18 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /admin/
+Disallow: /sell/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /api/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin/
+Disallow: /sell/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /api/
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +22,10 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /sell/
+Disallow: /account/
+Disallow: /checkout/
+Disallow: /api/
+
+Sitemap: https://indianshoppingmela.com.au/sitemap.xml
