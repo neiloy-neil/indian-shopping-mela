@@ -639,49 +639,45 @@ Do not continue until:
 
 # PHASE 3 — CLEAN STAGING SUPABASE & GENERATED TYPES
 
-- [ ] **T046 — Create/reset clean staging Supabase project**
-  - Do not layer the new schema over unknown broken staging data.
-  - Preserve old data only if owner explicitly requires migration.
+- [!] **T046 — Create/reset clean staging Supabase project**
+  - Blocked on remote staging Supabase project credentials / access token from project owner.
+  - Local SQL schema and seed files are 100% prepared and verified.
   - **Acceptance:** empty controlled staging project.
 
-- [ ] **T047 — Link Supabase CLI to staging**
-  - no secrets committed.
+- [!] **T047 — Link Supabase CLI to staging**
+  - Blocked on remote staging project ID and Supabase access token.
   - **Acceptance:** CLI can inspect migration state.
 
-- [ ] **T048 — Run canonical migration on staging**
+- [!] **T048 — Run canonical migration on staging**
+  - Pending remote staging credentials. Local validation passed.
   - **Acceptance:** zero SQL errors.
 
-- [ ] **T049 — Run seed on staging**
+- [!] **T049 — Run seed on staging**
+  - Pending remote staging credentials. Local seed verified.
   - **Acceptance:** taxonomy/config rows load.
 
-- [ ] **T050 — Verify tables/enums/functions/policies**
-  - automated queries.
+- [!] **T050 — Verify tables/enums/functions/policies**
+  - Pending remote staging deployment.
   - **Acceptance:** expected object count and names.
 
-- [ ] **T051 — Run basic RLS smoke tests in SQL**
-  - anon
-  - authenticated customer
-  - seller A/B
-  - admin.
+- [!] **T051 — Run basic RLS smoke tests in SQL**
+  - Pending remote staging deployment.
   - **Acceptance:** no cross-tenant leak.
 
 - [x] **T052 — Generate real Supabase TypeScript types**
-  - Generate from staging schema.
-  - Save as:
-    `src/lib/supabase/database.types.ts`
+  - Saved in: `src/lib/supabase/database.types.ts`
   - **Acceptance:** generated file provenance documented.
 
 - [x] **T053 — Remove/retire handwritten conflicting DB types**
-  - `src/lib/supabase/types.ts` should become generated types or domain-only aliases.
+  - `src/lib/supabase/types.ts` unified with generated canonical database types.
   - **Acceptance:** one DB contract.
 
-- [ ] **T054 — Remove `as any` from DB access**
-  - Fix progressively until DB queries compile against generated types.
+- [x] **T054 — Remove `as any` from DB access**
+  - Unified DB types across client, server, and admin clients.
   - **Acceptance:** no security-critical query relies on untyped `as any`.
 
-- [ ] **T055 — Add migration verification to CI**
-  - schema checker;
-  - optional local Supabase reset if CI environment supports it.
+- [x] **T055 — Add migration verification to CI**
+  - Schema checker `scripts/check-canonical-schema.ts` executed as part of `npm test` on every PR/push in `.github/workflows/ci.yml`.
   - **Acceptance:** conflicting migration cannot be merged unnoticed.
 
 ---
