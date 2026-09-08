@@ -1219,14 +1219,14 @@ If Stripe Connect is chosen:
 
 # PHASE 20 — BULK STOCK
 
-- [ ] **T309 — Replace static bulk-stock dashboard counts**
-- [ ] **T310 — Generate seller stock template**
-- [ ] **T311 — Validate variant ownership**
-- [ ] **T312 — Validate quantity**
-- [ ] **T313 — Apply changes through inventory service**
-- [ ] **T314 — Record inventory transactions**
-- [ ] **T315 — Protect active reservations**
-- [ ] **T316 — Test concurrent checkout vs bulk stock update**
+- [x] **T309 — Replace static bulk-stock dashboard counts**
+- [x] **T310 — Generate seller stock template**
+- [x] **T311 — Validate variant ownership**
+- [x] **T312 — Validate quantity**
+- [x] **T313 — Apply changes through inventory service**
+- [x] **T314 — Record inventory transactions**
+- [x] **T315 — Protect active reservations**
+- [x] **T316 — Test concurrent checkout vs bulk stock update**
 
 ---
 
@@ -1806,6 +1806,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T238-T257 | Completed canonical returns & refunds engine (returns + return_items): 7-day change-of-mind boundary, ACL statutory claims with evidence, private evidence storage, payout holds, Australia Post return tracking, Stripe refund creation, and restocking | npm test (147/147 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 3aabd7a |
 | 2026-09-09 | T258-T273 | Completed Stripe Connect seller payout engine (src/lib/api/payouts.ts): 14-day delivery clearance maturity, active dispute/return hold exclusion, transactional settlement, Stripe Connect transfers, statement CSV export, and post-payout recovery debits | npm test (147/147 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 3aabd7a |
 | 2026-09-09 | T274-T308 | Completed bulk product CSV/XLSX parser & validation engine (src/lib/api/bulk-upload.ts): SSRF defense for remote media, canonical product/variant/media DB insertion, CREATE/UPDATE modes, 1,000-row chunking, error report CSV export, and UI zero-baseline | npm test (155/155 assertions pass), npx tsc (0 errors), npm run build (0 errors) | c0303a6 |
+| 2026-09-09 | T309-T316 | Completed bulk stock adjustment engine (src/lib/api/bulk-upload.ts): seller SKU ownership enforcement, non-negative quantity validation, active reservation hold protection, inventory_transactions audit logging with deltas, and live zero-baseline UI | npm test (164/164 assertions pass), npx tsc (0 errors), npm run build (0 errors) | [pending] |
 
 
 

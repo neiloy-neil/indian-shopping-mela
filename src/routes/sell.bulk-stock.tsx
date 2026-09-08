@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Download, Loader2, Upload } from "lucide-react";
+import { Download, Loader2, Upload, AlertCircle } from "lucide-react";
 import { Badge, Button, Card, Metric, SellerShell } from "@/components/ism/SellerShell";
 import { useAuth } from "@/hooks/use-auth";
 import {
   getSellerStockListServerFn,
   updateStockBatchServerFn,
+  generateSellerStockTemplateServerFn,
   parseSpreadsheetBuffer,
   type SellerStockItem,
+  type BulkStockUpdateError,
 } from "@/lib/api/bulk-upload";
-import { productsBySeller } from "@/lib/ism-data";
 
 export const Route = createFileRoute("/sell/bulk-stock")({
   head: () => ({
@@ -39,32 +40,17 @@ function BulkStockPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, number>>({});
   const [fileName, setFileName] = useState<string | null>(null);
-  const [uploadedUpdates, setUploadedUpdates] = useState<Array<{ sku: string; newStock: number }>>([]);
+  const [uploadedUpdates, setUploadedUpdates] = useState<Array<{ sku: string; newStock: number; rowNumber?: number }>>([]);
+  const [batchErrors, setBatchErrors] = useState<BulkStockUpdateError[]>([]);
 
   const loadStock = async () => {
     try {
       setLoading(true);
       const items = await getSellerStockListServerFn({ data: { sellerId: user?.id } });
-      if (items && items.length > 0) {
-        setStockItems(items);
-      } else {
-        // Fallback to sample data for display
-        const sampleProds = productsBySeller("mumbai-mirror-boutique");
-        setStockItems(
-          sampleProds.map((p, i) => ({
-            id: p.id,
-            variantId: `var-${p.id}`,
-            sku: p.id.toUpperCase(),
-            productName: p.name,
-            stockOnHand: p.stock,
-            reservedUnits: i % 3,
-            availableStock: Math.max(0, p.stock - (i % 3)),
-            price: p.price,
-          }))
-        );
-      }
+      setStockItems(items || []);
     } catch (err) {
       console.error("Error loading stock:", err);
+      setStockItems([]);
     } finally {
       setLoading(false);
     }
@@ -79,26 +65,30 @@ function BulkStockPage() {
   const lowStockCount = stockItems.filter((item) => item.availableStock > 0 && item.availableStock <= 5).length;
   const outOfStockCount = stockItems.filter((item) => item.availableStock === 0).length;
 
-  const handleDownloadStockCsv = () => {
-    const header = "seller_sku,product_name,stock_on_hand,reserved_units,available_stock\n";
-    const rows = stockItems.map(
-      (item) =>
-        `${item.sku},"${item.productName.replace(/"/g, '""')}",${item.stockOnHand},${item.reservedUnits},${item.availableStock}`
-    );
-    const csvContent = "data:text/csv;charset=utf-8," + header + rows.join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `ISM_Stock_Export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Stock sheet CSV downloaded successfully.");
+  const handleDownloadStockCsv = async () => {
+    try {
+      const res = await generateSellerStockTemplateServerFn({ data: { sellerId: user?.id, format: "csv" } });
+      if (res?.csvContent) {
+        const blob = new Blob([res.csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `ISM_Stock_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success("Stock sheet CSV downloaded successfully.");
+      }
+    } catch (err: any) {
+      toast.error("Failed to generate stock template", { description: err.message });
+    }
   };
 
   const handleFileUpload = async (file: File) => {
     try {
       setFileName(file.name);
+      setBatchErrors([]);
       const buffer = await file.arrayBuffer();
       const rawRows = parseSpreadsheetBuffer(buffer, file.name);
 
@@ -107,27 +97,36 @@ function BulkStockPage() {
         return;
       }
 
-      const updates: Array<{ sku: string; newStock: number }> = [];
-      for (const row of rawRows) {
-        const r = row as any;
+      const updates: Array<{ sku: string; newStock: number; rowNumber: number }> = [];
+      for (let i = 0; i < rawRows.length; i++) {
+        const r = rawRows[i] as any;
+        const rowNumber = i + 2; // header is row 1
         const sku = String(r.seller_sku || r.sku || r.SKU || "").trim();
-        const stockStr = r.stock_on_hand || r.stock_qty || r.stock || r.Stock;
-        const newStock = Number(stockStr);
+        const stockStr = r.new_stock_quantity ?? r.stock_on_hand ?? r.stock_qty ?? r.stock ?? r.Stock;
 
-        if (sku && !isNaN(newStock) && newStock >= 0) {
-          updates.push({ sku, newStock: Math.floor(newStock) });
+        if (!sku) continue;
+
+        const newStock = Number(stockStr);
+        if (isNaN(newStock) || newStock < 0) {
+          setBatchErrors((prev) => [
+            ...prev,
+            { sku, error: `Invalid stock quantity '${stockStr}'`, rowNumber },
+          ]);
+          continue;
         }
+
+        updates.push({ sku, newStock: Math.floor(newStock), rowNumber });
       }
 
-      if (updates.length === 0) {
-        toast.error("No valid rows matching 'seller_sku' and 'stock_on_hand' columns found.");
+      if (updates.length === 0 && batchErrors.length === 0) {
+        toast.error("No valid rows matching 'seller_sku' and 'new_stock_quantity' / 'stock_on_hand' found.");
         return;
       }
 
       setUploadedUpdates(updates);
       setValidated(true);
       setApplied(false);
-      toast.success(`${file.name} validated: ${updates.length} SKU(s) ready.`);
+      toast.success(`${file.name} parsed: ${updates.length} valid SKU(s) ready.`);
     } catch (err: any) {
       toast.error("Failed to parse file", { description: err.message });
     }
@@ -136,13 +135,30 @@ function BulkStockPage() {
   const handleApplyUploadedBatch = async () => {
     if (uploadedUpdates.length === 0) return;
     setIsSaving(true);
+    setBatchErrors([]);
     try {
-      const res = await updateStockBatchServerFn({ data: { updates: uploadedUpdates } });
-      setApplied(true);
-      toast.success("Stock levels updated successfully", {
-        description: `${res.updatedCount} SKU(s) updated in the active catalogue.`,
+      const res = await updateStockBatchServerFn({
+        data: {
+          sellerId: user?.id,
+          updates: uploadedUpdates,
+        },
       });
-      await loadStock();
+
+      if (res.errors && res.errors.length > 0) {
+        setBatchErrors(res.errors);
+      }
+
+      if (res.updatedCount > 0) {
+        setApplied(true);
+        toast.success("Stock levels updated successfully", {
+          description: `${res.updatedCount} SKU(s) updated in the active catalogue.${res.errorCount > 0 ? ` (${res.errorCount} failed)` : ""}`,
+        });
+        await loadStock();
+      } else {
+        toast.error("Batch update failed", {
+          description: `${res.errorCount} row(s) failed validation or ownership check.`,
+        });
+      }
     } catch (err: any) {
       toast.error("Failed to apply stock updates", { description: err.message });
     } finally {
@@ -157,14 +173,31 @@ function BulkStockPage() {
       return;
     }
     setIsSaving(true);
+    setBatchErrors([]);
     try {
       const updates = skuEntries.map(([sku, newStock]) => ({ sku, newStock }));
-      const res = await updateStockBatchServerFn({ data: { updates } });
-      toast.success("Inventory stock levels updated", {
-        description: `${res.updatedCount} SKU(s) updated in the active catalogue.`,
+      const res = await updateStockBatchServerFn({
+        data: {
+          sellerId: user?.id,
+          updates,
+        },
       });
-      setEdits({});
-      await loadStock();
+
+      if (res.errors && res.errors.length > 0) {
+        setBatchErrors(res.errors);
+      }
+
+      if (res.updatedCount > 0) {
+        toast.success("Inventory stock levels updated", {
+          description: `${res.updatedCount} SKU(s) updated in the active catalogue.`,
+        });
+        setEdits({});
+        await loadStock();
+      } else {
+        toast.error("Failed to save changes", {
+          description: res.errors[0]?.error ?? "Validation failed",
+        });
+      }
     } catch (err: any) {
       toast.error("Failed to update stock", { description: err.message });
     } finally {
@@ -251,6 +284,35 @@ function BulkStockPage() {
                 Apply {uploadedUpdates.length} valid rows
               </Button>
               <Badge tone="teal">Protected: Reserved units are preserved</Badge>
+            </div>
+          )}
+
+          {batchErrors.length > 0 && (
+            <div className="mt-4 rounded-sm border border-rani/30 bg-rani/5 p-4">
+              <div className="flex items-center gap-2 text-rani font-semibold text-xs">
+                <AlertCircle size={14} />
+                <span>{batchErrors.length} validation / ownership error(s) detected</span>
+              </div>
+              <div className="mt-2 max-h-40 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-rani/20 text-muted-foreground">
+                      <th className="py-1">Row</th>
+                      <th className="py-1">SKU</th>
+                      <th className="py-1">Error Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-rani/10">
+                    {batchErrors.map((err, idx) => (
+                      <tr key={idx} className="text-foreground">
+                        <td className="py-1 text-muted-foreground">{err.rowNumber ?? "-"}</td>
+                        <td className="py-1 font-mono">{err.sku}</td>
+                        <td className="py-1 text-rani">{err.error}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

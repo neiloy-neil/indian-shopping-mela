@@ -674,47 +674,259 @@ export const getSellerStockListServerFn = createServerFn({ method: "POST" })
       }
 
       const { data: variants, error } = await query;
-      if (error || !variants) return [];
+      if (error || !variants || variants.length === 0) return [];
 
-      return variants.map((v: any) => ({
-        id: v.id,
-        variantId: v.id,
-        sku: v.sku ?? "NO-SKU",
-        productName: v.products?.title ?? "Product",
-        stockOnHand: v.stock_quantity ?? 0,
-        reservedUnits: 0,
-        availableStock: v.stock_quantity ?? 0,
-        price: Number(v.price) || 0,
-      }));
+      const variantIds = variants.map((v: any) => v.id);
+
+      // Query active reservations for these variants
+      const { data: activeRes } = await (supabaseAdmin.from("inventory_reservations") as any)
+        .select("variant_id, quantity")
+        .in("variant_id", variantIds)
+        .eq("status", "active")
+        .gt("expires_at", new Date().toISOString());
+
+      const resMap: Record<string, number> = {};
+      if (activeRes) {
+        for (const r of activeRes) {
+          resMap[r.variant_id] = (resMap[r.variant_id] || 0) + (Number(r.quantity) || 0);
+        }
+      }
+
+      return variants.map((v: any) => {
+        const stockOnHand = Number(v.stock_quantity) || 0;
+        const reservedUnits = resMap[v.id] || 0;
+        const availableStock = Math.max(0, stockOnHand - reservedUnits);
+
+        return {
+          id: v.id,
+          variantId: v.id,
+          sku: v.sku ?? "NO-SKU",
+          productName: v.products?.title ?? "Product",
+          stockOnHand,
+          reservedUnits,
+          availableStock,
+          price: Number(v.price) || 0,
+        };
+      });
     } catch {
       return [];
     }
   });
 
+export interface BulkStockUpdateError {
+  sku: string;
+  error: string;
+  rowNumber?: number | undefined;
+}
+
+export interface BulkStockUpdateResult {
+  success: boolean;
+  updatedCount: number;
+  errorCount: number;
+  errors: BulkStockUpdateError[];
+}
+
 /**
- * Server Function: Batch update variant stock levels
+ * Server Function: Batch update variant stock levels with seller ownership check and reservation protection
  */
 export const updateStockBatchServerFn = createServerFn({ method: "POST" })
-  .validator((data: { sellerId?: string | undefined; updates: Array<{ variantId?: string; sku?: string; newStock: number }> }) => data)
-  .handler(async ({ data }) => {
+  .validator((data: {
+    sellerId?: string | undefined;
+    updates: Array<{ variantId?: string; sku?: string; newStock: number; rowNumber?: number }>;
+  }) => data)
+  .handler(async ({ data }): Promise<BulkStockUpdateResult> => {
     let updatedCount = 0;
-    for (const item of data.updates) {
-      if (item.newStock < 0) continue;
-      let query = (supabaseAdmin.from("product_variants") as any)
-        .update({ stock_quantity: Math.floor(item.newStock), updated_at: new Date().toISOString() });
+    const errors: BulkStockUpdateError[] = [];
 
-      if (item.variantId) {
-        query = query.eq("id", item.variantId);
-      } else if (item.sku) {
-        query = query.eq("sku", item.sku);
-      } else {
+    for (const item of data.updates) {
+      const skuOrId = item.sku || item.variantId || "UNKNOWN";
+      const rowNum = item.rowNumber;
+
+      // 1. Validate quantity format
+      if (isNaN(item.newStock) || item.newStock === null || item.newStock === undefined) {
+        errors.push({ sku: skuOrId, error: "Stock quantity must be a valid number", rowNumber: rowNum });
         continue;
       }
 
-      const { error } = await query;
-      if (!error) updatedCount++;
+      const targetStock = Math.floor(Number(item.newStock));
+      if (targetStock < 0) {
+        errors.push({ sku: skuOrId, error: "Stock quantity cannot be negative", rowNumber: rowNum });
+        continue;
+      }
+
+      // 2. Fetch current variant + product ownership
+      let fetchQuery = (supabaseAdmin.from("product_variants") as any)
+        .select(`
+          id,
+          sku,
+          stock_quantity,
+          product_id,
+          products!inner (
+            id,
+            seller_id,
+            title
+          )
+        `);
+
+      if (item.variantId) {
+        fetchQuery = fetchQuery.eq("id", item.variantId);
+      } else if (item.sku) {
+        fetchQuery = fetchQuery.eq("sku", item.sku);
+      } else {
+        errors.push({ sku: skuOrId, error: "Missing SKU or variant ID", rowNumber: rowNum });
+        continue;
+      }
+
+      const { data: variantList, error: fetchErr } = await fetchQuery;
+      if (fetchErr || !variantList || variantList.length === 0) {
+        errors.push({ sku: skuOrId, error: "SKU not found in catalogue", rowNumber: rowNum });
+        continue;
+      }
+
+      const variant = variantList[0];
+
+      // 3. Validate seller ownership if sellerId provided
+      if (data.sellerId && variant.products?.seller_id && variant.products.seller_id !== data.sellerId) {
+        errors.push({
+          sku: variant.sku || skuOrId,
+          error: "Unauthorized: SKU belongs to another seller's store",
+          rowNumber: rowNum,
+        });
+        continue;
+      }
+
+      // 4. Check active reservation holds - stock cannot be lower than active unexpired reservations
+      const { data: activeRes } = await (supabaseAdmin.from("inventory_reservations") as any)
+        .select("quantity")
+        .eq("variant_id", variant.id)
+        .eq("status", "active")
+        .gt("expires_at", new Date().toISOString());
+
+      const totalReserved = (activeRes || []).reduce((acc: number, r: any) => acc + (Number(r.quantity) || 0), 0);
+
+      if (targetStock < totalReserved) {
+        errors.push({
+          sku: variant.sku || skuOrId,
+          error: `Cannot reduce stock to ${targetStock}; ${totalReserved} unit(s) are currently locked in active checkout reservations`,
+          rowNumber: rowNum,
+        });
+        continue;
+      }
+
+      const oldStock = Number(variant.stock_quantity) || 0;
+      const delta = targetStock - oldStock;
+
+      // 5. Update variant stock
+      const { error: updateErr } = await (supabaseAdmin.from("product_variants") as any)
+        .update({
+          stock_quantity: targetStock,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", variant.id);
+
+      if (updateErr) {
+        errors.push({ sku: variant.sku || skuOrId, error: updateErr.message, rowNumber: rowNum });
+        continue;
+      }
+
+      // 6. Recalculate and update parent product total stock
+      const { data: allVariants } = await (supabaseAdmin.from("product_variants") as any)
+        .select("stock_quantity")
+        .eq("product_id", variant.product_id);
+
+      const totalProductStock = (allVariants || []).reduce(
+        (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
+        0
+      );
+
+      await (supabaseAdmin.from("products") as any)
+        .update({ stock_quantity: totalProductStock, updated_at: new Date().toISOString() })
+        .eq("id", variant.product_id);
+
+      // 7. Append audit transaction to inventory_transactions
+      if (delta !== 0) {
+        await (supabaseAdmin.from("inventory_transactions") as any).insert({
+          variant_id: variant.id,
+          transaction_type: "MANUAL_ADJUSTMENT",
+          quantity: delta,
+          balance_after: targetStock,
+          reference_id: `BULK_STOCK_${new Date().toISOString().slice(0, 10)}`,
+          notes: `Bulk stock adjustment from ${oldStock} to ${targetStock} (delta: ${delta > 0 ? "+" + delta : delta})`,
+          created_by: data.sellerId || null,
+        });
+      }
+
+      updatedCount++;
     }
-    return { success: true, updatedCount };
+
+    return {
+      success: errors.length === 0,
+      updatedCount,
+      errorCount: errors.length,
+      errors,
+    };
+  });
+
+/**
+ * Server Function: Generate CSV / XLSX stock template pre-populated with seller's live catalogue
+ */
+export const generateSellerStockTemplateServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId?: string | undefined; format?: "csv" | "xlsx" }) => data)
+  .handler(async ({ data }) => {
+    const format = data?.format ?? "csv";
+    const items = await getSellerStockListServerFn({ data: { sellerId: data?.sellerId } });
+
+    if (items.length === 0) {
+      // Return sample rows
+      items.push({
+        id: "sample-1",
+        variantId: "sample-1",
+        sku: "SAMPLE-SKU-001",
+        productName: "Sample Silk Kurta Set (Size M)",
+        stockOnHand: 10,
+        reservedUnits: 0,
+        availableStock: 10,
+        price: 99.0,
+      });
+    }
+
+    if (format === "csv") {
+      const headers = [
+        "seller_sku",
+        "product_name",
+        "current_stock_on_hand",
+        "reserved_units",
+        "available_stock",
+        "new_stock_quantity",
+      ];
+      const rows = items.map((item) => [
+        `"${item.sku.replace(/"/g, '""')}"`,
+        `"${item.productName.replace(/"/g, '""')}"`,
+        item.stockOnHand,
+        item.reservedUnits,
+        item.availableStock,
+        item.stockOnHand, // prefill with current stock for easy delta editing
+      ]);
+
+      const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+      return { csvContent, format: "csv" };
+    } else {
+      const rows = items.map((item) => ({
+        seller_sku: item.sku,
+        product_name: item.productName,
+        current_stock_on_hand: item.stockOnHand,
+        reserved_units: item.reservedUnits,
+        available_stock: item.availableStock,
+        new_stock_quantity: item.stockOnHand,
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet["!cols"] = [{ wch: 18 }, { wch: 40 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Stock_Update");
+      const base64 = XLSX.write(workbook, { bookType: "xlsx", type: "base64" });
+      return { base64, format: "xlsx" };
+    }
   });
 
 

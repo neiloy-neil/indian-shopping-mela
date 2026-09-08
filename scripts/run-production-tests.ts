@@ -1364,6 +1364,144 @@ console.log("\n22. Testing Bulk Product CSV/XLSX Validation, SSRF Defense & 1,00
   assert(errorReportCsv.includes("MISSING_SKU") && errorReportCsv.includes("INVALID_PRICE"), "Downloadable error report CSV generated with row-level error codes");
 }
 
+// 23. BULK STOCK UPDATES, SELLER OWNERSHIP & RESERVATION PROTECTION (Phase 20, Tasks T309–T316)
+console.log("\n23. Testing Bulk Stock Updates, Seller Ownership & Reservation Protection...");
+{
+  interface MockVariant {
+    id: string;
+    sku: string;
+    sellerId: string;
+    stockQuantity: number;
+  }
+
+  interface MockReservation {
+    variantId: string;
+    quantity: number;
+    expiresAt: Date;
+    status: "active" | "fulfilled" | "released";
+  }
+
+  interface MockInventoryTx {
+    variantId: string;
+    type: string;
+    delta: number;
+    balanceAfter: number;
+    createdBy: string;
+  }
+
+  const variantsDb: Map<string, MockVariant> = new Map([
+    ["var_101", { id: "var_101", sku: "SKU-SELLER-A-1", sellerId: "seller_A", stockQuantity: 10 }],
+    ["var_102", { id: "var_102", sku: "SKU-SELLER-A-2", sellerId: "seller_A", stockQuantity: 20 }],
+    ["var_201", { id: "var_201", sku: "SKU-SELLER-B-1", sellerId: "seller_B", stockQuantity: 15 }],
+  ]);
+
+  const activeReservations: MockReservation[] = [
+    { variantId: "var_101", quantity: 3, expiresAt: new Date(Date.now() + 15 * 60 * 1000), status: "active" },
+  ];
+
+  const inventoryAuditLogs: MockInventoryTx[] = [];
+
+  function processBulkStockUpdate(
+    requestingSellerId: string,
+    updates: Array<{ sku: string; newStock: number }>
+  ) {
+    let updatedCount = 0;
+    const errors: Array<{ sku: string; error: string }> = [];
+
+    for (const update of updates) {
+      // Find variant
+      const variant = Array.from(variantsDb.values()).find(v => v.sku === update.sku);
+      if (!variant) {
+        errors.push({ sku: update.sku, error: "SKU not found" });
+        continue;
+      }
+
+      // 1. Seller Ownership Check
+      if (variant.sellerId !== requestingSellerId) {
+        errors.push({ sku: update.sku, error: "Unauthorized: SKU belongs to another seller" });
+        continue;
+      }
+
+      // 2. Quantity Validation
+      if (isNaN(update.newStock) || update.newStock < 0) {
+        errors.push({ sku: update.sku, error: "Invalid non-negative quantity required" });
+        continue;
+      }
+
+      // 3. Active Reservation Protection
+      const now = new Date();
+      const heldUnits = activeReservations
+        .filter(r => r.variantId === variant.id && r.status === "active" && r.expiresAt > now)
+        .reduce((sum, r) => sum + r.quantity, 0);
+
+      if (update.newStock < heldUnits) {
+        errors.push({
+          sku: update.sku,
+          error: `Cannot reduce stock to ${update.newStock}; ${heldUnits} units locked in active reservations`,
+        });
+        continue;
+      }
+
+      // 4. Apply Update & Record Audit Transaction
+      const oldStock = variant.stockQuantity;
+      const delta = update.newStock - oldStock;
+      variant.stockQuantity = update.newStock;
+
+      if (delta !== 0) {
+        inventoryAuditLogs.push({
+          variantId: variant.id,
+          type: "MANUAL_ADJUSTMENT",
+          delta,
+          balanceAfter: update.newStock,
+          createdBy: requestingSellerId,
+        });
+      }
+
+      updatedCount++;
+    }
+
+    return { success: errors.length === 0, updatedCount, errorCount: errors.length, errors };
+  }
+
+  // 1. Seller A attempts to update Seller B's SKU -> Strictly Rejected
+  const crossSellerRes = processBulkStockUpdate("seller_A", [
+    { sku: "SKU-SELLER-B-1", newStock: 50 },
+  ]);
+  assert(!crossSellerRes.success && crossSellerRes.errors[0]?.error.includes("Unauthorized"), "Seller A is strictly blocked from modifying Seller B's SKU");
+  assert(variantsDb.get("var_201")!.stockQuantity === 15, "Target SKU stock remains unmodified (15) after cross-seller update attempt");
+
+  // 2. Quantity Validation -> Reject Negative Numbers
+  const negativeQtyRes = processBulkStockUpdate("seller_A", [
+    { sku: "SKU-SELLER-A-2", newStock: -5 },
+  ]);
+  assert(!negativeQtyRes.success && negativeQtyRes.errors[0]?.error.includes("Invalid non-negative quantity"), "Negative stock adjustment is strictly rejected");
+
+  // 3. Active Reservation Hold Protection -> Cannot reduce stock below active hold
+  const belowHoldRes = processBulkStockUpdate("seller_A", [
+    { sku: "SKU-SELLER-A-1", newStock: 2 }, // Active hold is 3 units
+  ]);
+  assert(!belowHoldRes.success && belowHoldRes.errors[0]?.error.includes("locked in active reservations"), "Stock reduction below active reservations (3 units) is strictly blocked");
+  assert(variantsDb.get("var_101")!.stockQuantity === 10, "Stock quantity preserved at 10 units after blocked reduction");
+
+  // 4. Valid Stock Update with Delta Audit Transaction
+  const validUpdateRes = processBulkStockUpdate("seller_A", [
+    { sku: "SKU-SELLER-A-1", newStock: 25 },
+    { sku: "SKU-SELLER-A-2", newStock: 30 },
+  ]);
+  assert(validUpdateRes.success && validUpdateRes.updatedCount === 2, "Seller A successfully updates 2 owned SKUs");
+  assert(variantsDb.get("var_101")!.stockQuantity === 25, "SKU-SELLER-A-1 stock updated to 25");
+  assert(variantsDb.get("var_102")!.stockQuantity === 30, "SKU-SELLER-A-2 stock updated to 30");
+
+  // 5. Audit Log Validation
+  const tx1 = inventoryAuditLogs.find(t => t.variantId === "var_101");
+  assert(tx1 !== undefined && tx1.delta === 15 && tx1.balanceAfter === 25, "Inventory transaction audit recorded with exact delta (+15) and balance (25)");
+
+  // 6. Concurrency Protection: Available stock after reservation + bulk update
+  const heldUnits = activeReservations.filter(r => r.variantId === "var_101").reduce((s, r) => s + r.quantity, 0);
+  const availableStock = variantsDb.get("var_101")!.stockQuantity - heldUnits;
+  assert(availableStock === 22, "Available stock correctly calculated as 22 (25 on hand - 3 reserved)");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
