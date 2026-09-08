@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Address } from "@/lib/supabase/types";
 import { calculateMultiSellerShippingQuotes, type ParcelDetails } from "./shipping";
+import { reserveInventoryLines, commitInventoryReservations } from "./inventory";
 
 export interface CheckoutCartItem {
   productId: string;
@@ -60,6 +61,16 @@ export async function prepareCheckoutSummary(
   destinationAddress: Address,
   sessionId: string
 ): Promise<CheckoutSummary> {
+  // 1. Atomically reserve inventory for all items across all packages
+  // Fail-closed: Throws immediately if any item has insufficient stock or is unavailable
+  const reservationItems = items
+    .filter((item) => item.variantId && /^[0-9a-f-]{36}$/i.test(item.variantId))
+    .map((item) => ({ variantId: item.variantId, quantity: item.quantity }));
+
+  if (reservationItems.length > 0) {
+    await reserveInventoryLines(reservationItems, sessionId, 15);
+  }
+
   const sellerMap = new Map<string, CheckoutCartItem[]>();
   for (const item of items) {
     const list = sellerMap.get(item.sellerId) ?? [];
@@ -101,18 +112,6 @@ export async function prepareCheckoutSummary(
     const totalWeight = sellerItems.reduce((acc, i) => acc + i.weightKg * i.quantity, 0);
     itemsSubtotal += packageSubtotal;
 
-    // Temporary inventory hold
-    for (const item of sellerItems) {
-      if (item.variantId && /^[0-9a-f-]{36}$/i.test(item.variantId)) {
-        await (supabaseAdmin.rpc as any)("reserve_inventory_atomic", {
-          p_variant_id: item.variantId,
-          p_quantity: item.quantity,
-          p_session_id: sessionId,
-          p_ttl_minutes: 15,
-        }).catch((err: any) => console.warn("Inventory reserve note:", err.message));
-      }
-    }
-
     const parcel: ParcelDetails = { weightKg: totalWeight };
     const [quoteResult] = await calculateMultiSellerShippingQuotes(
       [{ sellerId, address: dispatchAddress, parcel, itemsTotal: packageSubtotal }],
@@ -150,6 +149,7 @@ export async function prepareCheckoutSummary(
     grandTotalAud: grandTotal,
   };
 }
+
 
 /**
  * Server Function: Create transactional Master Order, Sub-Orders, and Stripe PaymentIntent.
@@ -323,5 +323,9 @@ export async function confirmOrderPaymentSuccess(paymentIntentId: string): Promi
     await (supabaseAdmin.from("sub_orders") as any)
       .update({ status: "ACCEPTED", updated_at: new Date().toISOString() })
       .eq("master_order_id", payment.order_id);
+
+    // Commit inventory reservations associated with this order
+    await commitInventoryReservations(paymentIntentId, payment.order_id);
   }
 }
+

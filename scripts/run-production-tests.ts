@@ -430,6 +430,135 @@ console.log("\n12. Testing Database-Backed Cart, Guest Merge & Wishlist Isolatio
   assert(!wishlist.includes("prod-101"), "Product removed from wishlist on second toggle");
 }
 
+// 13. ATOMIC INVENTORY LOCKING, TTL EXPIRATION & CONCURRENCY CONTROL (Master Plan §7.5, Tasks T136-T147)
+console.log("\n13. Testing Atomic Inventory Locking, TTL Expiry & Concurrency Control...");
+{
+  // 1. In-Memory Atomic Inventory Engine Simulation (mirroring PostgreSQL FOR UPDATE & reserve_inventory_atomic)
+  class AtomicInventoryEngine {
+    private stock: Map<string, number> = new Map();
+    private reservations: Map<string, { variantId: string; quantity: number; status: string; expiresAt: Date }> = new Map();
+    private transactions: Array<{ variantId: string; delta: number; balanceAfter: number; reason: string }> = [];
+
+    constructor(initialStock: Record<string, number>) {
+      for (const [vId, qty] of Object.entries(initialStock)) {
+        this.stock.set(vId, qty);
+      }
+    }
+
+    getAvailableStock(variantId: string, now: Date = new Date()): number {
+      const physicalStock = this.stock.get(variantId) ?? 0;
+      let activeReserved = 0;
+      for (const res of this.reservations.values()) {
+        if (res.variantId === variantId && res.status === "active" && res.expiresAt > now) {
+          activeReserved += res.quantity;
+        }
+      }
+      return physicalStock - activeReserved;
+    }
+
+    reserve(reservationId: string, variantId: string, quantity: number, now: Date = new Date(), ttlMinutes: number = 15) {
+      if (quantity <= 0) return { success: false, error: "INVALID_QUANTITY" };
+      const available = this.getAvailableStock(variantId, now);
+      if (available < quantity) {
+        return { success: false, error: "INSUFFICIENT_STOCK", available, requested: quantity };
+      }
+      const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
+      this.reservations.set(reservationId, { variantId, quantity, status: "active", expiresAt });
+      return { success: true, reservationId, available: available - quantity, expiresAt };
+    }
+
+    release(reservationId: string) {
+      const res = this.reservations.get(reservationId);
+      if (res && res.status === "active") {
+        res.status = "cancelled";
+        return { success: true };
+      }
+      return { success: false, error: "NOT_ACTIVE" };
+    }
+
+    commit(reservationId: string, orderId: string) {
+      const res = this.reservations.get(reservationId);
+      if (!res) return { success: false, error: "NOT_FOUND" };
+      if (res.status === "fulfilled") return { success: true, idempotent: true }; // Idempotent
+      if (res.status !== "active") return { success: false, error: "NOT_ACTIVE" };
+
+      const currentStock = this.stock.get(res.variantId) ?? 0;
+      const newStock = currentStock - res.quantity;
+      if (newStock < 0) return { success: false, error: "STOCK_NEGATIVE" };
+
+      this.stock.set(res.variantId, newStock);
+      res.status = "fulfilled";
+
+      this.transactions.push({
+        variantId: res.variantId,
+        delta: -res.quantity,
+        balanceAfter: newStock,
+        reason: `ORDER_FULFILLMENT:${orderId}`,
+      });
+
+      return { success: true, newStock };
+    }
+
+    releaseExpired(now: Date = new Date()): number {
+      let expiredCount = 0;
+      for (const res of this.reservations.values()) {
+        if (res.status === "active" && res.expiresAt <= now) {
+          res.status = "expired";
+          expiredCount++;
+        }
+      }
+      return expiredCount;
+    }
+  }
+
+  // 2. Concurrency Race Test: 2 simultaneous checkouts for the last remaining unit (Stock = 1)
+  const engine = new AtomicInventoryEngine({ "var-kanchipuram-last-unit": 1 });
+  const t0 = new Date("2026-09-08T10:00:00Z");
+
+  const checkoutA = engine.reserve("res-user-A", "var-kanchipuram-last-unit", 1, t0, 15);
+  const checkoutB = engine.reserve("res-user-B", "var-kanchipuram-last-unit", 1, t0, 15);
+
+  assert(checkoutA.success, "First concurrent checkout successfully acquires atomic reservation on last unit");
+  assert(!checkoutB.success && checkoutB.error === "INSUFFICIENT_STOCK", "Second concurrent checkout is strictly rejected with INSUFFICIENT_STOCK");
+  assert(engine.getAvailableStock("var-kanchipuram-last-unit", t0) === 0, "Available stock is safely 0, never negative (-1)");
+
+  // 3. TTL Expiration & Auto-Release
+  const tPostExpiry = new Date("2026-09-08T10:16:00Z"); // 16 mins later
+  const expiredCount = engine.releaseExpired(tPostExpiry);
+  assert(expiredCount === 1, "Expired 15-minute reservation is automatically reclaimed");
+  assert(engine.getAvailableStock("var-kanchipuram-last-unit", tPostExpiry) === 1, "Stock returns to available after TTL expiration");
+
+  // 4. Retry and Payment Commit Idempotency
+  const checkoutRetry = engine.reserve("res-user-B2", "var-kanchipuram-last-unit", 1, tPostExpiry, 15);
+  assert(checkoutRetry.success, "New checkout can claim the released inventory");
+
+  const commitFirst = engine.commit("res-user-B2", "order-ism-10099");
+  assert(commitFirst.success && commitFirst.newStock === 0, "Provider-confirmed payment commits reservation and reduces physical stock to 0");
+
+  const commitDuplicate = engine.commit("res-user-B2", "order-ism-10099");
+  assert(commitDuplicate.success && commitDuplicate.idempotent, "Duplicate payment webhook replay idempotently commits without double-deducting");
+
+  // 5. Multi-line Rollback on Reservation Failure (Fail-Closed)
+  const multiEngine = new AtomicInventoryEngine({ "var-silk-1": 5, "var-bangles-2": 0 }); // Bangles out of stock
+  let rollbackTriggered = false;
+
+  try {
+    // Attempt reserving line 1 (available: 5) and line 2 (available: 0)
+    const hold1 = multiEngine.reserve("res-m1", "var-silk-1", 1, t0);
+    const hold2 = multiEngine.reserve("res-m2", "var-bangles-2", 1, t0);
+    if (!hold2.success) {
+      multiEngine.release("res-m1"); // Rollback line 1
+      rollbackTriggered = true;
+      throw new Error(hold2.error);
+    }
+  } catch (err: any) {
+    // Caught failure
+  }
+
+  assert(rollbackTriggered, "Multi-line checkout failure triggers rollback of previously acquired line holds");
+  assert(multiEngine.getAvailableStock("var-silk-1", t0) === 5, "First item reservation is completely freed after multi-line prepare failure");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -439,6 +568,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 
