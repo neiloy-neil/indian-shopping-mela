@@ -1,4 +1,7 @@
-# Indian Shopping Mela — Backend Integration, Production Hardening & Go-Live Master Tasklist
+# Indian Shopping Mela — Backend Integration, Production Hardening & Go-Live Master Tasklist (SUPERSEDED)
+
+> [!WARNING]
+> **SUPERSEDED / HISTORICAL ARCHIVE ONLY**: This tasklist is preserved for historical audit reference. The authoritative master execution plan and active source of truth is [tasklist3.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/tasklist3.md). Do NOT update or rely on completion checkboxes in this file.
 
 **File:** `tasklist1.md`  
 **Project:** Indian Shopping Mela (ISM)  

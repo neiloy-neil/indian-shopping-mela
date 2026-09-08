@@ -1,4 +1,7 @@
-# Indian Shopping Mela — Master Implementation Tasklist & Codebase Audit
+# Indian Shopping Mela — Master Implementation Tasklist & Codebase Audit (SUPERSEDED)
+
+> [!WARNING]
+> **SUPERSEDED / HISTORICAL ARCHIVE ONLY**: This tasklist is preserved for historical audit reference. The authoritative master execution plan and active source of truth is [tasklist3.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/tasklist3.md). Do NOT update or rely on completion checkboxes in this file.
 
 > **Baseline Document**: [Developer Architecture Master Plan (V1)](file:///d:/AI/Indian%20Shopping%20Mela/resources/Indian_Shopping_Mela_Developer_Architecture_Master_Plan_V1.pdf)  
 > **Target Production Stack**: TanStack Start (React 19) + Supabase (PostgreSQL + Auth + Storage + RLS) + Vercel + Stripe AU + Australia Post / Sendle API + Brevo (Email/SMS).  

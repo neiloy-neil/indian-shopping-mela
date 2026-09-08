@@ -1,4 +1,7 @@
-# Master Tasklist 2 — Indian Shopping Mela Production Roadmap
+# Master Tasklist 2 — Indian Shopping Mela Production Roadmap (SUPERSEDED)
+
+> [!WARNING]
+> **SUPERSEDED / HISTORICAL ARCHIVE ONLY**: This tasklist is preserved for historical audit reference. The authoritative master execution plan and active source of truth is [tasklist3.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/tasklist3.md). Do NOT update or rely on completion checkboxes in this file.
 
 **Audit Baseline:** Rebuilt and reset following repository audit on `indian-shopping-mela-main(1).zip`.  
 **Principle:** A task is **ONLY** marked `[x]` when its complete operational flow is implemented, server boundaries are enforced, database schema aligns, and end-to-end functionality is verified.

@@ -1,4 +1,7 @@
-# Indian Shopping Mela — Corrected Production Tasklist V2
+# Indian Shopping Mela — Corrected Production Tasklist V2 (SUPERSEDED)
+
+> [!WARNING]
+> **SUPERSEDED / HISTORICAL ARCHIVE ONLY**: This tasklist is preserved for historical audit reference. The authoritative master execution plan and active source of truth is [tasklist3.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/tasklist3.md). Do NOT update or rely on completion checkboxes in this file.
 
 **File:** `resources/tasklist2.md`  
 **Audit basis:** `indian-shopping-mela-main(1).zip` reviewed 2026-09-07  
