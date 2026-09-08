@@ -1072,3 +1072,25 @@ USING (bucket_id = 'seller-documents' AND (
     public.is_admin() OR
     (storage.foldername(name))[1] = auth.uid()::text
 ));
+
+-- High-Performance Marketplace Query Indexes (Phase 30, T465)
+CREATE INDEX IF NOT EXISTS idx_products_status_category ON public.products(status, category_id);
+CREATE INDEX IF NOT EXISTS idx_products_seller_status ON public.products(seller_id, status);
+CREATE INDEX IF NOT EXISTS idx_products_created_at ON public.products(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON public.product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON public.product_variants(sku);
+CREATE INDEX IF NOT EXISTS idx_product_media_product_primary ON public.product_media(product_id, is_primary);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_created ON public.orders(customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+CREATE INDEX IF NOT EXISTS idx_sub_orders_seller_status ON public.sub_orders(seller_id, status);
+CREATE INDEX IF NOT EXISTS idx_sub_orders_master ON public.sub_orders(master_order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_sub_order ON public.order_items(sub_order_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_reservations_variant ON public.inventory_reservations(variant_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_ledger_entries_sub_order ON public.ledger_entries(sub_order_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_entries_type_created ON public.ledger_entries(entry_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_returns_customer ON public.returns(customer_id);
+CREATE INDEX IF NOT EXISTS idx_returns_sub_order ON public.returns(sub_order_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications(user_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_lookup ON public.webhook_events(event_id, provider);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created ON public.audit_logs(user_id, created_at DESC);
+

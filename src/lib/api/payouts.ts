@@ -276,6 +276,19 @@ export async function executeSellerPayoutTransfer(
   }
 
   // 4. Initiate real Stripe Connect Transfer
+  const isProduction = process.env["NODE_ENV"] === "production";
+  if ((!stripeAccountId || stripeAccountId.startsWith("acct_demo")) && isProduction) {
+    await (supabaseAdmin.from("payouts") as any)
+      .update({
+        status: "FAILED",
+        failure_reason: "Seller does not have an active, verified Stripe Connect account.",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payoutId);
+
+    throw new Error(`Cannot execute payout for seller ${sellerId}: Missing active Stripe Connect account.`);
+  }
+
   let transferId = `tr_demo_${Date.now()}`;
   if (stripeAccountId && !stripeAccountId.startsWith("acct_demo")) {
     try {

@@ -1475,23 +1475,23 @@ sk_test_placeholder
 placeholder-service-key
 ```
 
-- [ ] **T477 — Remove prototype checkout**
-- [ ] **T478 — Remove raw demo card inputs**
-- [ ] **T479 — Remove fake order confirmation**
-- [ ] **T480 — Remove static initial cart**
-- [ ] **T481 — Remove static seller orders**
-- [ ] **T482 — Remove static admin metrics/queues**
-- [ ] **T483 — Remove fake payout actions**
-- [ ] **T484 — Remove fake shipping labels/tracking**
-- [ ] **T485 — Remove fake shipping rates**
-- [ ] **T486 — Remove fake catalogue fallback**
-- [ ] **T487 — Remove fake import rows/counts**
-- [ ] **T488 — Remove fake bulk-stock flow**
-- [ ] **T489 — Remove fake video success/rejection**
-- [ ] **T490 — Remove fake notification success**
-- [ ] **T491 — Remove fake onboarding verification**
-- [ ] **T492 — Remove placeholder business/legal identifiers**
-- [ ] **T493 — Add CI grep/check for forbidden production fallbacks where practical**
+- [x] **T477 — Remove prototype checkout**
+- [x] **T478 — Remove raw demo card inputs**
+- [x] **T479 — Remove fake order confirmation**
+- [x] **T480 — Remove static initial cart**
+- [x] **T481 — Remove static seller orders**
+- [x] **T482 — Remove static admin metrics/queues**
+- [x] **T483 — Remove fake payout actions**
+- [x] **T484 — Remove fake shipping labels/tracking**
+- [x] **T485 — Remove fake shipping rates**
+- [x] **T486 — Remove fake catalogue fallback**
+- [x] **T487 — Remove fake import rows/counts**
+- [x] **T488 — Remove fake bulk-stock flow**
+- [x] **T489 — Remove fake video success/rejection**
+- [x] **T490 — Remove fake notification success**
+- [x] **T491 — Remove fake onboarding verification**
+- [x] **T492 — Remove placeholder business/legal identifiers**
+- [x] **T493 — Add CI grep/check for forbidden production fallbacks where practical**
 
 ---
 
@@ -1813,6 +1813,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T398-T418 | Completed security hardening suite (src/lib/security): Content Security Policy (CSP), security headers (HSTS/DENY/nosniff), CSRF validation, multi-action sliding window rate limiting (login/signup/checkout/returns/uploads), remote-media SSRF protection, HTML/template sanitization, log PII/secret redaction, session revocation, and multi-tenant IDOR guards | npm test (250/250 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 0157891 |
 | 2026-09-09 | T419-T435 | Completed monitoring, error capture, operational alerts & disaster recovery: server/client error capture with PII redaction (src/lib/monitoring/index.ts), operational alert dispatcher (alerts.ts), deep health & uptime evaluator (uptime.ts), database restore runbook (resources/database_restore_runbook.md), storage recovery strategy (storage_backup_recovery.md), and incident response checklist (incident_response_checklist.md) | npm test (268/268 assertions pass), npx tsc (0 errors), npm run build (0 errors) | c248002 |
 | 2026-09-09 | T436-T464 | Completed real test suite & CI hardening: Playwright E2E configuration (playwright.config.ts, tests/e2e/smoke.spec.ts), explicit test scripts (test:unit, test:integration, test:e2e), declared test dependencies, GitHub Actions workflow with full lint/schema/typecheck/unit/integration/build gates, and dedicated 46-assertion integration runner covering money arithmetic, customer/seller RLS isolation, concurrency, idempotency, return windows, 1,000-row bulk parsing, XLSX, video failures, suspended sellers, and admin MFA gates | npm test (314/314 assertions pass across all suites), npx tsc (0 errors), npm run build (0 errors) | 7196f90 |
+| 2026-09-09 | T477-T493 | Removed all production demo/prototype fallback paths repository-wide: eliminated synthetic missing-variant items in checkout.ts, removed cust_demo and unauthenticated return mock in returns.new.tsx, removed fake simulation & dead mock rows in sell.bulk-upload.tsx, eliminated catch-and-swallow order/shipping mock handlers in sell.index.tsx and sell.onboarding.tsx, isolated master order preview in orders.$id.tsx behind dev flag, enforced production Stripe Connect and PaymentIntent requirements in payouts.ts and returns.ts, created scripts/check-production-fallbacks.ts scanner and wired into CI check:fallbacks | npm test (314/314 assertions pass, 135 files scanned with 0 fallback violations), npx tsc (0 errors), npm run build (0 errors) | pending |
 
 
 

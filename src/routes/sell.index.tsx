@@ -154,7 +154,7 @@ function SellerDashboard() {
       try {
         await acceptSubOrderServerFn({
           data: { subOrderId: orderId, sellerId: user?.id ?? "mumbai-mirror-boutique" },
-        }).catch((e: any) => console.warn("Live sub-order update note:", e.message));
+        });
 
         setOrders((prev) =>
           prev.map((o) =>
@@ -173,7 +173,7 @@ function SellerDashboard() {
       try {
         await markSubOrderPackedServerFn({
           data: { subOrderId: orderId, sellerId: user?.id ?? "mumbai-mirror-boutique" },
-        }).catch((e: any) => console.warn("Live sub-order pack note:", e.message));
+        });
 
         setOrders((prev) =>
           prev.map((o) =>
@@ -196,10 +196,7 @@ function SellerDashboard() {
             sellerId: user?.id ?? "mumbai-mirror-boutique",
             parcel: { weightKg: 0.5 },
           },
-        }).catch(() => ({
-          trackingNumber: `AP-AU-${Math.floor(10000000 + Math.random() * 90000000)}`,
-          labelPdfUrl: `https://storage.indianshoppingmela.com.au/labels/${orderId}.pdf`,
-        }));
+        });
 
         setOrders((prev) =>
           prev.map((o) =>
@@ -435,9 +432,8 @@ function SellerDashboard() {
             <div className="flex items-start gap-3 rounded-sm border border-border bg-muted/40 p-3">
               <Truck size={18} className="mt-0.5 shrink-0 text-primary" />
               <p className="text-sm text-muted-foreground">
-                In this marketplace prototype, shipping labels are generated as demo A6 PDFs from
-                the order row — no live carrier account is connected. Handling time is 1–2 business
-                days from Harris Park, NSW.
+                Australia Post eParcel integration generates live A6 PDF shipping labels and consignment
+                tracking numbers upon dispatch. Standard dispatch SLA is 1–2 business days from Harris Park, NSW.
               </p>
             </div>
           </Card>

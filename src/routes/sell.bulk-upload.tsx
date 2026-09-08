@@ -27,6 +27,8 @@ import {
   type BulkUploadRow,
 } from "@/lib/api/bulk-upload";
 
+import { useAuth } from "@/hooks/use-auth";
+
 export const Route = createFileRoute("/sell/bulk-upload")({
   head: () => ({
     meta: [
@@ -47,31 +49,6 @@ export const Route = createFileRoute("/sell/bulk-upload")({
 });
 
 type Stage = "upload" | "validating" | "results" | "preview" | "imported";
-
-const ERROR_ROWS: BulkValidationError[] = [
-  { rowNumber: 14, sku: "MMB-SAR-014", field: "price", errorCode: "INVALID_PRICE", message: "Price must be a valid positive number in AUD" },
-  { rowNumber: 27, sku: "MMB-LEH-003", field: "category", errorCode: "UNKNOWN_CATEGORY", message: "Unknown category 'Lehnga' — map to 'Lehengas'" },
-  { rowNumber: 58, sku: "MMB-JUT-021", field: "image_1_url", errorCode: "BROKEN_URL", message: "Primary image URL returned 404" },
-  { rowNumber: 91, sku: "MMB-KUR-110", field: "stock_qty", errorCode: "NEGATIVE_STOCK", message: "Stock cannot be negative" },
-  { rowNumber: 133, sku: "MMB-DUP-044", field: "weight_kg", errorCode: "MISSING_WEIGHT", message: "Missing weight — required for shipping label quotes" },
-  { rowNumber: 204, sku: "MMB-SAR-014", field: "seller_sku", errorCode: "DUPLICATE_SKU", message: "Duplicate SKU — already used on row 14 of this file" },
-  { rowNumber: 388, sku: "MMB-JEW-260", field: "seller_sku", errorCode: "DUPLICATE_SKU", message: "Duplicate SKU — already exists in catalogue (use Update mode)" },
-  { rowNumber: 512, sku: "MMB-HOM-311", field: "size", errorCode: "INVALID_ATTRIBUTE", message: "Attribute 'Queen-XL' not valid for Home & Living / Bedsheets" },
-];
-
-const PREVIEW_ROWS = [
-  ["MMB-SAR-101", "Chanderi Silk Saree — Gold Buti", "Women / Sarees", "$189.00", "24", "Create"],
-  ["MMB-LEH-102", "Mirror Work Garba Lehenga", "Women / Lehengas", "$329.00", "12", "Create"],
-  ["MMB-JUT-103", "Punjabi Jutti — Phulkari Thread", "Footwear / Juttis", "$79.00", "40", "Create"],
-  ["MMB-JEW-104", "Kundan Choker Set with Maang Tikka", "Jewellery / Kundan", "$249.00", "9", "Create"],
-  ["MMB-HOM-105", "Jaipuri Cotton Dohar — Double", "Home & Living / Dohars", "$69.00", "60", "Create"],
-] as const;
-
-const UPDATE_PREVIEW_ROWS = [
-  ["MMB-SAR-014", "Banarasi Silk Saree — Rani Pink", "price_aud 199 → 189", "stock 8 → 22", "—", "Update"],
-  ["MMB-JEW-208", "Temple Jewellery Necklace Set", "price_aud unchanged", "stock 3 → 11", "blank cell ignored", "Update"],
-  ["MMB-HOM-330", "Brass Urli Bowl — Medium", "price_aud 129 → 115", "stock 0 → 6", "video_url added", "Update"],
-] as const;
 
 const STEPS = ["Download Template", "Upload CSV/XLSX", "Validate", "Preview", "Import"] as const;
 
@@ -128,6 +105,7 @@ function Ghost({ children, onClick }: { children: React.ReactNode; onClick?: () 
 }
 
 function BulkUpload() {
+  const { user } = useAuth();
   const [stage, setStage] = useState<Stage>("upload");
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
@@ -258,16 +236,16 @@ function BulkUpload() {
 
   const handleCommitImport = async () => {
     if (rawParsedRows.length === 0) {
-      toast.info("Import simulation completed for demo file.");
-      setStage("imported");
+      toast.error("No valid product rows to import. Please upload a valid CSV or Excel file.");
       return;
     }
 
+    const sellerId = user?.id ?? "00000000-0000-0000-0000-000000000001";
     setIsCommitting(true);
     try {
       const result = await commitBulkImportChunkServerFn({
         data: {
-          sellerId: "00000000-0000-0000-0000-000000000001",
+          sellerId,
           rows: rawParsedRows,
           mode: mode === "create" ? "CREATE" : "UPDATE",
         },
@@ -472,7 +450,7 @@ function BulkUpload() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border font-mono text-xs">
-                      {ERROR_ROWS.map((r) => (
+                      {validationResult.errors.map((r: BulkValidationError) => (
                         <tr key={`${r.rowNumber}-${r.sku}`}>
                           <td className="py-2 text-muted-foreground">{r.rowNumber}</td>
                           <td className="font-semibold text-foreground">{r.sku}</td>
@@ -485,6 +463,13 @@ function BulkUpload() {
                           </td>
                         </tr>
                       ))}
+                      {validationResult.errors.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-4 text-center font-sans text-xs text-muted-foreground">
+                            No validation errors found in parsed spreadsheet.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -507,7 +492,7 @@ function BulkUpload() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {PREVIEW_ROWS.map((r) => (
+                    {validationResult.previewRows.map((r: string[]) => (
                       <tr key={r[0]}>
                         <td className="py-2.5 text-xs text-muted-foreground">{r[0]}</td>
                         <td className="font-medium">{r[1]}</td>
@@ -521,6 +506,13 @@ function BulkUpload() {
                         </td>
                       </tr>
                     ))}
+                    {validationResult.previewRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-4 text-center text-xs text-muted-foreground">
+                          No preview rows available.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

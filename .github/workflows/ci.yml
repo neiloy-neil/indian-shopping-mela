@@ -30,6 +30,9 @@ jobs:
       - name: Canonical Database Schema Verification
         run: npm run check:schema
 
+      - name: Production Fallback & Mock Leakage Audit
+        run: npm run check:fallbacks
+
       - name: Strict Type Check (TypeScript)
         run: npx tsc --noEmit
 

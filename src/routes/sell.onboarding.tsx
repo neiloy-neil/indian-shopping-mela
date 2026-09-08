@@ -116,10 +116,10 @@ function OnboardingPage() {
         },
         termsAcceptedVersion: "V1_2026",
         status: "draft",
-      }).catch(() => {
-        // Optimistic local state when running without live Supabase credentials
       });
       toast.success("Draft saved successfully", { description: "You can resume your onboarding anytime." });
+    } catch (err: any) {
+      toast.error("Failed to save draft", { description: err.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -150,12 +150,12 @@ function OnboardingPage() {
         },
         termsAcceptedVersion: "V1_2026",
         status: "submitted",
-      }).catch(() => {
-        // Optimistic local state
       });
       setStatus("SUBMITTED");
       setStep(STEPS.length - 1);
       toast.success("Application submitted", { description: "Your seller application is under review by ISM Admin." });
+    } catch (err: any) {
+      toast.error("Application submission failed", { description: err.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -207,7 +207,7 @@ function OnboardingPage() {
                   ? "Store is suspended. Listings are hidden and payouts are held."
                   : status === "SUBMITTED"
                     ? "Application submitted. Average review time: 1–2 business days."
-                    : DEMO_NOTE}
+                    : "Complete your seller onboarding steps to begin selling on Indian Shopping Mela."}
           </p>
         </Card>
 
@@ -228,7 +228,7 @@ function OnboardingPage() {
         {step === 0 && (
           <Card title="Verify email and mobile">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Email" defaultValue="meera@mumbaimirror.demo" required readOnly />
+              <Field label="Email" defaultValue="seller@store.com.au" required readOnly />
               <Field label="Mobile" defaultValue="+61 4•• ••• 218" required readOnly />
             </div>
             <div className="mt-3 flex flex-wrap gap-2">

@@ -399,6 +399,11 @@ export async function executeReturnRefund(
   const paymentIntentId = ret.sub_orders?.orders?.payment_intent_id;
 
   // 2. Trigger Stripe Refund if payment intent exists
+  const isProduction = process.env["NODE_ENV"] === "production";
+  if ((!paymentIntentId || paymentIntentId.startsWith("pi_demo")) && isProduction) {
+    throw new Error(`Cannot process refund for return ${returnId}: Order ${masterOrderId} lacks an active production Stripe PaymentIntent.`);
+  }
+
   let stripeRefundId = `re_demo_${Date.now()}`;
   if (paymentIntentId && !paymentIntentId.startsWith("pi_demo")) {
     try {

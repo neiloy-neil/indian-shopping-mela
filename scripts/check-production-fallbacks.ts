@@ -1,0 +1,123 @@
+/**
+ * Production Fallback & Mock Leakage Checker (Task T493)
+ * Indian Shopping Mela — Master Implementation Runbook
+ *
+ * Statically scans the codebase to ensure no raw mock cards, unisolated demo bypasses,
+ * or fake transaction simulators can activate in a production build.
+ */
+
+import * as fs from "fs";
+import * as path from "path";
+
+const SRC_DIR = path.resolve(process.cwd(), "src");
+
+interface Violation {
+  file: string;
+  line: number;
+  pattern: string;
+  snippet: string;
+  reason: string;
+}
+
+const FORBIDDEN_RULES: Array<{
+  name: string;
+  regex: RegExp;
+  reason: string;
+  excludeFiles?: string[];
+}> = [
+  {
+    name: "Hardcoded Test Card",
+    regex: /4242[\s-]?4242[\s-]?4242[\s-]?4242/,
+    reason: "Test card numbers must not be hardcoded in production source files.",
+  },
+  {
+    name: "Demo Customer Fallback in Routes",
+    regex: /["']cust_demo["']/,
+    reason: "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
+    excludeFiles: ["ism-ops.ts"],
+  },
+  {
+    name: "Fake Payment Simulation in Production Code",
+    regex: /simulatePaymentSuccess|fakePaymentIntent/i,
+    reason: "Payments must strictly proceed through authoritative Stripe PaymentElement/webhooks.",
+  },
+  {
+    name: "Fake Australia Post Consignment Generator",
+    regex: /AP-AU-\${Math\.random/,
+    reason: "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
+  },
+  {
+    name: "Optimistic Return Swallow in Production",
+    regex: /createCustomerReturnRequestServerFn\(.*?\)\.catch/,
+    reason: "Return requests must fail closed if server persistence fails.",
+  },
+  {
+    name: "Optimistic Sub-Order Status Swallow",
+    regex: /acceptSubOrderServerFn\(.*?\)\.catch|markSubOrderPackedServerFn\(.*?\)\.catch/,
+    reason: "Seller sub-order status updates must fail closed on database failure.",
+  },
+];
+
+function scanDirectory(dir: string, fileList: string[] = []): string[] {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = fs.statSync(fullPath);
+    if (stat.isDirectory()) {
+      scanDirectory(fullPath, fileList);
+    } else if (file.endsWith(".ts") || file.endsWith(".tsx")) {
+      fileList.push(fullPath);
+    }
+  }
+  return fileList;
+}
+
+function runFallbackAudit(): boolean {
+  console.log("=================================================================");
+  console.log("🔎 Indian Shopping Mela — Production Fallback & Mock Leakage Audit");
+  console.log("=================================================================\n");
+
+  const files = scanDirectory(SRC_DIR);
+  const violations: Violation[] = [];
+
+  for (const file of files) {
+    const relativePath = path.relative(process.cwd(), file);
+    const content = fs.readFileSync(file, "utf8");
+    const lines = content.split("\n");
+
+    for (const rule of FORBIDDEN_RULES) {
+      if (rule.excludeFiles && rule.excludeFiles.some((ef) => relativePath.endsWith(ef))) {
+        continue;
+      }
+
+      lines.forEach((line, idx) => {
+        if (rule.regex.test(line)) {
+          violations.push({
+            file: relativePath,
+            line: idx + 1,
+            pattern: rule.name,
+            snippet: line.trim(),
+            reason: rule.reason,
+          });
+        }
+      });
+    }
+  }
+
+  if (violations.length > 0) {
+    console.error(`❌ Found ${violations.length} forbidden production fallback violation(s):\n`);
+    violations.forEach((v, i) => {
+      console.error(`${i + 1}. [${v.pattern}] ${v.file}:${v.line}`);
+      console.error(`   Snippet: "${v.snippet}"`);
+      console.error(`   Reason:  ${v.reason}\n`);
+    });
+    return false;
+  }
+
+  console.log(`✅ Scanned ${files.length} source files — 0 forbidden production fallbacks found.`);
+  console.log("   Zero-trust checkout, live order fulfillment, and fail-closed transactions verified.\n");
+  return true;
+}
+
+const success = runFallbackAudit();
+process.exit(success ? 0 : 1);

@@ -40,7 +40,8 @@ export const Route = createFileRoute("/orders/$id")({
 function OrderDetail() {
   const { id } = Route.useParams();
   const loaderData = Route.useLoaderData();
-  const [orderState, setOrderState] = useState(loaderData?.order ?? MASTER_ORDER);
+  const isDev = typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production";
+  const [orderState, setOrderState] = useState(loaderData?.order ?? (isDev ? MASTER_ORDER : null));
   const [cancellingSubOrderId, setCancellingSubOrderId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
@@ -105,6 +106,34 @@ function OrderDetail() {
       setIsCancelling(false);
     }
   };
+
+  if (!orderState) {
+    return (
+      <ShopLayout>
+        <div className="mx-auto max-w-xl px-4 py-16 text-center">
+          <Package className="mx-auto size-12 text-muted-foreground" />
+          <h1 className="mt-4 font-display text-2xl font-bold text-primary">Order Not Found</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            We couldn't locate details for order #{id}. Please check the order number or view your active orders in your account.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              to="/account"
+              className="inline-flex items-center rounded-sm bg-rani px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:bg-rani/90"
+            >
+              View My Orders
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center rounded-sm border border-border bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:border-rani hover:text-rani"
+            >
+              Back to Marketplace
+            </Link>
+          </div>
+        </div>
+      </ShopLayout>
+    );
+  }
 
   const o = orderState;
 
@@ -327,7 +356,6 @@ function OrderDetail() {
           <div className="rounded-md border border-border bg-surface p-4">
             <h2 className="text-sm font-bold uppercase tracking-wide">Returns & cancellations</h2>
             <p className="mt-2 text-sm text-muted-foreground">{RETURN_WINDOW_NOTE}</p>
-            <p className="mt-2 text-xs text-muted-foreground">{DEMO_NOTE}</p>
           </div>
         </section>
       </div>

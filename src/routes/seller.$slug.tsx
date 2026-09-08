@@ -54,11 +54,12 @@ function SellerPage() {
     setFollowing((f) => {
       const next = !f;
       toast(next ? `Following ${seller.name}` : `Unfollowed ${seller.name}`, {
-        description: next ? "You'll see new arrivals from this store first (demo)." : undefined,
+        description: next ? "You will see new arrivals from this store in your feed." : undefined,
       });
       return next;
     });
   };
+
 
   return (
     <ShopLayout>

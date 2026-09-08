@@ -4,9 +4,10 @@ import { toast } from "sonner";
 import { Camera, Info } from "lucide-react";
 import { ShopLayout } from "@/components/ism/ShopLayout";
 import { Badge, Button } from "@/components/ism/SellerShell";
-import { DEMO_NOTE, MASTER_ORDER, RETURN_REASONS, RETURN_WINDOW_NOTE } from "@/lib/ism-ops";
+import { MASTER_ORDER, RETURN_REASONS } from "@/lib/ism-ops";
 import { formatAUD } from "@/lib/ism-data";
 import { createCustomerReturnRequestServerFn } from "@/lib/api/returns";
+import { useAuth } from "@/hooks/use-auth";
 
 type Search = { order?: string | undefined };
 
@@ -14,24 +15,11 @@ export const Route = createFileRoute("/returns/new")({
   validateSearch: (search: Record<string, unknown>): Search => ({
     order: typeof search['order'] === "string" ? (search['order'] as string) : undefined,
   }),
-  head: () => ({
-    meta: [
-      { title: "Request a return — Indian Shopping Mela" },
-      {
-        name: "description",
-        content:
-          "Start a return: choose items, select a reason, add photo evidence and follow the return label and refund steps.",
-      },
-      { property: "og:title", content: "Request a return — Indian Shopping Mela" },
-      { property: "og:description", content: "Returns and refunds for ISM marketplace orders." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
   component: NewReturn,
 });
 
 function NewReturn() {
+  const { user } = useAuth();
   const { order } = Route.useSearch();
   const sub = MASTER_ORDER.subOrders.find((s) => s.id === order) ?? MASTER_ORDER.subOrders[0]!;
   const [selected, setSelected] = useState<string[]>([sub.items[0]!.productId]);
@@ -59,142 +47,170 @@ function NewReturn() {
           / Return request
         </nav>
 
-        <h1 className="font-display text-2xl font-bold text-primary">Request a return</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {sub.packageLabel} · {sub.seller} · sub-order {sub.id}
-        </p>
-
         {submitted ? (
-          <section className="mt-5 rounded-md border border-teal/40 bg-teal/5 p-5">
-            <Badge tone="teal">RETURN_REQUESTED</Badge>
-            <h2 className="mt-2 font-display text-xl font-semibold text-primary">Return RET-4501 created</h2>
-            <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li>1. Seller or ISM review — approve, reject or request more information.</li>
-              <li>2. Return label and packing instructions issued once approved.</li>
-              <li>3. Return in transit, then received and condition-checked by the seller.</li>
-              <li>4. Refund of {formatAUD(refund)} issued to the original payment method; the seller's payout for this sub-order stays on hold until then.</li>
-            </ol>
-            <div className="mt-4 flex flex-wrap gap-2">
+          <div className="rounded-md border border-teal/40 bg-teal/5 p-6 text-center">
+            <div className="mb-2">
+              <Badge tone="teal">Request registered</Badge>
+            </div>
+            <h1 className="font-display text-2xl font-bold text-primary">Return requested</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We have notified the seller and initiated the return process for sub-order {sub.id}.
+            </p>
+            <div className="mt-5 flex justify-center gap-3">
               <Link
                 to="/orders/$id"
                 params={{ id: MASTER_ORDER.id }}
-                className="inline-flex items-center rounded-sm bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary-foreground"
+                className="inline-flex items-center rounded-sm bg-rani px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:bg-rani/90"
               >
-                Back to order
+                Back to order tracking
               </Link>
-              <Button variant="outline" onClick={() => toast("Return label (demo PDF)")}>
-                View return instructions
-              </Button>
+              <Link
+                to="/account"
+                className="inline-flex items-center rounded-sm border border-border bg-surface px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:border-rani hover:text-rani"
+              >
+                My Account
+              </Link>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">{DEMO_NOTE}</p>
-          </section>
+          </div>
         ) : (
-          <div className="mt-5 space-y-4">
-            <section className="rounded-md border border-border bg-surface p-4">
-              <h2 className="text-sm font-bold uppercase tracking-wide">1. Choose items</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Partial returns are supported — items you leave unticked are unaffected.
-              </p>
-              <ul className="mt-3 space-y-2 text-sm">
-                {sub.items.map((i) => (
-                  <li key={i.productId}>
-                    <label className="flex items-center justify-between gap-3 rounded-sm border border-border px-3 py-2.5">
-                      <span className="flex min-w-0 items-center gap-2.5">
+          <div className="grid gap-6 md:grid-cols-[1fr_320px]">
+            <div className="space-y-6">
+              <header>
+                <h1 className="font-display text-2xl font-bold text-primary sm:text-3xl">
+                  Request a return
+                </h1>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Sub-order {sub.id} · Seller: {sub.seller} · Ordinary returns within 7 days of delivery under ACL.
+                </p>
+              </header>
+
+              <section className="rounded-md border border-border bg-surface p-4">
+                <h2 className="text-sm font-semibold text-primary">1. Select items to return</h2>
+                <div className="mt-3 divide-y divide-border">
+                  {sub.items.map((item) => {
+                    const isSel = selected.includes(item.productId);
+                    return (
+                      <label
+                        key={item.productId}
+                        className="flex cursor-pointer items-center gap-3 py-2.5 text-sm"
+                      >
                         <input
                           type="checkbox"
-                          checked={selected.includes(i.productId)}
-                          onChange={(e) =>
-                            setSelected((prev) =>
-                              e.target.checked
-                                ? [...prev, i.productId]
-                                : prev.filter((x) => x !== i.productId),
-                            )
-                          }
-                          className="size-4 accent-[var(--color-rani)]"
+                          checked={isSel}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelected([...selected, item.productId]);
+                            else setSelected(selected.filter((x) => x !== item.productId));
+                          }}
+                          className="size-4 rounded border-border text-rani focus:ring-rani"
                         />
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{i.name}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {i.variant} · Qty {i.qty}
-                          </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-primary">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Qty: {item.qty} · {formatAUD(item.price)} each
+                          </p>
+                        </div>
+                        <span className="font-semibold text-primary">
+                          {formatAUD(item.price * item.qty)}
                         </span>
-                      </span>
-                      <span className="shrink-0 font-semibold">{formatAUD(i.price * i.qty)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-md border border-border bg-surface p-4">
+                <h2 className="text-sm font-semibold text-primary">2. Reason for return</h2>
+                <div className="mt-3 space-y-2">
+                  {RETURN_REASONS.map((r) => (
+                    <label
+                      key={r.id}
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-sm border p-3 text-xs ${
+                        reason === r.id
+                          ? "border-rani bg-rani/5 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:border-border/80"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="return_reason"
+                        value={r.id}
+                        checked={reason === r.id}
+                        onChange={() => setReason(r.id)}
+                        className="mt-0.5"
+                      />
+                      <div>
+                        <p className="font-semibold text-primary">{r.label}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {r.statutory ? "Statutory claim under ACL" : "Change of mind (within 7 days)"}
+                        </p>
+                      </div>
                     </label>
-                  </li>
-                ))}
-              </ul>
-            </section>
+                  ))}
+                </div>
 
-            <section className="rounded-md border border-border bg-surface p-4">
-              <h2 className="text-sm font-bold uppercase tracking-wide">2. Reason</h2>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {RETURN_REASONS.map((r) => (
-                  <label
-                    key={r.id}
-                    className={`flex items-center gap-2 rounded-sm border px-3 py-2.5 text-sm ${
-                      reason === r.id ? "border-rani bg-rani/5" : "border-border"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="reason"
-                      checked={reason === r.id}
-                      onChange={() => setReason(r.id)}
-                      className="size-4 accent-[var(--color-rani)]"
-                    />
-                    {r.label}
+                <div className="mt-4">
+                  <label className="text-xs font-semibold text-primary">
+                    Additional notes / details
                   </label>
-                ))}
-              </div>
-              <p className="mt-3 flex items-start gap-2 rounded-sm bg-muted/50 p-3 text-xs text-muted-foreground">
-                <Info size={14} className="mt-0.5 shrink-0" />
-                {reasonMeta.statutory
-                  ? "Faulty, damaged, wrong or not-as-described items are assessed under Australian Consumer Law and are not limited by the 7-day change-of-mind window."
-                  : RETURN_WINDOW_NOTE}
-              </p>
-            </section>
+                  <textarea
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Tell the seller what happened or why you are returning these items"
+                    className="mt-1 w-full rounded-sm border border-border bg-background p-2 text-xs outline-none focus:border-rani"
+                  />
+                </div>
+              </section>
 
-            <section className="rounded-md border border-border bg-surface p-4">
-              <h2 className="text-sm font-bold uppercase tracking-wide">3. Evidence & notes</h2>
-              <label className="mt-3 flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-border py-6 text-sm text-muted-foreground hover:border-rani hover:text-rani">
-                <Camera size={16} />
-                <span>Add photos {reasonMeta.statutory ? "(required for statutory claims)" : "(optional)"}</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      toast.success(`${files.length} photo(s) attached as return evidence.`);
-                    }
-                  }}
-                />
-              </label>
+              <section className="rounded-md border border-border bg-surface p-4">
+                <h2 className="text-sm font-semibold text-primary">3. Photo evidence (optional)</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Required if claiming damaged in transit or faulty item.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="flex h-20 w-24 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-border bg-background text-[11px] text-muted-foreground hover:border-rani hover:text-rani"
+                  >
+                    <Camera size={18} />
+                    <span>Add photo</span>
+                  </button>
+                </div>
+              </section>
+            </div>
 
-              <textarea
-                placeholder="Tell the seller what happened or why you are returning these items"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mt-3 h-24 w-full rounded-sm border border-input bg-surface p-3 text-sm focus:border-primary focus:outline-none"
-              />
-            </section>
-
-            <section className="rounded-md border border-gold/50 bg-cream p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Estimated refund</p>
-                  <p className="font-display text-2xl font-bold text-rani">{formatAUD(refund)}</p>
-                  <p className="text-[11px] text-muted-foreground">
+            <section className="space-y-4">
+              <div className="rounded-md border border-border bg-surface p-4">
+                <h2 className="text-sm font-semibold text-primary">Return summary</h2>
+                <dl className="mt-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <dt>Items selected</dt>
+                    <dd>{selected.length}</dd>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <dt>Reason</dt>
+                    <dd className="font-medium text-primary">{reasonMeta.label}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-border pt-2 font-semibold text-primary">
+                    <dt>Estimated refund</dt>
+                    <dd className="text-rani">{formatAUD(refund)}</dd>
+                  </div>
+                </dl>
+                <div className="mt-4 rounded-sm bg-muted/40 p-2.5 text-[11px] text-muted-foreground">
+                  <p className="flex items-start gap-1">
+                    <Info size={13} className="mt-0.5 shrink-0" />
                     Refunded to the original payment method after the return is received and checked.
                   </p>
                 </div>
                 <Button
                   variant="rani"
                   disabled={selected.length === 0 || isSubmitting}
+                  className="w-full mt-4"
                   onClick={async () => {
+                    if (!user) {
+                      toast.error("Please sign in to submit a return request.");
+                      return;
+                    }
                     setIsSubmitting(true);
                     try {
                       const reasonMapping: Record<string, any> = {
@@ -210,12 +226,12 @@ function NewReturn() {
                         data: {
                           subOrderId: sub.id,
                           orderItemId: selected[0] ?? sub.items[0]!.productId,
-                          customerId: "cust_demo",
+                          customerId: user.id,
                           quantity: 1,
                           reason: notes || reasonMeta.label,
                           reasonCode: reasonMapping[reason] ?? "CHANGED_MIND",
                         },
-                      }).catch((e: any) => console.warn("Live return submission note:", e.message));
+                      });
 
                       setSubmitted(true);
                       toast.success("Return request submitted", {
@@ -238,4 +254,3 @@ function NewReturn() {
     </ShopLayout>
   );
 }
-

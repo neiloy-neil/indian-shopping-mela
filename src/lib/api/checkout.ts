@@ -179,29 +179,10 @@ export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Prom
     }
   }
 
-  // Handle fallback for test or mock fixture variants if not found in DB
+  // Ensure all requested items were found in DB
   const missingItems = items.filter((i) => !authoritativeItems.some((a) => a.variantId === i.variantId));
-  for (const item of missingItems) {
-    authoritativeItems.push({
-      productId: item.variantId,
-      variantId: item.variantId,
-      sellerId: "sel_royal_heritage",
-      productTitle: "Handcrafted Indian Artisan Item",
-      variantTitle: "Standard",
-      sku: `SKU-${item.variantId.slice(0, 8).toUpperCase()}`,
-      unitPriceAud: 89.95,
-      quantity: item.quantity,
-      weightKg: 0.5,
-      imageUrl: undefined,
-      sellerBusinessName: "Royal Heritage Sarees",
-      sellerDispatchAddress: {
-        line1: "14 Wigram St",
-        suburb: "Harris Park",
-        state: "NSW",
-        postcode: "2150",
-        country: "Australia",
-      },
-    });
+  if (missingItems.length > 0) {
+    throw new Error(`Item variant ${missingItems[0]?.variantId ?? "unknown"} was not found in the database or is unavailable.`);
   }
 
   return authoritativeItems;
