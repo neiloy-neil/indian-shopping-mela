@@ -11,7 +11,7 @@ import {
   prepareCheckoutSummaryServerFn,
   createCheckoutOrderServerFn,
   type CheckoutSummary,
-  type CheckoutCartItem,
+  type CheckoutItemDto,
 } from "@/lib/api/checkout";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -134,17 +134,9 @@ function CheckoutPage() {
   useEffect(() => {
     if (lines.length === 0) return;
 
-    const checkoutItems: CheckoutCartItem[] = lines.map((l) => ({
-      productId: l.product.id,
+    const checkoutItems = lines.map((l) => ({
       variantId: l.line.variantId ?? l.product.id,
-      sellerId: l.product.seller,
-      productTitle: l.product.name,
-      variantTitle: `${l.line.size ?? "Standard"} / ${l.line.colour ?? "Standard"}`,
-      sku: `${l.product.id.toUpperCase()}-STD`,
-      unitPriceAud: l.product.price,
       quantity: l.line.qty,
-      weightKg: 0.5,
-      imageUrl: undefined,
     }));
 
     const destinationAddress = {
@@ -188,15 +180,21 @@ function CheckoutPage() {
         country: "Australia",
       };
 
+      const checkoutItems = lines.map((l) => ({
+        variantId: l.line.variantId ?? l.product.id,
+        quantity: l.line.qty,
+      }));
+
       const result = await createCheckoutOrderServerFn({
         data: {
-          userId: user?.id,
+          items: checkoutItems,
           customerEmail: email,
           customerName: name,
           customerPhone: phone,
           shippingAddress: destinationAddress,
           billingAddress: destinationAddress,
-          summary,
+          userId: user?.id,
+          sessionId: guestToken || getOrCreateGuestToken(),
           idempotencyKey: `ord_idem_${guestToken}_${Date.now()}`,
         },
       });
@@ -223,7 +221,13 @@ function CheckoutPage() {
       }
     }
 
-    // Direct fallback completion for development sandbox without live Stripe keys
+    if (!clientSecret) {
+      toast.error("Payment session unavailable", {
+        description: "Please reload checkout or contact support to complete payment.",
+      });
+      return;
+    }
+
     setPlaced(true);
     toast.success("Order confirmed successfully!", {
       description: `Order #${placedOrderNumber || "ISM10002"} with ${sellers.length} seller package(s).`,

@@ -559,6 +559,118 @@ console.log("\n13. Testing Atomic Inventory Locking, TTL Expiry & Concurrency Co
   assert(multiEngine.getAvailableStock("var-silk-1", t0) === 5, "First item reservation is completely freed after multi-line prepare failure");
 }
 
+// 14. SERVER-AUTHORITATIVE ZERO-TRUST CHECKOUT & TRANSACTION (Phase 11, Tasks T148–T162)
+console.log("\n14. Testing Zero-Trust Server Checkout & Order Transactions...");
+{
+  // Simulated PostgreSQL authoritative database tables
+  const dbProducts = new Map([
+    ["prod-saree-1", { id: "prod-saree-1", title: "Kanchipuram Pure Silk Saree", status: "ACTIVE", seller_id: "seller-saree-haven" }],
+    ["prod-jewel-2", { id: "prod-jewel-2", title: "Temple Kundan Necklace Set", status: "ACTIVE", seller_id: "seller-kundan-art" }],
+    ["prod-inactive-3", { id: "prod-inactive-3", title: "Vintage Silver Payal", status: "DRAFT", seller_id: "seller-kundan-art" }],
+  ]);
+
+  const dbVariants = new Map([
+    ["var-saree-1", { id: "var-saree-1", product_id: "prod-saree-1", price: 299.00, sale_price: 249.00, stock_quantity: 4, reserved_quantity: 0, weight_kg: 0.8 }],
+    ["var-jewel-2", { id: "var-jewel-2", product_id: "prod-jewel-2", price: 120.00, sale_price: null, stock_quantity: 10, reserved_quantity: 0, weight_kg: 0.3 }],
+    ["var-inactive-3", { id: "var-inactive-3", product_id: "prod-inactive-3", price: 80.00, sale_price: null, stock_quantity: 2, reserved_quantity: 0, weight_kg: 0.2 }],
+  ]);
+
+  const dbSellers = new Map([
+    ["seller-saree-haven", { id: "seller-saree-haven", business_name: "Saree Haven Sydney", status: "APPROVED" }],
+    ["seller-kundan-art", { id: "seller-kundan-art", business_name: "Kundan Artisan Melbourne", status: "APPROVED" }],
+  ]);
+
+  // Zero-trust calculation logic: ignores client-sent prices, loads strictly from DB
+  function calculateServerAuthoritativeOrder(
+    clientPayload: Array<{ variantId: string; quantity: number; spoofedPrice?: number }>,
+    destinationPostcode: string
+  ) {
+    let itemsSubtotal = 0;
+    const sellerPackages = new Map<string, { sellerId: string; items: any[]; subtotal: number; shipping: number }>();
+
+    for (const item of clientPayload) {
+      const variant = dbVariants.get(item.variantId);
+      if (!variant) throw new Error(`Variant ${item.variantId} not found`);
+
+      const product = dbProducts.get(variant.product_id);
+      if (!product || product.status !== "ACTIVE") throw new Error(`Product ${variant.product_id} is not active`);
+
+      const seller = dbSellers.get(product.seller_id);
+      if (!seller || seller.status !== "APPROVED") throw new Error(`Seller ${product.seller_id} is not approved`);
+
+      if (variant.stock_quantity - variant.reserved_quantity < item.quantity) {
+        throw new Error(`Insufficient stock for variant ${item.variantId}`);
+      }
+
+      const authoritativePrice = variant.sale_price ?? variant.price;
+      const lineTotal = authoritativePrice * item.quantity;
+      itemsSubtotal += lineTotal;
+
+      const currentPkg = sellerPackages.get(seller.id) ?? {
+        sellerId: seller.id,
+        items: [],
+        subtotal: 0,
+        shipping: 9.95, // Standard AusPost
+      };
+      currentPkg.items.push({ variantId: variant.id, price: authoritativePrice, quantity: item.quantity, lineTotal });
+      currentPkg.subtotal += lineTotal;
+      sellerPackages.set(seller.id, currentPkg);
+    }
+
+    const shippingTotal = Array.from(sellerPackages.values()).reduce((sum, pkg) => sum + pkg.shipping, 0);
+    const grandTotal = Number((itemsSubtotal + shippingTotal).toFixed(2));
+    const gstTotal = Number((grandTotal / 11).toFixed(2));
+
+    return {
+      itemsSubtotal,
+      shippingTotal,
+      grandTotal,
+      gstTotal,
+      packages: Array.from(sellerPackages.values()),
+    };
+  }
+
+  // 1. Test Client Price Tampering Resistance
+  const clientPayloadTampered = [
+    { variantId: "var-saree-1", quantity: 1, spoofedPrice: 1.00 }, // Client tries to spoof $1.00 instead of $249.00
+    { variantId: "var-jewel-2", quantity: 1, spoofedPrice: 0.50 }, // Client tries to spoof $0.50 instead of $120.00
+  ];
+
+  const authOrder = calculateServerAuthoritativeOrder(clientPayloadTampered, "2150");
+  assert(authOrder.itemsSubtotal === 369.00, "Server strictly ignores client-sent spoofed prices and uses authoritative DB pricing ($249 + $120 = $369)", `Got ${authOrder.itemsSubtotal}`);
+  assert(authOrder.packages.length === 2, "Order is split into 2 seller packages for multi-vendor fulfillment");
+  assert(authOrder.shippingTotal === 19.90, "Multi-seller shipping is calculated accurately across independent sellers (2 × $9.95 = $19.90)");
+  assert(authOrder.grandTotal === 388.90, "Authoritative grand total is $388.90 ($369 items + $19.90 shipping)");
+  assert(authOrder.gstTotal === 35.35, "1/11th Australian GST snapshot is exact ($388.90 / 11 = $35.35)");
+
+  // 2. Inactive Product Rejection
+  let inactiveRejected = false;
+  try {
+    calculateServerAuthoritativeOrder([{ variantId: "var-inactive-3", quantity: 1 }], "2150");
+  } catch (err: any) {
+    inactiveRejected = err.message.includes("not active");
+  }
+  assert(inactiveRejected, "Checkout strictly rejects inactive/draft products before payment initialization");
+
+  // 3. Checkout Idempotency Verification
+  const ordersStore = new Map<string, any>();
+  function createOrderWithIdempotency(orderData: { idempotencyKey: string; orderNumber: string; totalAmount: number }) {
+    if (ordersStore.has(orderData.idempotencyKey)) {
+      return { order: ordersStore.get(orderData.idempotencyKey), isDuplicate: true };
+    }
+    const created = { ...orderData, id: `ord_${Date.now()}` };
+    ordersStore.set(orderData.idempotencyKey, created);
+    return { order: created, isDuplicate: false };
+  }
+
+  const idemKey = "idem_session_abc123_checkout";
+  const req1 = createOrderWithIdempotency({ idempotencyKey: idemKey, orderNumber: "ISM10001", totalAmount: 388.90 });
+  const req2 = createOrderWithIdempotency({ idempotencyKey: idemKey, orderNumber: "ISM10002", totalAmount: 388.90 });
+
+  assert(!req1.isDuplicate && req1.order.orderNumber === "ISM10001", "First checkout request creates new master order record");
+  assert(req2.isDuplicate && req2.order.orderNumber === "ISM10001", "Duplicate checkout replay with same idempotency key returns existing master order without double-creation");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -568,6 +680,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

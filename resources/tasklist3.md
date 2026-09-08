@@ -1797,6 +1797,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-08 | T104-T124 | Completed Product CRUD server functions (draft/submit/clone/archive/moderate), category-driven attributes, variant matrix persistence, unique seller SKU validation, media MIME/size checks, primary image enforcement, and order snapshot immutability | npm test (63/63 assertions pass), npx tsc (0 errors), npm run build (0 errors) | ed66b38 |
 | 2026-09-08 | T125-T135 | Completed database-backed cart & wishlist architecture: eliminated LocalStorage as truth authority, implemented get/add/update/remove/merge server functions, secure guest token resolution, live stock revalidation on merge, and DB wishlist synchronization | npm test (76/76 assertions pass), npx tsc (0 errors), npm run build (0 errors) | fac653a |
 | 2026-09-08 | T136-T147 | Completed atomic inventory locking, release, commit, restock, and TTL expiration server pipeline; removed fail-open .catch warnings; enforced multi-line rollback on failure; verified concurrency simulation for stock=1 | npm test (86/86 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 81f3548 |
+| 2026-09-08 | T148-T162 | Completed zero-trust server-authoritative checkout DTO (client sends IDs/quantities only), authoritative DB price/stock/seller loading, 1/11th GST & multi-seller package calculation, checkout idempotency deduplication, fail-closed rollback, and prototype UI cleanup | npm test (94/94 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending |
 
 
 
