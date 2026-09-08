@@ -176,7 +176,8 @@ export async function requireSellerMember(sellerId: string, userId: string): Pro
     return { sellerId, role: "admin_override" };
   }
 
-  const { data: member, error } = await (supabase.from("seller_members") as any)
+  const { data: member, error } = await (supabase as any)
+    .from("seller_members")
     .select("role, permissions")
     .eq("seller_id", sellerId)
     .eq("user_id", userId)
@@ -209,7 +210,8 @@ export async function requireSellerPermission(sellerId: string, userId: string, 
     return true;
   }
 
-  const { data: member } = await (supabase.from("seller_members") as any)
+  const { data: member } = await (supabase as any)
+    .from("seller_members")
     .select("permissions")
     .eq("seller_id", sellerId)
     .eq("user_id", userId)

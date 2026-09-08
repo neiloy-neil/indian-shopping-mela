@@ -56,49 +56,57 @@ export interface SearchCatalogParams {
  */
 export function mapDbProductToIsm(dbItem: any): Product {
   const variants = dbItem.variants ?? [];
-  const minPriceCents = variants.length > 0
-    ? Math.min(...variants.map((v: any) => v.price_cents ?? 0))
-    : (dbItem.base_price_cents ?? 0);
+  const minPrice = variants.length > 0
+    ? Math.min(...variants.map((v: any) => Number(v.price ?? dbItem.price ?? 0)))
+    : Number(dbItem.price ?? 0);
   
-  const compareAtCents = variants.length > 0 && variants[0].compare_at_cents
-    ? variants[0].compare_at_cents
-    : undefined;
+  const compareAtPrice = variants.length > 0 && variants[0].compare_at_price
+    ? Number(variants[0].compare_at_price)
+    : (dbItem.sale_price ? Number(dbItem.sale_price) : undefined);
 
-  const images = (dbItem.media_urls as string[]) ?? [];
+  const images = (dbItem.media_urls as string[]) ?? (dbItem.media?.map((m: any) => m.url) as string[]) ?? [];
   const firstImage = images.length > 0 ? images[0] : "sarees";
 
-  const allSizes = Array.from(new Set(variants.map((v: any) => v.size).filter(Boolean))) as string[];
+  const allSizes = Array.from(new Set(variants.map((v: any) => v.size || v.title).filter(Boolean))) as string[];
   const allColours = Array.from(new Set(variants.map((v: any) => v.colour).filter(Boolean))) as string[];
+
+  const totalStock = variants.length > 0
+    ? variants.reduce((acc: number, v: any) => acc + Number(v.stock_quantity ?? 0), 0)
+    : Number(dbItem.stock_quantity ?? 0);
 
   return {
     id: dbItem.id ?? dbItem.slug,
     name: dbItem.title,
-    seller: dbItem.seller?.slug ?? "mumbai-mirror-boutique",
-    category: dbItem.department ?? "women",
-    subcategory: dbItem.subcategory ?? "Sarees",
-    price: minPriceCents > 0 ? Math.round(minPriceCents / 100) : 199,
-    compareAt: compareAtCents ? Math.round(compareAtCents / 100) : undefined,
-    rating: Number(dbItem.rating_avg ?? 4.8),
-    reviews: Number(dbItem.rating_count ?? 24),
+    seller: dbItem.seller?.slug ?? "ananya-sarees",
+    category: dbItem.department ?? "women-ethnic",
+    subcategory: dbItem.subcategory ?? dbItem.category?.name ?? "Sarees",
+    price: minPrice > 0 ? minPrice : Number(dbItem.price ?? 0),
+    compareAt: compareAtPrice && compareAtPrice > minPrice ? compareAtPrice : undefined,
+    rating: Number(dbItem.rating_avg ?? 0),
+    reviews: Number(dbItem.rating_count ?? 0),
     image: (firstImage as ImageKey) || "sarees",
     badge: dbItem.badge_text ?? undefined,
-    tags: (dbItem.tags as string[]) ?? ["trending"],
-    colours: allColours.length > 0 ? allColours : ["Red", "Gold"],
+    tags: (dbItem.tags as string[]) ?? [],
+    colours: allColours.length > 0 ? allColours : ["Standard"],
     sizes: allSizes.length > 0 ? allSizes : ["Free Size"],
-    fabric: dbItem.fabric ?? "Banarasi Silk",
-    material: dbItem.material ?? "Silk",
-    region: dbItem.craft_region ?? "Gujarat",
+    fabric: dbItem.fabric ?? "Standard",
+    material: dbItem.material ?? "Standard",
+    region: dbItem.craft_region ?? "India",
     occasion: dbItem.occasion ?? "Festive",
-    festival: dbItem.festival ?? "Diwali",
-    readyToShip: dbItem.ready_to_ship ?? true,
-    stock: variants.reduce((acc: number, v: any) => acc + (v.stock_on_hand ?? 10), 0) || 15,
+    festival: dbItem.festival ?? undefined,
+    readyToShip: dbItem.is_ready_to_ship ?? true,
+    stock: totalStock,
   };
 }
 
+import { getClientEnv } from "@/lib/config/env";
+
 /**
- * T125 / T126 — Get Homepage Feed from live Supabase tables, fallback to seed fixtures.
+ * T125 / T126 — Get Homepage Feed from live Supabase tables, fallback to seed fixtures ONLY in demo/dev mode.
  */
 export async function getHomepageFeed(): Promise<HomepageFeed> {
+  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+
   try {
     const { data: dbProducts, error } = await (supabase.from("products") as any)
       .select(`
@@ -109,7 +117,7 @@ export async function getHomepageFeed(): Promise<HomepageFeed> {
       .eq("status", "LIVE")
       .limit(30);
 
-    if (!error && dbProducts && dbProducts.length >= 8) {
+    if (!error && dbProducts && dbProducts.length > 0) {
       const liveProducts = dbProducts.map(mapDbProductToIsm);
       return {
         departments: [
@@ -171,67 +179,81 @@ export async function getHomepageFeed(): Promise<HomepageFeed> {
       };
     }
   } catch (err) {
-    console.warn("Catalogue live query failed, serving baseline fixtures:", err);
+    console.warn("Catalogue live query failed:", err);
   }
 
-  // Baseline fixtures fallback
+  // Baseline fixtures fallback ONLY when demo mode is active
+  if (isDemo) {
+    return {
+      departments: [
+        {
+          id: "dept-women",
+          name: "Women",
+          slug: "women",
+          categories: CATEGORIES.filter((c) => ["women", "jewellery", "footwear"].includes(c.slug)),
+        },
+        {
+          id: "dept-men",
+          name: "Men",
+          slug: "men",
+          categories: CATEGORIES.filter((c) => ["men"].includes(c.slug)),
+        },
+        {
+          id: "dept-home",
+          name: "Home & Living",
+          slug: "home-living",
+          categories: CATEGORIES.filter((c) => ["home-living", "pooja"].includes(c.slug)),
+        },
+      ],
+      categories: CATEGORIES,
+      heroCollections: [
+        {
+          title: "Diwali Special",
+          note: "Diyas, sweets boxes & festive décor",
+          slug: "festivals",
+          image: "pooja",
+          tone: "bg-marigold text-marigold-foreground",
+        },
+        {
+          title: "Wedding Collection",
+          note: "Bridal lehengas, groom wear & jewellery",
+          slug: "wedding",
+          image: "wedding",
+          tone: "bg-rani text-rani-foreground",
+        },
+        {
+          title: "Home Makeover",
+          note: "Dohars, brassware & handicrafts",
+          slug: "home-living",
+          image: "home",
+          tone: "bg-primary text-primary-foreground",
+        },
+        {
+          title: "Gifting Store",
+          note: "Hampers by occasion & budget",
+          slug: "gifts",
+          image: "gifts",
+          tone: "bg-teal text-teal-foreground",
+        },
+      ],
+      trendingProducts: PRODUCTS.slice(0, 8),
+      newArrivals: PRODUCTS.slice(8, 16),
+      topSellers: SELLERS,
+      festiveSpotlight: PRODUCTS.filter((p) => p.festival === "Diwali" || p.category === "pooja").slice(0, 6),
+      regionalSpecialties: REGIONS,
+    };
+  }
+
+  // Fail-closed empty feed for production when DB returns empty/error
   return {
-    departments: [
-      {
-        id: "dept-women",
-        name: "Women",
-        slug: "women",
-        categories: CATEGORIES.filter((c) => ["women", "jewellery", "footwear"].includes(c.slug)),
-      },
-      {
-        id: "dept-men",
-        name: "Men",
-        slug: "men",
-        categories: CATEGORIES.filter((c) => ["men"].includes(c.slug)),
-      },
-      {
-        id: "dept-home",
-        name: "Home & Living",
-        slug: "home-living",
-        categories: CATEGORIES.filter((c) => ["home-living", "pooja"].includes(c.slug)),
-      },
-    ],
-    categories: CATEGORIES,
-    heroCollections: [
-      {
-        title: "Diwali Special",
-        note: "Diyas, sweets boxes & festive décor",
-        slug: "festivals",
-        image: "pooja",
-        tone: "bg-marigold text-marigold-foreground",
-      },
-      {
-        title: "Wedding Collection",
-        note: "Bridal lehengas, groom wear & jewellery",
-        slug: "wedding",
-        image: "wedding",
-        tone: "bg-rani text-rani-foreground",
-      },
-      {
-        title: "Home Makeover",
-        note: "Dohars, brassware & handicrafts",
-        slug: "home-living",
-        image: "home",
-        tone: "bg-primary text-primary-foreground",
-      },
-      {
-        title: "Gifting Store",
-        note: "Hampers by occasion & budget",
-        slug: "gifts",
-        image: "gifts",
-        tone: "bg-teal text-teal-foreground",
-      },
-    ],
-    trendingProducts: PRODUCTS.slice(0, 8),
-    newArrivals: PRODUCTS.slice(8, 16),
-    topSellers: SELLERS,
-    festiveSpotlight: PRODUCTS.filter((p) => p.festival === "Diwali" || p.category === "pooja").slice(0, 6),
-    regionalSpecialties: REGIONS,
+    departments: [],
+    categories: [],
+    heroCollections: [],
+    trendingProducts: [],
+    newArrivals: [],
+    topSellers: [],
+    festiveSpotlight: [],
+    regionalSpecialties: [],
   };
 }
 
@@ -270,10 +292,19 @@ export async function getCategoryCatalogue(categorySlug: string): Promise<{
     console.warn("Category live query failed:", err);
   }
 
-  const staticProducts = PRODUCTS.filter((p) => p.category === categorySlug || p.subcategory.toLowerCase().includes(categorySlug.toLowerCase()));
+  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+
+  if (isDemo) {
+    const staticProducts = PRODUCTS.filter((p) => p.category === categorySlug || p.subcategory.toLowerCase().includes(categorySlug.toLowerCase()));
+    return {
+      category: matchedCat,
+      products: staticProducts.length > 0 ? staticProducts : PRODUCTS.slice(0, 8),
+    };
+  }
+
   return {
     category: matchedCat,
-    products: staticProducts.length > 0 ? staticProducts : PRODUCTS.slice(0, 8),
+    products: [],
   };
 }
 
@@ -284,6 +315,8 @@ export async function getSellerStorefrontData(sellerSlug: string): Promise<{
   seller: Seller | null;
   products: Product[];
 }> {
+  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+
   try {
     const { data: dbSeller, error: sellerError } = await (supabase.from("sellers") as any)
       .select("*")
@@ -323,11 +356,18 @@ export async function getSellerStorefrontData(sellerSlug: string): Promise<{
     console.warn("Seller storefront live query failed:", err);
   }
 
-  const staticSeller = SELLERS.find((s) => s.slug === sellerSlug) ?? null;
-  const staticProducts = PRODUCTS.filter((p) => p.seller === sellerSlug);
+  if (isDemo) {
+    const staticSeller = SELLERS.find((s) => s.slug === sellerSlug) ?? null;
+    const staticProducts = PRODUCTS.filter((p) => p.seller === sellerSlug);
+    return {
+      seller: staticSeller,
+      products: staticProducts,
+    };
+  }
+
   return {
-    seller: staticSeller,
-    products: staticProducts,
+    seller: null,
+    products: [],
   };
 }
 
@@ -339,6 +379,8 @@ export async function getProductDetailPageData(idOrSlug: string): Promise<{
   seller: Seller | null;
   relatedProducts: Product[];
 }> {
+  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
     const query = (supabase.from("products") as any)
@@ -372,23 +414,31 @@ export async function getProductDetailPageData(idOrSlug: string): Promise<{
       return {
         product,
         seller,
-        relatedProducts: PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 8),
+        relatedProducts: isDemo ? PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 8) : [],
       };
     }
   } catch (err) {
     console.warn("PDP live query failed:", err);
   }
 
-  const staticProduct = PRODUCTS.find((p) => p.id === idOrSlug) ?? null;
-  if (!staticProduct) return { product: null, seller: null, relatedProducts: [] };
+  if (isDemo) {
+    const staticProduct = PRODUCTS.find((p) => p.id === idOrSlug) ?? null;
+    if (!staticProduct) return { product: null, seller: null, relatedProducts: [] };
 
-  const staticSeller = SELLERS.find((s) => s.slug === staticProduct.seller) ?? SELLERS[0]!;
-  const related = PRODUCTS.filter((p) => p.category === staticProduct.category && p.id !== staticProduct.id).slice(0, 8);
+    const staticSeller = SELLERS.find((s) => s.slug === staticProduct.seller) ?? SELLERS[0]!;
+    const related = PRODUCTS.filter((p) => p.category === staticProduct.category && p.id !== staticProduct.id).slice(0, 8);
+
+    return {
+      product: staticProduct,
+      seller: staticSeller,
+      relatedProducts: related,
+    };
+  }
 
   return {
-    product: staticProduct,
-    seller: staticSeller,
-    relatedProducts: related,
+    product: null,
+    seller: null,
+    relatedProducts: [],
   };
 }
 
@@ -399,6 +449,7 @@ export async function searchCatalogueItems(params: SearchCatalogParams): Promise
   products: Product[];
   total: number;
 }> {
+  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
   const q = (params.query ?? "").trim().toLowerCase();
   
   try {
@@ -435,35 +486,42 @@ export async function searchCatalogueItems(params: SearchCatalogParams): Promise
     console.warn("Search live query error:", err);
   }
 
-  let matches = PRODUCTS.filter((p) => {
-    if (!q) return true;
-    const searchTokens = q.split(/\s+/).filter(Boolean);
-    const haystack = [
-      p.name,
-      p.subcategory,
-      p.category,
-      p.region,
-      p.festival,
-      p.occasion,
-      p.fabric,
-      ...(p.tags ?? []),
-    ].join(" ").toLowerCase();
+  if (isDemo) {
+    let matches = PRODUCTS.filter((p) => {
+      if (!q) return true;
+      const searchTokens = q.split(/\s+/).filter(Boolean);
+      const haystack = [
+        p.name,
+        p.subcategory,
+        p.category,
+        p.region,
+        p.festival,
+        p.occasion,
+        p.fabric,
+        ...(p.tags ?? []),
+      ].join(" ").toLowerCase();
 
-    return searchTokens.some((token) => haystack.includes(token));
-  });
+      return searchTokens.some((token) => haystack.includes(token));
+    });
 
-  if (params.category) {
-    matches = matches.filter((p: Product) => p.category === params.category);
-  }
-  if (params.minPrice) {
-    matches = matches.filter((p: Product) => p.price >= params.minPrice!);
-  }
-  if (params.maxPrice) {
-    matches = matches.filter((p: Product) => p.price <= params.maxPrice!);
+    if (params.category) {
+      matches = matches.filter((p: Product) => p.category === params.category);
+    }
+    if (params.minPrice) {
+      matches = matches.filter((p: Product) => p.price >= params.minPrice!);
+    }
+    if (params.maxPrice) {
+      matches = matches.filter((p: Product) => p.price <= params.maxPrice!);
+    }
+
+    return {
+      products: matches,
+      total: matches.length,
+    };
   }
 
   return {
-    products: matches,
-    total: matches.length,
+    products: [],
+    total: 0,
   };
 }

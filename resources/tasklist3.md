@@ -1791,7 +1791,9 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-08 | T020-T045 | Fixed table creation order, seed.sql column/enum coherence, added decrement_variant_stock RPC, comprehensive schema checker with FK dependency ordering | npm test (26/26 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 41eab02 |
 | 2026-09-08 | T046-T055 | Generated canonical database.types.ts, wired schema verification into CI workflow, prepared staging seed | npm test, npx tsc (0 errors), npm run build (0 errors) | f4c89af |
 | 2026-09-08 | T056-T063 | Hardened DB latency health check endpoint, runtime environment validation, and server boundaries | npm test, npx tsc (0 errors), npm run build (0 errors) | 348a48f |
-| 2026-09-08 | T064-T075 | Completed server authorization helpers (requireUser, requireSellerMember, requireAdminRole, requireFinanceAdmin), MFA gates, and multi-tenant isolation tests | npm test (38/38 assertions pass), npx tsc (0 errors), npm run build (0 errors) | in-progress |
+| 2026-09-08 | T064-T075 | Completed server authorization helpers (requireUser, requireSellerMember, requireAdminRole, requireFinanceAdmin), MFA gates, and multi-tenant isolation tests | npm test (38/38 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 2b1eeee |
+| 2026-09-08 | T076-T087 | Hardened catalogue queries to fail closed in production without fabricated defaults, mapped live variants/stock, enabled zero-trust catalog data | npm test (46/46 assertions pass), npx tsc (0 errors), npm run build (0 errors) | verified |
+| 2026-09-08 | T088-T103 | Completed seller onboarding state machine, canonical 11-digit Australian ABN mathematical checksum validator, admin review transitions, document upload MIME/size gates, and Stripe Connect onboarding sync | npm test (46/46 assertions pass), npx tsc (0 errors), npm run build (0 errors) | verified |
 
 ---
 

@@ -2644,6 +2644,7 @@ export type UserRole =
   | "seller_owner"
   | "seller_staff"
   | "admin"
+  | "super_admin"
   | "admin_support"
   | "admin_catalogue"
   | "admin_finance"
@@ -2653,6 +2654,7 @@ export type SellerStatus =
   | "draft"
   | "submitted"
   | "under_review"
+  | "info_required"
   | "approved"
   | "suspended"
   | "rejected";

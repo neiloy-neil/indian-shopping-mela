@@ -30,14 +30,45 @@ export interface SaveSellerOnboardingInput {
 }
 
 /**
+ * Australian Business Number (ABN) Mathematical Checksum Validator
+ * Algorithm:
+ * 1. Subtract 1 from the first digit
+ * 2. Multiply each of the 11 digits by its weighting factor: [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+ * 3. Sum the resulting products
+ * 4. Divide sum by 89; if remainder is 0, the ABN is valid.
+ */
+export function validateAustralianAbn(abn: string): { valid: boolean; formatted: string; reason?: string | undefined } {
+  const cleanAbn = abn.replace(/\s+/g, "");
+  if (!/^\d{11}$/.test(cleanAbn)) {
+    return { valid: false, formatted: cleanAbn, reason: "ABN must be exactly 11 numeric digits." };
+  }
+
+  const weights = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+  const digits = cleanAbn.split("").map(Number);
+  digits[0] = (digits[0] ?? 0) - 1;
+
+  const sum = digits.reduce((acc, digit, idx) => acc + digit * (weights[idx] ?? 0), 0);
+  const isValid = sum % 89 === 0;
+
+  const formatted = `${cleanAbn.slice(0, 2)} ${cleanAbn.slice(2, 5)} ${cleanAbn.slice(5, 8)} ${cleanAbn.slice(8, 11)}`;
+
+  return {
+    valid: isValid,
+    formatted,
+    reason: isValid ? undefined : "ABN checksum calculation failed.",
+  };
+}
+
+/**
  * Valid Seller Onboarding & Moderation State Machine Transitions
  */
 export const ALLOWED_SELLER_TRANSITIONS: Record<SellerStatus, SellerStatus[]> = {
   draft: ["draft", "submitted"],
   submitted: ["submitted", "under_review", "draft"],
-  under_review: ["under_review", "approved", "rejected"],
+  under_review: ["under_review", "approved", "rejected", "info_required"],
+  info_required: ["info_required", "submitted", "draft", "under_review"],
   approved: ["approved", "suspended"],
-  rejected: ["rejected", "under_review"],
+  rejected: ["rejected", "under_review", "draft"],
   suspended: ["suspended", "approved"],
 };
 
@@ -45,6 +76,65 @@ export function isValidSellerStatusTransition(from: SellerStatus, to: SellerStat
   if (from === to) return true;
   return ALLOWED_SELLER_TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+/**
+ * Server Function: Admin review of seller onboarding application
+ */
+export const adminReviewSellerApplicationServerFn = createServerFn({ method: "POST" })
+  .validator((data: {
+    sellerId: string;
+    newStatus: SellerStatus;
+    reviewerNote?: string | undefined;
+    commissionRate?: number | undefined;
+  }) => data)
+  .handler(async ({ data }) => {
+    const { data: seller, error: fetchErr } = await (supabaseAdmin as any)
+      .from("sellers")
+      .select("id, status, user_id")
+      .eq("id", data.sellerId)
+      .single();
+
+    if (fetchErr || !seller) {
+      throw new Error(`Seller not found: ${fetchErr?.message}`);
+    }
+
+    const currentStatus = seller.status as SellerStatus;
+    if (!isValidSellerStatusTransition(currentStatus, data.newStatus)) {
+      throw new Error(`Invalid seller status transition from ${currentStatus} to ${data.newStatus}`);
+    }
+
+    const updatePayload: any = {
+      status: data.newStatus,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (data.commissionRate !== undefined) {
+      updatePayload.commission_rate = data.commissionRate;
+    }
+
+    const { error: updateErr } = await (supabaseAdmin as any)
+      .from("sellers")
+      .update(updatePayload)
+      .eq("id", data.sellerId);
+
+    if (updateErr) {
+      throw new Error(`Failed to update seller review status: ${updateErr.message}`);
+    }
+
+    await (supabaseAdmin as any).from("audit_logs").insert({
+      action: `SELLER_STATUS_${data.newStatus.toUpperCase()}`,
+      entity_type: "SELLER",
+      entity_id: data.sellerId,
+      payload: {
+        previousStatus: currentStatus,
+        newStatus: data.newStatus,
+        reviewerNote: data.reviewerNote,
+        commissionRate: data.commissionRate,
+      },
+    });
+
+    return { success: true, sellerId: data.sellerId, status: data.newStatus };
+  });
 
 /**
  * Server Function: Save or update seller onboarding draft
@@ -62,7 +152,7 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
   // Check existing status to prevent self-approving or invalid jumps
   const { data: existingSeller } = await (supabaseAdmin as any)
     .from("sellers")
-    .select("status")
+    .select("id, status")
     .eq("slug", cleanSlug)
     .maybeSingle();
 
@@ -99,7 +189,20 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
     throw new Error(`Failed to save seller profile: ${sellerError?.message}`);
   }
 
-  // 2. Insert or update default dispatch address
+  // 2. Ensure seller owner membership is registered
+  if (payload.userId) {
+    await (supabaseAdmin as any).from("seller_members").upsert(
+      {
+        seller_id: seller.id,
+        user_id: payload.userId,
+        role: "owner",
+        permissions: ["all"],
+      },
+      { onConflict: "seller_id,user_id" }
+    );
+  }
+
+  // 3. Insert or update default dispatch address
   if (payload.dispatchAddress) {
     await (supabaseAdmin as any).from("seller_addresses").upsert({
       seller_id: seller.id,
@@ -114,7 +217,7 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
     });
   }
 
-  // 3. Insert or update return address
+  // 4. Insert or update return address
   if (payload.returnAddress) {
     await (supabaseAdmin as any).from("seller_addresses").upsert({
       seller_id: seller.id,
@@ -145,6 +248,16 @@ export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "PO
     mimeType: string;
   }) => data)
   .handler(async ({ data }) => {
+    const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowedMimeTypes.includes(data.mimeType)) {
+      throw new Error(`Invalid file type: ${data.mimeType}. Only PDF and images are allowed.`);
+    }
+
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB limit
+    if (data.fileSize > maxSizeBytes) {
+      throw new Error(`File size exceeds the 10MB limit.`);
+    }
+
     const { data: doc, error } = await (supabaseAdmin as any)
       .from("seller_documents")
       .insert({
