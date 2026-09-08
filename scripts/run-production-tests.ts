@@ -2146,6 +2146,126 @@ console.log("\n29. Testing Standard Webhook Framework & Background Jobs Engine..
   assert(blockedSellerAccess, "Seller A strictly blocked from managing Seller B's product (Tenant isolation)");
 }
 
+// 31. MONITORING, ERROR CAPTURE, OPERATIONAL ALERTS & UPTIME (Phase 28, Tasks T419–T435)
+console.log("\n31. Testing Monitoring, Error Capture, Operational Alerts & Uptime...");
+{
+  const {
+    captureServerException,
+    captureClientException,
+    addBreadcrumb,
+    getRecentBreadcrumbs,
+    clearBreadcrumbs,
+  } = await import("../src/lib/monitoring/index");
+  const {
+    dispatchOperationalAlert,
+    getAlertHistory,
+    clearAlertHistory,
+  } = await import("../src/lib/monitoring/alerts");
+  const { performDeepHealthCheck } = await import("../src/lib/monitoring/uptime");
+
+  // 1. Breadcrumb Tracking with Redaction
+  clearBreadcrumbs();
+  addBreadcrumb({
+    category: "checkout",
+    message: "Customer entered payment details",
+    level: "info",
+    data: { cardToken: "tok_test_123", amountAud: 199.00 },
+  });
+  const crumbs = getRecentBreadcrumbs();
+  assert(crumbs.length === 1, "Breadcrumb recorded in monitoring pipeline");
+  assert(crumbs[0]!.category === "checkout", "Breadcrumb category mapped correctly");
+
+  // 2. Server Error Capture & PII Redaction
+  const serverError = new Error("Database connection dropped during checkout");
+  const capturedServer = captureServerException(serverError, {
+    userId: "user_alice",
+    route: "/checkout",
+    extra: {
+      cardNumber: "4532 1234 5678 9012",
+      cvv: "999",
+      orderId: "ord_live_888",
+    },
+  });
+  assert(capturedServer.sanitized === true, "Server exception captured with sanitization flag");
+  assert(capturedServer.message.includes("Database connection dropped"), "Error message captured accurately");
+  assert((capturedServer.context?.extra as any)?.cvv === "****", "CVV masked in captured server error context");
+
+  // 3. Client Error Capture
+  const clientError = new Error("Failed to render product carousel");
+  const capturedClient = captureClientException(clientError, {
+    route: "/product/saree-101",
+  });
+  assert(capturedClient.environment === "client", "Client exception flagged as client environment");
+  assert(capturedClient.context?.route === "/product/saree-101", "Client route context attached");
+
+  // 4. Operational Alerts: Payment Webhook Failure
+  clearAlertHistory();
+  const alertWebhook = await dispatchOperationalAlert({
+    type: "PAYMENT_WEBHOOK_FAILURE",
+    priority: "P1_CRITICAL",
+    title: "Stripe Webhook Signature Verification Failed",
+    description: "Received webhook with invalid HMAC signature from IP 198.51.100.22",
+    actionRequired: "Verify STRIPE_WEBHOOK_SECRET and inspect incoming webhook headers",
+    metadata: {
+      stripeEventId: "evt_123456",
+      rawSecretSample: "whsec_sample_secret_key_12345",
+    },
+  });
+  assert(alertWebhook.priority === "P1_CRITICAL", "Payment webhook alert created with P1_CRITICAL priority");
+  assert(alertWebhook.metadata["rawSecretSample"] !== "whsec_sample_secret_key_12345", "Secrets redacted from operational alert metadata");
+
+  // 5. Operational Alerts: Shipping Provider Outage
+  const alertShipping = await dispatchOperationalAlert({
+    type: "SHIPPING_FAILURE",
+    priority: "P2_HIGH",
+    title: "Australia Post API Error (503 Service Unavailable)",
+    description: "Consignment generation failed for sub-order #so_8842",
+    actionRequired: "Queue for retry and check AusPost developer portal status",
+  });
+  assert(alertShipping.type === "SHIPPING_FAILURE", "Shipping failure operational alert dispatched");
+
+  // 6. Operational Alerts: Bulk Import Fatal Failure
+  const alertImport = await dispatchOperationalAlert({
+    type: "IMPORT_FAILURE",
+    priority: "P2_HIGH",
+    title: "Bulk Import Batch #batch_992 Aborted",
+    description: "Row error rate exceeded 75% threshold across 1,000 rows",
+    actionRequired: "Notify seller to check template format requirements",
+  });
+  assert(alertImport.type === "IMPORT_FAILURE", "Bulk import failure operational alert dispatched");
+
+  // 7. Operational Alerts: Payout Failure
+  const alertPayout = await dispatchOperationalAlert({
+    type: "PAYOUT_FAILURE",
+    priority: "P1_CRITICAL",
+    title: "Stripe Connect Transfer Declined",
+    description: "Transfer of $450.00 AUD failed for seller acct_123: account_under_review",
+    actionRequired: "Place manual finance hold on seller payout queue",
+  });
+  assert(alertPayout.type === "PAYOUT_FAILURE", "Payout failure operational alert dispatched");
+
+  // 8. Operational Alerts: Video Processing Failure
+  const alertVideo = await dispatchOperationalAlert({
+    type: "VIDEO_FAILURE",
+    priority: "P3_MEDIUM",
+    title: "Mux Asset Encoding Timeout",
+    description: "Encoding for asset mux_992 failed after 300s",
+    actionRequired: "Mark video moderation status as FAILED and allow seller re-upload",
+  });
+  assert(alertVideo.type === "VIDEO_FAILURE", "Video failure operational alert dispatched");
+
+  // 9. Alert History Persistence
+  const history = getAlertHistory();
+  assert(history.length === 5, "All 5 operational alerts recorded in alert history");
+
+  // 10. Deep Health Check & Uptime Telemetry
+  const health = await performDeepHealthCheck();
+  assert(["healthy", "degraded", "unhealthy"].includes(health.status), "Health check returns valid status enum");
+  assert(health.region === "ap-southeast-2", "Health check region reports ap-southeast-2");
+  assert(typeof health.uptimeSeconds === "number", "Uptime seconds measured accurately");
+  assert(health.checks.memory.heapUsedMb >= 0, "Memory telemetry evaluated");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -2155,6 +2275,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

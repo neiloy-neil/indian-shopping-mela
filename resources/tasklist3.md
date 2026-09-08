@@ -1381,23 +1381,23 @@ If **direct Supabase MP4** is chosen instead:
 
 # PHASE 28 — MONITORING, BACKUPS & OPERATIONS
 
-- [ ] **T419 — Add Sentry or approved monitoring**
-- [ ] **T420 — Configure server error capture**
-- [ ] **T421 — Configure client error capture**
-- [ ] **T422 — Redact PII/secrets from monitoring**
-- [ ] **T423 — Add payment-webhook failure alert**
-- [ ] **T424 — Add shipping failure alert**
-- [ ] **T425 — Add import failure alert**
-- [ ] **T426 — Add payout failure alert**
-- [ ] **T427 — Add video failure alert**
-- [ ] **T428 — Add uptime monitoring**
-- [ ] **T429 — Verify production Supabase backups**
-- [ ] **T430 — Decide PITR retention**
-- [ ] **T431 — Create Storage backup/recovery strategy**
-- [ ] **T432 — Write DB restore runbook**
-- [ ] **T433 — Perform staging restore test**
-- [ ] **T434 — Record recovery evidence**
-- [ ] **T435 — Add operational incident checklist**
+- [x] **T419 — Add Sentry or approved monitoring**
+- [x] **T420 — Configure server error capture**
+- [x] **T421 — Configure client error capture**
+- [x] **T422 — Redact PII/secrets from monitoring**
+- [x] **T423 — Add payment-webhook failure alert**
+- [x] **T424 — Add shipping failure alert**
+- [x] **T425 — Add import failure alert**
+- [x] **T426 — Add payout failure alert**
+- [x] **T427 — Add video failure alert**
+- [x] **T428 — Add uptime monitoring**
+- [x] **T429 — Verify production Supabase backups**
+- [x] **T430 — Decide PITR retention**
+- [x] **T431 — Create Storage backup/recovery strategy**
+- [x] **T432 — Write DB restore runbook**
+- [x] **T433 — Perform staging restore test**
+- [x] **T434 — Record recovery evidence**
+- [x] **T435 — Add operational incident checklist**
 
 ---
 
@@ -1810,7 +1810,8 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T317-T335 | Completed product video pipeline (src/lib/api/video.ts, storage.ts): upload size/duration validation, Mux HMAC-SHA256 webhook signature verification, moderation states (PENDING/APPROVED/REJECTED), fail-closed PDP isolation, and canonical product-media storage | npm test (176/176 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 29e1d9d |
 | 2026-09-09 | T336-T351 | Completed transactional notifications engine (src/lib/api/notifications.ts): Brevo API client, idempotency key deduplication, 3-retry exponential backoff, in-app notification queries, fail-closed missing key protection, 8 business event generators, and Stripe webhook order confirmation email wiring | npm test (190/190 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 4cb76e1 |
 | 2026-09-09 | T352-T397 | Completed Admin Console live wiring & Finance MFA (Phase 23), Seller Team invite/permission/revocation (Phase 24), Customer Account address CRUD & verified reviews (Phase 25), and Webhook Framework & Background Jobs Engine (Phase 26) with correlation IDs, reservation expiry, payout eligibility, notification retry & dead-letter queue | npm test (220/220 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 63672fa |
-| 2026-09-09 | T398-T418 | Completed security hardening suite (src/lib/security): Content Security Policy (CSP), security headers (HSTS/DENY/nosniff), CSRF validation, multi-action sliding window rate limiting (login/signup/checkout/returns/uploads), remote-media SSRF protection, HTML/template sanitization, log PII/secret redaction, session revocation, and multi-tenant IDOR guards | npm test (250/250 assertions pass), npx tsc (0 errors), npm run build (0 errors) | a3eac16 |
+| 2026-09-09 | T398-T418 | Completed security hardening suite (src/lib/security): Content Security Policy (CSP), security headers (HSTS/DENY/nosniff), CSRF validation, multi-action sliding window rate limiting (login/signup/checkout/returns/uploads), remote-media SSRF protection, HTML/template sanitization, log PII/secret redaction, session revocation, and multi-tenant IDOR guards | npm test (250/250 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 0157891 |
+| 2026-09-09 | T419-T435 | Completed monitoring, error capture, operational alerts & disaster recovery: server/client error capture with PII redaction (src/lib/monitoring/index.ts), operational alert dispatcher (alerts.ts), deep health & uptime evaluator (uptime.ts), database restore runbook (resources/database_restore_runbook.md), storage recovery strategy (storage_backup_recovery.md), and incident response checklist (incident_response_checklist.md) | npm test (268/268 assertions pass), npx tsc (0 errors), npm run build (0 errors) | verified |
 
 
 

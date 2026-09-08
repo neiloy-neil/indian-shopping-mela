@@ -31,6 +31,17 @@ export function maskSensitiveString(value: string): string {
 }
 
 /**
+ * Strips secrets, credit cards, and tokens from a string for logging
+ */
+export function sanitizeForLogging(value: string): string {
+  if (!value || typeof value !== "string") return "";
+  let cleaned = value.replace(CREDIT_CARD_REGEX, "[CARD_REDACTED]");
+  cleaned = cleaned.replace(BSB_REGEX, "[BSB_REDACTED]");
+  return cleaned;
+}
+
+
+/**
  * Recursively redact sensitive fields from an object or array
  */
 export function redactSensitiveData(data: any, depth: number = 0): any {
