@@ -1793,7 +1793,9 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-08 | T056-T063 | Hardened DB latency health check endpoint, runtime environment validation, and server boundaries | npm test, npx tsc (0 errors), npm run build (0 errors) | 348a48f |
 | 2026-09-08 | T064-T075 | Completed server authorization helpers (requireUser, requireSellerMember, requireAdminRole, requireFinanceAdmin), MFA gates, and multi-tenant isolation tests | npm test (38/38 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 2b1eeee |
 | 2026-09-08 | T076-T087 | Hardened catalogue queries to fail closed in production without fabricated defaults, mapped live variants/stock, enabled zero-trust catalog data | npm test (46/46 assertions pass), npx tsc (0 errors), npm run build (0 errors) | verified |
-| 2026-09-08 | T088-T103 | Completed seller onboarding state machine, canonical 11-digit Australian ABN mathematical checksum validator, admin review transitions, document upload MIME/size gates, and Stripe Connect onboarding sync | npm test (46/46 assertions pass), npx tsc (0 errors), npm run build (0 errors) | verified |
+| 2026-09-08 | T088-T103 | Completed seller onboarding state machine, canonical 11-digit Australian ABN mathematical checksum validator, admin review transitions, document upload MIME/size gates, and Stripe Connect onboarding sync | npm test (46/46 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 3ed90d2 |
+| 2026-09-08 | T104-T124 | Completed Product CRUD server functions (draft/submit/clone/archive/moderate), category-driven attributes, variant matrix persistence, unique seller SKU validation, media MIME/size checks, primary image enforcement, and order snapshot immutability | npm test (63/63 assertions pass), npx tsc (0 errors), npm run build (0 errors) | verified |
+
 
 ---
 

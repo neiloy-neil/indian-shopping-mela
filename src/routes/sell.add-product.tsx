@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Film, ImagePlus, Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button, Field, Section, SellerShell } from "@/components/ism/SellerShell";
 import { BACKEND_REQUIRED_NOTES, VIDEO_MODERATION_NOTE } from "@/lib/ism-ops";
 import { createProductWithVariants, uploadProductMedia } from "@/lib/api/products";
+import { getCurrentSellerProfile } from "@/lib/api/sellers";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/sell/add-product")({
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/sell/add-product")({
 
 function AddProduct() {
   const { user } = useAuth();
+  const [resolvedSellerId, setResolvedSellerId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
@@ -46,15 +48,29 @@ function AddProduct() {
   const [images, setImages] = useState<string[]>([]);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-  const sellerId = user?.id ?? "00000000-0000-0000-0000-000000000001";
+  useEffect(() => {
+    async function fetchSeller() {
+      try {
+        const seller = await getCurrentSellerProfile();
+        if (seller?.id) {
+          setResolvedSellerId(seller.id);
+        } else if (user?.id) {
+          setResolvedSellerId(user.id);
+        }
+      } catch (err) {
+        console.error("Error resolving seller profile:", err);
+      }
+    }
+    fetchSeller();
+  }, [user?.id]);
+
+  const sellerId = resolvedSellerId ?? user?.id ?? "00000000-0000-0000-0000-000000000001";
 
   const handleImageUpload = async (file: File, index: number) => {
     setUploadingImageIndex(index);
     try {
       toast.info(`Uploading image ${index + 1}...`);
-      const url = await uploadProductMedia(file, sellerId).catch(() => {
-        return URL.createObjectURL(file);
-      });
+      const url = await uploadProductMedia(file, sellerId);
       setImages((prev) => {
         const next = [...prev];
         next[index] = url;
@@ -119,9 +135,7 @@ function AddProduct() {
       }
 
       toast.info("Uploading product video to media repository...");
-      const url = await uploadProductMedia(file, sellerId).catch(() => {
-        return tempUrl;
-      });
+      const url = await uploadProductMedia(file, sellerId);
       setVideoUrl(url);
       toast.success("Product video uploaded successfully", {
         description: `${Math.round(duration)}s video attached (pending automated marketplace moderation).`,
@@ -140,13 +154,12 @@ function AddProduct() {
         sellerId,
         title: title || "Untitled Draft Listing",
         department: department.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        categoryId: "00000000-0000-0000-0000-000000000000",
         subcategory,
         description: description || "Draft product listing description",
-        returnEligible: true,
-        handlingDays: 2,
-        weightKg: Number(weightKg) || 0.5,
         status: "DRAFT",
+        price: Number(price) || 99,
+        salePrice: compareAt ? Number(compareAt) : undefined,
+        stockQuantity: Number(stock) || 1,
         variants: [
           {
             sku: sku || `DRAFT-SKU-${Date.now()}`,
@@ -158,8 +171,6 @@ function AddProduct() {
             images,
           },
         ],
-      }).catch(() => {
-        // Safe offline mode fallback
       });
       toast.success("Draft saved successfully", { description: "Your listing draft is safely stored." });
     } catch (err: any) {
@@ -184,13 +195,12 @@ function AddProduct() {
         sellerId,
         title,
         department: department.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        categoryId: "00000000-0000-0000-0000-000000000000",
         subcategory,
         description,
-        returnEligible: true,
-        handlingDays: 2,
-        weightKg: Number(weightKg) || 0.5,
         status: "PENDING_REVIEW",
+        price: Number(price) || 199,
+        salePrice: compareAt ? Number(compareAt) : undefined,
+        stockQuantity: Number(stock) || 10,
         variants: [
           {
             sku: sku || `SKU-${Date.now()}`,
@@ -202,8 +212,6 @@ function AddProduct() {
             images,
           },
         ],
-      }).catch(() => {
-        // Safe offline mode fallback
       });
       toast.success("Product submitted for review", {
         description: "Your listing has been submitted for marketplace moderation.",

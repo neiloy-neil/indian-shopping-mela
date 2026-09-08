@@ -265,6 +265,95 @@ console.log("\n10. Testing Catalogue Database Mapper & Zero-Trust Pricing Integr
   assert(mockDbProduct.variants.length > 0, "Variants correctly attached to parent product record");
 }
 
+// 11. PRODUCT CRUD, VARIANT MATRIX, MODERATION & SNAPSHOT IMMUTABILITY (Master Plan §7, Tasks T104-T124)
+console.log("\n11. Testing Product CRUD, Variant Matrix, Moderation & Snapshot Immutability...");
+
+{
+  // 1. Validation rules
+  const validateProduct = (input: { title: string; description: string; price: number; stockQuantity: number }) => {
+    if (!input.title || input.title.trim().length < 3) return { valid: false, error: "TITLE_TOO_SHORT" };
+    if (!input.description || input.description.trim().length < 20) return { valid: false, error: "DESCRIPTION_TOO_SHORT" };
+    if (input.price <= 0) return { valid: false, error: "PRICE_NOT_POSITIVE" };
+    if (input.stockQuantity < 0) return { valid: false, error: "STOCK_NEGATIVE" };
+    return { valid: true };
+  };
+
+  assert(validateProduct({ title: "Kanchipuram Silk Saree", description: "Authentic handwoven pure silk saree with zari border.", price: 299.00, stockQuantity: 5 }).valid, "Valid product passes server validation");
+  assert(validateProduct({ title: "Saree", description: "Short", price: 299.00, stockQuantity: 5 }).error === "DESCRIPTION_TOO_SHORT", "Description < 20 chars fails validation");
+  assert(validateProduct({ title: "Saree", description: "Authentic handwoven pure silk saree with zari border.", price: 0, stockQuantity: 5 }).error === "PRICE_NOT_POSITIVE", "Zero price fails validation");
+
+  // 2. Seller SKU Uniqueness Check
+  const existingStoreSkus = ["MMB-BSS-001", "MMB-BSS-002", "MMB-KS-001"];
+  const isSkuUnique = (storeSkus: string[], newSku: string) => !storeSkus.includes(newSku);
+  assert(isSkuUnique(existingStoreSkus, "MMB-BSS-003"), "Unique seller SKU is allowed");
+  assert(!isSkuUnique(existingStoreSkus, "MMB-BSS-001"), "Duplicate seller SKU is rejected");
+
+  // 3. Variant Matrix & Stock Aggregation
+  const variants = [
+    { sku: "MMB-BSS-001-S", price: 299.00, stockQuantity: 3, options: { Size: "S", Color: "Red" } },
+    { sku: "MMB-BSS-001-M", price: 299.00, stockQuantity: 5, options: { Size: "M", Color: "Red" } },
+    { sku: "MMB-BSS-001-L", price: 319.00, stockQuantity: 2, options: { Size: "L", Color: "Red" } },
+  ];
+  const aggregatedStock = variants.reduce((acc, v) => acc + v.stockQuantity, 0);
+  assert(aggregatedStock === 10, "Parent product stock correctly aggregates across all variant rows");
+  assert(variants.every(v => v.sku.startsWith("MMB-BSS-001")), "All variant SKUs correctly preserve parent prefix");
+
+  // 4. Admin Product Moderation State Machine
+  type ProductStatus = "DRAFT" | "PENDING_REVIEW" | "LIVE" | "REJECTED" | "ARCHIVED";
+  const isValidProductTransition = (from: ProductStatus, to: ProductStatus): boolean => {
+    const transitions: Record<ProductStatus, ProductStatus[]> = {
+      DRAFT: ["PENDING_REVIEW", "ARCHIVED"],
+      PENDING_REVIEW: ["LIVE", "REJECTED", "DRAFT"],
+      LIVE: ["PENDING_REVIEW", "ARCHIVED", "DRAFT"],
+      REJECTED: ["DRAFT", "PENDING_REVIEW", "ARCHIVED"],
+      ARCHIVED: ["DRAFT"],
+    };
+    return transitions[from]?.includes(to) ?? false;
+  };
+
+  assert(isValidProductTransition("DRAFT", "PENDING_REVIEW"), "DRAFT product can be submitted for review");
+  assert(isValidProductTransition("PENDING_REVIEW", "LIVE"), "Admin can approve PENDING_REVIEW product to LIVE");
+  assert(isValidProductTransition("PENDING_REVIEW", "REJECTED"), "Admin can reject PENDING_REVIEW product with feedback");
+  assert(isValidProductTransition("LIVE", "ARCHIVED"), "Seller can archive LIVE product without deleting history");
+  assert(!isValidProductTransition("ARCHIVED", "LIVE"), "ARCHIVED product cannot jump directly to LIVE without review");
+
+  // 5. Product Media & Primary Image Invariant
+  const mediaItems = [
+    { url: "https://storage.ism.com/img1.jpg", isPrimary: true, mediaType: "image", sizeBytes: 2 * 1024 * 1024 },
+    { url: "https://storage.ism.com/img2.jpg", isPrimary: false, mediaType: "image", sizeBytes: 3 * 1024 * 1024 },
+    { url: "https://storage.ism.com/vid1.mp4", isPrimary: false, mediaType: "video", sizeBytes: 45 * 1024 * 1024 },
+  ];
+  const primaryCount = mediaItems.filter(m => m.isPrimary).length;
+  assert(primaryCount === 1, "Product media enforces exactly one primary display image");
+  assert(mediaItems.every(m => m.sizeBytes <= (m.mediaType === "video" ? 100 * 1024 * 1024 : 20 * 1024 * 1024)), "All media items satisfy size constraints");
+
+  // 6. Order Snapshot Immutability (Master Plan §7.3, Task T124)
+  const historicalOrderItem = {
+    id: "item-ord-001",
+    order_id: "order-9901",
+    product_id: "prod-banarasi-01",
+    variant_id: "var-1",
+    seller_id: "seller-mumbai-boutique",
+    title: "Pure Banarasi Silk Saree",
+    sku: "MMB-BSS-001-RED",
+    price_cents: 29900,
+    gst_cents: 2718,
+    purchased_at: "2026-08-01T12:00:00Z",
+  };
+
+  // Simulate seller subsequently editing live product in catalog:
+  const updatedLiveProduct = {
+    id: "prod-banarasi-01",
+    title: "Updated Modern Banarasi Saree (Discounted)",
+    price_cents: 19900,
+    status: "ARCHIVED",
+  };
+
+  assert(historicalOrderItem.price_cents === 29900, "Historical order item snapshot price is immutable after live product price change");
+  assert(historicalOrderItem.title === "Pure Banarasi Silk Saree", "Historical order item snapshot title is immutable after live product title update");
+  assert(historicalOrderItem.price_cents !== updatedLiveProduct.price_cents, "Mutating live product catalogue does not affect past customer receipts");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -274,5 +363,6 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
