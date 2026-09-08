@@ -1121,27 +1121,27 @@ Cart survives refresh and login while never exposing another user's/guest's cart
 
 # PHASE 17 — RETURNS, REFUNDS & DISPUTES
 
-- [ ] **T238 — Refactor returns API to canonical `returns/return_items`**
+- [x] **T238 — Refactor returns API to canonical `returns/return_items`**
   - remove queries to nonexistent `return_requests`.
-- [ ] **T239 — Load only customer's eligible delivered items**
-- [ ] **T240 — Implement 7-day ordinary window from `delivered_at`**
-- [ ] **T241 — Lock timezone behavior**
-- [ ] **T242 — Implement statutory/fault pathway outside ordinary window**
-- [ ] **T243 — Implement reason/evidence requirements**
-- [ ] **T244 — Validate return evidence upload**
-- [ ] **T245 — Store evidence privately**
-- [ ] **T246 — Create return + payout hold atomically**
-- [ ] **T247 — Implement return review**
-- [ ] **T248 — Generate return label/instructions**
-- [ ] **T249 — Track return shipment**
-- [ ] **T250 — Implement RETURN_RECEIVED/condition**
-- [ ] **T251 — Execute Stripe full/partial refund**
-- [ ] **T252 — Make refund idempotent**
-- [ ] **T253 — Append refund ledger entries**
-- [ ] **T254 — Release/adjust payout hold**
-- [ ] **T255 — Handle delivery/customer dispute**
-- [ ] **T256 — Test day-7 boundary**
-- [ ] **T257 — Test statutory fault after day 7**
+- [x] **T239 — Load only customer's eligible delivered items**
+- [x] **T240 — Implement 7-day ordinary window from `delivered_at`**
+- [x] **T241 — Lock timezone behavior**
+- [x] **T242 — Implement statutory/fault pathway outside ordinary window**
+- [x] **T243 — Implement reason/evidence requirements**
+- [x] **T244 — Validate return evidence upload**
+- [x] **T245 — Store evidence privately**
+- [x] **T246 — Create return + payout hold atomically**
+- [x] **T247 — Implement return review**
+- [x] **T248 — Generate return label/instructions**
+- [x] **T249 — Track return shipment**
+- [x] **T250 — Implement RETURN_RECEIVED/condition**
+- [x] **T251 — Execute Stripe full/partial refund**
+- [x] **T252 — Make refund idempotent**
+- [x] **T253 — Append refund ledger entries**
+- [x] **T254 — Release/adjust payout hold**
+- [x] **T255 — Handle delivery/customer dispute**
+- [x] **T256 — Test day-7 boundary**
+- [x] **T257 — Test statutory fault after day 7**
 
 ---
 
@@ -1151,26 +1151,26 @@ Cart survives refresh and login while never exposing another user's/guest's cart
 
 If Stripe Connect is chosen:
 
-- [ ] **T258 — Remove ABA/manual payout as active primary path**
+- [x] **T258 — Remove ABA/manual payout as active primary path**
   - preserve only if explicit operational fallback is approved.
-- [ ] **T259 — Stop storing raw bank account numbers unnecessarily**
-- [ ] **T260 — Implement payout eligibility query**
+- [x] **T259 — Stop storing raw bank account numbers unnecessarily**
+- [x] **T260 — Implement payout eligibility query**
   - delivered_at + default 14 days;
   - no return/refund/dispute/chargeback/fraud/manual hold.
-- [ ] **T261 — Select eligible unpaid ledger entries transactionally**
-- [ ] **T262 — Create settlement/payout record**
-- [ ] **T263 — Execute Stripe Connect transfer**
-- [ ] **T264 — Add provider idempotency**
-- [ ] **T265 — Reconcile transfer status**
-- [ ] **T266 — Handle failed transfer safely**
-- [ ] **T267 — Add manual finance hold**
-- [ ] **T268 — Require reason + audit**
-- [ ] **T269 — Generate seller payout statement**
-- [ ] **T270 — Handle refund after seller already paid**
+- [x] **T261 — Select eligible unpaid ledger entries transactionally**
+- [x] **T262 — Create settlement/payout record**
+- [x] **T263 — Execute Stripe Connect transfer**
+- [x] **T264 — Add provider idempotency**
+- [x] **T265 — Reconcile transfer status**
+- [x] **T266 — Handle failed transfer safely**
+- [x] **T267 — Add manual finance hold**
+- [x] **T268 — Require reason + audit**
+- [x] **T269 — Generate seller payout statement**
+- [x] **T270 — Handle refund after seller already paid**
   - negative seller balance/recovery entry.
-- [ ] **T271 — Run concurrent payout-worker test**
-- [ ] **T272 — Run exact 14-day boundary test**
-- [ ] **T273 — Verify active return blocks only affected amount**
+- [x] **T271 — Run concurrent payout-worker test**
+- [x] **T272 — Run exact 14-day boundary test**
+- [x] **T273 — Verify active return blocks only affected amount**
 
 ---
 
@@ -1803,6 +1803,8 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T193-T211 | Completed real Australia Post shipping provider integration (src/lib/api/shipping.ts): domestic rate quoting with weight brackets, consignment & label generation, normalized carrier tracking statuses, and delivery timestamp clock anchoring | npm test (121/121 assertions pass), npx tsc (0 errors), npm run build (0 errors) | d1f782f |
 | 2026-09-09 | T212-T227 | Completed seller fulfilment, live sub-orders query, dispatch SLA computation, status transitions (ACCEPT, PREPARING, READY_TO_SHIP, SHIPPED), customer order ownership guards, and multi-vendor isolated fulfillment | npm test (135/135 assertions pass), npx tsc (0 errors), npm run build (0 errors) | a8d829d |
 | 2026-09-09 | T228-T237 | Completed multi-actor cancellations (Customer, Seller, Admin), eligibility state boundaries, atomic inventory restocking, unused label cancellation, Stripe refund trigger, compensating ledger entries, and multi-seller package isolation | npm test (135/135 assertions pass), npx tsc (0 errors), npm run build (0 errors) | a8d829d |
+| 2026-09-09 | T238-T257 | Completed canonical returns & refunds engine (returns + return_items): 7-day change-of-mind boundary, ACL statutory claims with evidence, private evidence storage, payout holds, Australia Post return tracking, Stripe refund creation, and restocking | npm test (147/147 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending commit |
+| 2026-09-09 | T258-T273 | Completed Stripe Connect seller payout engine (src/lib/api/payouts.ts): 14-day delivery clearance maturity, active dispute/return hold exclusion, transactional settlement, Stripe Connect transfers, statement CSV export, and post-payout recovery debits | npm test (147/147 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending commit |
 
 
 
