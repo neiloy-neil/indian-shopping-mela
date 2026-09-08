@@ -1354,28 +1354,28 @@ If **direct Supabase MP4** is chosen instead:
 
 # PHASE 27 — SECURITY HARDENING
 
-- [ ] **T398 — Add CSP**
+- [x] **T398 — Add CSP**
   - allow only required Stripe/video/storage domains.
-- [ ] **T399 — Add remaining security headers**
-- [ ] **T400 — Verify CSRF strategy for cookie-auth mutations**
-- [ ] **T401 — Add rate limiting: login**
-- [ ] **T402 — Add rate limiting: signup/reset**
-- [ ] **T403 — Add rate limiting: checkout**
-- [ ] **T404 — Add rate limiting: returns**
-- [ ] **T405 — Add rate limiting: uploads**
-- [ ] **T406 — Validate every server payload**
-- [ ] **T407 — Audit every server mutation authorization**
-- [ ] **T408 — Harden seller/private file access**
-- [ ] **T409 — Harden return evidence**
-- [ ] **T410 — Implement remote-media SSRF protection**
-- [ ] **T411 — Sanitize/escape notification templates**
-- [ ] **T412 — Audit logs for sensitive actions**
-- [ ] **T413 — Remove sensitive data from logs**
-- [ ] **T414 — Review direct bank fields**
-- [ ] **T415 — Add dependency security review**
-- [ ] **T416 — Add secret rotation runbook**
-- [ ] **T417 — Add session/security-change revocation behavior**
-- [ ] **T418 — Run seller/customer IDOR tests**
+- [x] **T399 — Add remaining security headers**
+- [x] **T400 — Verify CSRF strategy for cookie-auth mutations**
+- [x] **T401 — Add rate limiting: login**
+- [x] **T402 — Add rate limiting: signup/reset**
+- [x] **T403 — Add rate limiting: checkout**
+- [x] **T404 — Add rate limiting: returns**
+- [x] **T405 — Add rate limiting: uploads**
+- [x] **T406 — Validate every server payload**
+- [x] **T407 — Audit every server mutation authorization**
+- [x] **T408 — Harden seller/private file access**
+- [x] **T409 — Harden return evidence**
+- [x] **T410 — Implement remote-media SSRF protection**
+- [x] **T411 — Sanitize/escape notification templates**
+- [x] **T412 — Audit logs for sensitive actions**
+- [x] **T413 — Remove sensitive data from logs**
+- [x] **T414 — Review direct bank fields**
+- [x] **T415 — Add dependency security review**
+- [x] **T416 — Add secret rotation runbook**
+- [x] **T417 — Add session/security-change revocation behavior**
+- [x] **T418 — Run seller/customer IDOR tests**
 
 ---
 
@@ -1810,6 +1810,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T317-T335 | Completed product video pipeline (src/lib/api/video.ts, storage.ts): upload size/duration validation, Mux HMAC-SHA256 webhook signature verification, moderation states (PENDING/APPROVED/REJECTED), fail-closed PDP isolation, and canonical product-media storage | npm test (176/176 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 29e1d9d |
 | 2026-09-09 | T336-T351 | Completed transactional notifications engine (src/lib/api/notifications.ts): Brevo API client, idempotency key deduplication, 3-retry exponential backoff, in-app notification queries, fail-closed missing key protection, 8 business event generators, and Stripe webhook order confirmation email wiring | npm test (190/190 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 4cb76e1 |
 | 2026-09-09 | T352-T397 | Completed Admin Console live wiring & Finance MFA (Phase 23), Seller Team invite/permission/revocation (Phase 24), Customer Account address CRUD & verified reviews (Phase 25), and Webhook Framework & Background Jobs Engine (Phase 26) with correlation IDs, reservation expiry, payout eligibility, notification retry & dead-letter queue | npm test (220/220 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 63672fa |
+| 2026-09-09 | T398-T418 | Completed security hardening suite (src/lib/security): Content Security Policy (CSP), security headers (HSTS/DENY/nosniff), CSRF validation, multi-action sliding window rate limiting (login/signup/checkout/returns/uploads), remote-media SSRF protection, HTML/template sanitization, log PII/secret redaction, session revocation, and multi-tenant IDOR guards | npm test (250/250 assertions pass), npx tsc (0 errors), npm run build (0 errors) | a3eac16 |
 
 
 

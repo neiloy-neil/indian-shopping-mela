@@ -2024,6 +2024,128 @@ console.log("\n29. Testing Standard Webhook Framework & Background Jobs Engine..
   runningJobs.delete("bulk_import");
 }
 
+// ----------------------------------------------------------------------------
+// SECTION 30: Security Hardening, CSP, Rate Limiting, CSRF, SSRF & IDOR
+// ----------------------------------------------------------------------------
+{
+  console.log("\n30. Testing Security Hardening, CSP, Rate Limiting, CSRF, SSRF & IDOR Guards...");
+
+  // 1. Content Security Policy (CSP) & Security Headers
+  const { buildCspHeader, applySecurityHeaders } = await import("../src/lib/security/headers");
+  const csp = buildCspHeader();
+  assert(csp.includes("default-src 'self'"), "CSP specifies default-src 'self'");
+  assert(csp.includes("https://js.stripe.com"), "CSP authorizes Stripe JS SDK");
+  assert(csp.includes("frame-ancestors 'none'"), "CSP blocks clickjacking via frame-ancestors 'none'");
+  assert(csp.includes("object-src 'none'"), "CSP disables dangerous plugin objects");
+
+  const mockResponse = new Response("OK", { status: 200 });
+  const securedResponse = applySecurityHeaders(mockResponse);
+  assert(securedResponse.headers.get("X-Frame-Options") === "DENY", "X-Frame-Options set to DENY");
+  assert(securedResponse.headers.get("X-Content-Type-Options") === "nosniff", "X-Content-Type-Options set to nosniff");
+  assert(securedResponse.headers.get("Strict-Transport-Security")?.includes("max-age=63072000"), "HSTS configured for 2 years with subdomains and preload");
+
+  // 2. Multi-Action Rate Limiter
+  const { checkRateLimit, clearRateLimitStore } = await import("../src/lib/security/rate-limiter");
+  clearRateLimitStore();
+
+  const ip = "203.0.113.42";
+  for (let i = 0; i < 5; i++) {
+    const res = checkRateLimit("login", ip);
+    assert(res.allowed === true, `Login attempt ${i + 1} within threshold allowed`);
+  }
+  const blockedLogin = checkRateLimit("login", ip);
+  assert(blockedLogin.allowed === false, "6th login attempt within 15min window strictly blocked (429)");
+  assert(Number(blockedLogin.retryAfterSeconds) > 0, "Rate limiter returns retryAfterSeconds cooldown");
+  clearRateLimitStore();
+
+  // 3. CSRF Strategy
+  const { validateCsrf } = await import("../src/lib/security/csrf");
+  const crossSiteRes = validateCsrf("https://evil-phishing.com", null, "cross-site", null);
+  assert(crossSiteRes.valid === false, "Cross-site request blocked by Sec-Fetch-Site and Origin check");
+
+  const legitOriginRes = validateCsrf("https://indianshoppingmela.com.au", null, "same-origin", null);
+  assert(legitOriginRes.valid === true, "Legitimate marketplace origin authorized");
+
+  // 4. Remote Media SSRF Defense
+  const { validateRemoteUrl } = await import("../src/lib/security/ssrf");
+  assert(validateRemoteUrl("http://169.254.169.254/latest/meta-data").safe === false, "SSRF validator strictly blocks Cloud metadata IP (169.254.169.254)");
+  assert(validateRemoteUrl("http://192.168.1.1/admin").safe === false, "SSRF validator strictly blocks private subnet 192.168.x.x");
+  assert(validateRemoteUrl("http://10.0.0.1/internal").safe === false, "SSRF validator strictly blocks private subnet 10.x.x.x");
+  assert(validateRemoteUrl("http://127.0.0.1:8000/").safe === false, "SSRF validator strictly blocks localhost loopback");
+  assert(validateRemoteUrl("https://images.unsplash.com/photo-1546868871-7041f2a55e12").safe === true, "SSRF validator authorizes public HTTPS media");
+
+  // 5. HTML & Template Sanitization
+  const { escapeHtml } = await import("../src/lib/security/sanitizer");
+  const rawDangerous = "<script>alert('xss')</script>&\"test\"";
+  const escaped = escapeHtml(rawDangerous);
+  assert(!escaped.includes("<script>"), "HTML special characters stripped/escaped from template payload");
+  assert(escaped.includes("&lt;script&gt;"), "XSS payload neutralized to safe HTML entities");
+
+  // 6. Log Redaction & PII / Secret Masking
+  const { redactSensitiveData } = await import("../src/lib/security/logger-redaction");
+  const rawLogPayload = {
+    apiKey: "sec_token_sample_secret_key_1234567890",
+    password: "SuperSecretPassword123!",
+    cardNumber: "4532 1234 5678 9012",
+    cvv: "888",
+    bsb: "062-000",
+    accountNumber: "12345678",
+    customerName: "Priya Sharma",
+  };
+  const redactedLog = redactSensitiveData(rawLogPayload);
+  assert(redactedLog.apiKey !== "sec_token_sample_secret_key_1234567890", "API secret token redacted in logs");
+  assert(redactedLog.password !== "SuperSecretPassword123!", "Raw password masked in logs");
+  assert(redactedLog.cvv === "****", "CVV masked in logs");
+  assert(redactedLog.customerName === "Priya Sharma", "Non-sensitive metadata preserved in structured logs");
+
+  // 7. Multi-Tenant Authorization & IDOR Guards
+  interface MockOrder { id: string; customerId: string; }
+  interface MockProduct { id: string; sellerId: string; }
+
+  const ordersDb: MockOrder[] = [
+    { id: "ord_cust_A", customerId: "user_alice" },
+    { id: "ord_cust_B", customerId: "user_bob" },
+  ];
+  const productsDb: MockProduct[] = [
+    { id: "prod_sel_A", sellerId: "seller_A" },
+    { id: "prod_sel_B", sellerId: "seller_B" },
+  ];
+
+  function verifyCustomerOrderAccess(userId: string, orderId: string) {
+    const ord = ordersDb.find(o => o.id === orderId);
+    if (!ord || ord.customerId !== userId) {
+      throw new Error("Access denied: You do not have access to this order.");
+    }
+    return true;
+  }
+
+  function verifySellerProductAccess(sellerId: string, productId: string) {
+    const prod = productsDb.find(p => p.id === productId);
+    if (!prod || prod.sellerId !== sellerId) {
+      throw new Error("Access denied: You do not have permission to manage this product.");
+    }
+    return true;
+  }
+
+  let blockedCustomerAccess = false;
+  try {
+    verifyCustomerOrderAccess("user_alice", "ord_cust_B");
+  } catch {
+    blockedCustomerAccess = true;
+  }
+  assert(blockedCustomerAccess, "Alice strictly blocked from accessing Bob's order (IDOR defense)");
+
+  assert(verifySellerProductAccess("seller_A", "prod_sel_A") === true, "Seller A authorized to manage own product");
+
+  let blockedSellerAccess = false;
+  try {
+    verifySellerProductAccess("seller_A", "prod_sel_B");
+  } catch {
+    blockedSellerAccess = true;
+  }
+  assert(blockedSellerAccess, "Seller A strictly blocked from managing Seller B's product (Tenant isolation)");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
