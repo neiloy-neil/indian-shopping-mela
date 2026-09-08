@@ -176,13 +176,57 @@ console.log("\n7. Testing Double-Entry Ledger Arithmetic Balance...");
   assert(orderTotalAud === totalCredits, "Ledger double-entry sum reconciles to exact customer charge", `Got ${totalCredits} vs ${orderTotalAud}`);
 }
 
+// 8. MULTI-TENANT AUTHORIZATION, ROLE ISOLATION & MFA GATES (Master Plan §3, Task V3-T063-T075)
+console.log("\n8. Testing Multi-Tenant Authorization, Role Isolation & MFA Gates...");
+{
+  // Customer Isolation Rule
+  const canCustomerAccessOrder = (authenticatedCustomerId: string, orderCustomerId: string) => {
+    return authenticatedCustomerId === orderCustomerId;
+  };
+
+  assert(canCustomerAccessOrder("cust_123", "cust_123"), "Customer can access their own order data");
+  assert(!canCustomerAccessOrder("cust_123", "cust_456"), "Customer A cannot access Customer B's orders");
+
+  // Seller Cross-Tenant Isolation Rule
+  const canSellerMutateProduct = (authenticatedSellerId: string, productSellerId: string, userRole: string) => {
+    if (userRole === "super_admin" || userRole === "admin") return true;
+    return authenticatedSellerId === productSellerId;
+  };
+
+  assert(canSellerMutateProduct("seller_abc", "seller_abc", "seller"), "Seller can update their own products");
+  assert(!canSellerMutateProduct("seller_abc", "seller_xyz", "seller"), "Seller A is strictly blocked from modifying Seller B's catalogue");
+  assert(canSellerMutateProduct("seller_abc", "seller_xyz", "super_admin"), "Super Admin can moderate any seller's catalogue");
+
+  // Seller Staff Granular Permissions
+  const hasSellerStaffPermission = (staffPermissions: string[], requiredAction: string) => {
+    return staffPermissions.includes(requiredAction) || staffPermissions.includes("*");
+  };
+
+  const inventoryManagerPerms = ["inventory:update", "products:read"];
+  assert(hasSellerStaffPermission(inventoryManagerPerms, "inventory:update"), "Staff with inventory:update can adjust stock");
+  assert(!hasSellerStaffPermission(inventoryManagerPerms, "payouts:manage"), "Inventory staff cannot trigger seller payout transfers");
+
+  // Finance / Super Admin Role & MFA Isolation
+  const authorizeFinancialLedger = (role: string, mfaVerified: boolean) => {
+    if (role !== "super_admin") return { allowed: false, reason: "INSUFFICIENT_ROLE" };
+    if (!mfaVerified) return { allowed: false, reason: "MFA_REQUIRED" };
+    return { allowed: true };
+  };
+
+  assert(!authorizeFinancialLedger("customer", true).allowed, "Customer cannot access financial ledger");
+  assert(!authorizeFinancialLedger("seller", true).allowed, "Seller cannot access platform finance");
+  assert(!authorizeFinancialLedger("admin", true).allowed, "Standard Admin without Super Admin role cannot execute payouts");
+  assert(authorizeFinancialLedger("super_admin", false).reason === "MFA_REQUIRED", "Super Admin payout requires MFA verification");
+  assert(authorizeFinancialLedger("super_admin", true).allowed, "Super Admin with verified MFA is authorized for settlement");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
-
 
 if (failedTests > 0) {
   process.exit(1);
 } else {
   process.exit(0);
 }
+

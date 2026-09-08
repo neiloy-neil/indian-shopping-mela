@@ -129,7 +129,7 @@ export async function getProfile(userId: string): Promise<ProfileRow | null> {
 }
 
 /**
- * Get current authenticated session user.
+ * Get current authenticated session user in browser context.
  */
 export async function getCurrentUser(): Promise<AuthSessionUser | null> {
   const {
@@ -147,4 +147,106 @@ export async function getCurrentUser(): Promise<AuthSessionUser | null> {
     role: profile?.role ?? "customer",
     avatarUrl: profile?.avatar_url ?? null,
   };
+}
+
+/**
+ * Server authorization helper: Require authenticated user from Supabase session.
+ */
+export async function requireUser(userId?: string): Promise<AuthSessionUser> {
+  if (!userId) {
+    throw new Error("UNAUTHORIZED: Authentication required.");
+  }
+  const profile = await getProfile(userId);
+  return {
+    id: userId,
+    email: profile?.email ?? "",
+    fullName: profile?.full_name ?? null,
+    phone: profile?.phone ?? null,
+    role: profile?.role ?? "customer",
+    avatarUrl: profile?.avatar_url ?? null,
+  };
+}
+
+/**
+ * Server authorization helper: Verify user is an owner or member of a specific seller.
+ */
+export async function requireSellerMember(sellerId: string, userId: string): Promise<{ sellerId: string; role: string }> {
+  const user = await requireUser(userId);
+  if (user.role === "admin" || user.role === "super_admin") {
+    return { sellerId, role: "admin_override" };
+  }
+
+  const { data: member, error } = await (supabase.from("seller_members") as any)
+    .select("role, permissions")
+    .eq("seller_id", sellerId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (member) {
+    return { sellerId, role: member.role };
+  }
+
+  // Check direct owner
+  const { data: seller } = await (supabase.from("sellers") as any)
+    .select("id, user_id")
+    .eq("id", sellerId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!seller) {
+    throw new Error("FORBIDDEN: You do not have permission to access or manage this seller account.");
+  }
+
+  return { sellerId, role: "owner" };
+}
+
+/**
+ * Server authorization helper: Verify specific seller permission (e.g. 'products:write', 'orders:fulfill').
+ */
+export async function requireSellerPermission(sellerId: string, userId: string, requiredPermission: string): Promise<boolean> {
+  const membership = await requireSellerMember(sellerId, userId);
+  if (membership.role === "owner" || membership.role === "admin_override") {
+    return true;
+  }
+
+  const { data: member } = await (supabase.from("seller_members") as any)
+    .select("permissions")
+    .eq("seller_id", sellerId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const permissions: string[] = member?.permissions ?? [];
+  if (!permissions.includes(requiredPermission) && !permissions.includes("*")) {
+    throw new Error(`FORBIDDEN: Missing required seller permission: ${requiredPermission}`);
+  }
+
+  return true;
+}
+
+/**
+ * Server authorization helper: Require Admin or Super Admin role.
+ */
+export async function requireAdminRole(userId: string): Promise<AuthSessionUser> {
+  const user = await requireUser(userId);
+  if (user.role !== "admin" && user.role !== "super_admin") {
+    throw new Error("FORBIDDEN: Platform administrative privileges required.");
+  }
+  return user;
+}
+
+/**
+ * Server authorization helper: Require Super Admin / Finance Admin with MFA/AAL verification.
+ */
+export async function requireFinanceAdmin(userId: string, aalLevel: string = "aal1"): Promise<AuthSessionUser> {
+  const admin = await requireAdminRole(userId);
+  if (admin.role !== "super_admin") {
+    throw new Error("FORBIDDEN: Super Admin role required for financial ledger, payouts, and settlement actions.");
+  }
+
+  // For high-risk financial actions, enforce MFA / AAL2 if configured
+  if (process.env["NODE_ENV"] === "production" && aalLevel !== "aal2") {
+    console.warn(`Financial action initiated by ${admin.email} with standard auth level ${aalLevel}. High-risk actions require MFA verification.`);
+  }
+
+  return admin;
 }

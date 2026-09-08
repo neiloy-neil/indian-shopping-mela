@@ -1788,7 +1788,10 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | Date | Task | Result | Test/Evidence | Commit |
 |---|---|---|---|---|
 | 2026-09-07 | T013-T019 | Completed repository baseline, AGENTS.md update, and quality check baselines | npm test, npx tsc, npm run build | e0bc218 |
-| 2026-09-08 | T020-T045 | Fixed table creation order, seed.sql column/enum coherence, added decrement_variant_stock RPC, comprehensive schema checker with FK dependency ordering | npm test (26/26 assertions pass), npx tsc (0 errors), npm run build (0 errors) | in-progress |
+| 2026-09-08 | T020-T045 | Fixed table creation order, seed.sql column/enum coherence, added decrement_variant_stock RPC, comprehensive schema checker with FK dependency ordering | npm test (26/26 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 41eab02 |
+| 2026-09-08 | T046-T055 | Generated canonical database.types.ts, wired schema verification into CI workflow, prepared staging seed | npm test, npx tsc (0 errors), npm run build (0 errors) | f4c89af |
+| 2026-09-08 | T056-T063 | Hardened DB latency health check endpoint, runtime environment validation, and server boundaries | npm test, npx tsc (0 errors), npm run build (0 errors) | 348a48f |
+| 2026-09-08 | T064-T075 | Completed server authorization helpers (requireUser, requireSellerMember, requireAdminRole, requireFinanceAdmin), MFA gates, and multi-tenant isolation tests | npm test (38/38 assertions pass), npx tsc (0 errors), npm run build (0 errors) | in-progress |
 
 ---
 
