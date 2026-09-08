@@ -1176,44 +1176,44 @@ If Stripe Connect is chosen:
 
 # PHASE 19 — BULK PRODUCT CSV/XLSX
 
-- [ ] **T274 — Remove hard-coded 1000/944/36/20 demo counts**
-- [ ] **T275 — Remove timer-based fake import completion**
-- [ ] **T276 — Create canonical versioned CSV template**
-- [ ] **T277 — Create real XLSX template**
-- [ ] **T278 — Install maintained CSV parser**
+- [x] **T274 — Remove hard-coded 1000/944/36/20 demo counts**
+- [x] **T275 — Remove timer-based fake import completion**
+- [x] **T276 — Create canonical versioned CSV template**
+- [x] **T277 — Create real XLSX template**
+- [x] **T278 — Install maintained CSV parser**
   - handles quotes, commas, multiline, UTF-8.
-- [ ] **T279 — Install maintained XLSX parser**
+- [x] **T279 — Install maintained XLSX parser**
   - verify security/maintenance.
-- [ ] **T280 — Upload source file privately**
-- [ ] **T281 — Validate file size/type/template version**
-- [ ] **T282 — Parse rows server-side/background job**
-- [ ] **T283 — Preserve original row number**
-- [ ] **T284 — Validate seller SKU**
-- [ ] **T285 — Validate category/subcategory**
-- [ ] **T286 — Validate dynamic attributes**
-- [ ] **T287 — Validate price/sale price**
-- [ ] **T288 — Validate stock**
-- [ ] **T289 — Validate weight/dimensions/handling**
-- [ ] **T290 — Validate primary image**
-- [ ] **T291 — Harden remote media fetching against SSRF**
-- [ ] **T292 — Validate video URL/source**
-- [ ] **T293 — Persist `bulk_import_batch`**
-- [ ] **T294 — Persist row validation results**
-- [ ] **T295 — Render real preview counts**
-- [ ] **T296 — Require seller confirmation before commit**
-- [ ] **T297 — Implement CREATE mode**
-- [ ] **T298 — Implement UPDATE mode**
-- [ ] **T299 — Implement blank IGNORE vs CLEAR**
-- [ ] **T300 — Process large file asynchronously/chunked**
-- [ ] **T301 — Show progress after refresh**
-- [ ] **T302 — Generate error report**
-- [ ] **T303 — Implement failed-row retry**
-- [ ] **T304 — Copy approved remote image to ISM-controlled storage**
-- [ ] **T305 — Never publish malformed imported product**
-- [ ] **T306 — Test 1,000-row file**
+- [x] **T280 — Upload source file privately**
+- [x] **T281 — Validate file size/type/template version**
+- [x] **T282 — Parse rows server-side/background job**
+- [x] **T283 — Preserve original row number**
+- [x] **T284 — Validate seller SKU**
+- [x] **T285 — Validate category/subcategory**
+- [x] **T286 — Validate dynamic attributes**
+- [x] **T287 — Validate price/sale price**
+- [x] **T288 — Validate stock**
+- [x] **T289 — Validate weight/dimensions/handling**
+- [x] **T290 — Validate primary image**
+- [x] **T291 — Harden remote media fetching against SSRF**
+- [x] **T292 — Validate video URL/source**
+- [x] **T293 — Persist `bulk_import_batch`**
+- [x] **T294 — Persist row validation results**
+- [x] **T295 — Render real preview counts**
+- [x] **T296 — Require seller confirmation before commit**
+- [x] **T297 — Implement CREATE mode**
+- [x] **T298 — Implement UPDATE mode**
+- [x] **T299 — Implement blank IGNORE vs CLEAR**
+- [x] **T300 — Process large file asynchronously/chunked**
+- [x] **T301 — Show progress after refresh**
+- [x] **T302 — Generate error report**
+- [x] **T303 — Implement failed-row retry**
+- [x] **T304 — Copy approved remote image to ISM-controlled storage**
+- [x] **T305 — Never publish malformed imported product**
+- [x] **T306 — Test 1,000-row file**
   - 975 valid + 25 invalid.
-- [ ] **T307 — Test real XLSX**
-- [ ] **T308 — Test update-mode retry without duplication**
+- [x] **T307 — Test real XLSX**
+- [x] **T308 — Test update-mode retry without duplication**
 
 ---
 

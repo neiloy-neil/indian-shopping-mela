@@ -143,12 +143,12 @@ function BulkUpload() {
     errors: BulkValidationError[];
     previewRows: any[];
   }>({
-    totalRows: 1000,
-    readyCount: 944,
-    warningCount: 36,
-    errorCount: 20,
-    errors: ERROR_ROWS,
-    previewRows: PREVIEW_ROWS as any,
+    totalRows: 0,
+    readyCount: 0,
+    warningCount: 0,
+    errorCount: 0,
+    errors: [],
+    previewRows: [],
   });
 
   const [rawParsedRows, setRawParsedRows] = useState<BulkUploadRow[]>([]);

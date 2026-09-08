@@ -57,13 +57,51 @@ export const validateBulkRowsServerFn = createServerFn({ method: "POST" })
  * Server Function: Commit valid rows in transactional chunks
  */
 export const commitBulkImportChunkServerFn = createServerFn({ method: "POST" })
-  .validator((data: { sellerId: string; rows: BulkUploadRow[]; mode?: "CREATE" | "UPDATE" }) => data)
+  .validator((data: {
+    sellerId: string;
+    rows: BulkUploadRow[];
+    mode?: "CREATE" | "UPDATE" | undefined;
+    blankPolicy?: "ignore" | "clear" | undefined;
+  }) => data)
   .handler(async ({ data }) => {
-    return commitBulkImportChunk(data.sellerId, data.rows, data.mode);
+    return commitBulkImportChunk(data.sellerId, data.rows, data.mode ?? "CREATE", data.blankPolicy ?? "ignore");
   });
 
 /**
- * Parse raw file ArrayBuffer into structured product rows using SheetJS
+ * SSRF Protection: Validate remote media URL is safe and public
+ */
+export function isSafeRemoteMediaUrl(urlStr: string): { safe: boolean; reason?: string } {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { safe: false, reason: "URL must use HTTP or HTTPS protocol." };
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1" ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      (hostname.startsWith("172.") &&
+        Number(hostname.split(".")[1]) >= 16 &&
+        Number(hostname.split(".")[1]) <= 31) ||
+      hostname === "169.254.169.254" || // AWS / GCP / Cloud metadata
+      hostname.endsWith(".internal") ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".onion")
+    ) {
+      return { safe: false, reason: "Access to private or local network addresses is strictly prohibited." };
+    }
+    return { safe: true };
+  } catch {
+    return { safe: false, reason: "Malformed URL format." };
+  }
+}
+
+/**
+ * Parse raw CSV or XLSX ArrayBuffer into structured product rows using SheetJS
  */
 export function parseSpreadsheetBuffer(buffer: ArrayBuffer | Uint8Array, _fileName?: string): Partial<BulkUploadRow>[] {
   const workbook = XLSX.read(buffer, { type: "array" });
@@ -72,6 +110,89 @@ export function parseSpreadsheetBuffer(buffer: ArrayBuffer | Uint8Array, _fileNa
   const worksheet = workbook.Sheets[firstSheetName];
   if (!worksheet) return [];
   return XLSX.utils.sheet_to_json<Partial<BulkUploadRow>>(worksheet, { defval: "" });
+}
+
+/**
+ * Generate versioned canonical CSV template for bulk product uploads
+ */
+export function generateCsvTemplate(): string {
+  const headers = [
+    "seller_sku",
+    "product_title",
+    "department",
+    "category",
+    "subcategory",
+    "description",
+    "price",
+    "sale_price",
+    "stock_qty",
+    "variant_group",
+    "size",
+    "colour",
+    "material",
+    "weight_kg",
+    "length_cm",
+    "width_cm",
+    "height_cm",
+    "handling_days",
+    "image_1_url",
+    "image_2_url",
+    "video_url",
+    "return_eligible",
+  ];
+
+  const sampleRows = [
+    [
+      "MMB-SAR-001",
+      "Banarasi Silk Saree — Rani Pink",
+      "Women",
+      "Sarees",
+      "Banarasi Sarees",
+      "Handcrafted pure silk saree with golden zari work and unstitched blouse piece.",
+      "189.00",
+      "169.00",
+      "15",
+      "VAR-SAR-01",
+      "Free Size",
+      "Rani Pink",
+      "Pure Silk",
+      "0.600",
+      "30",
+      "20",
+      "5",
+      "2",
+      "https://images.unsplash.com/photo-1610030469983-98e550d6193c",
+      "",
+      "",
+      "true",
+    ],
+    [
+      "MMB-JEW-002",
+      "Oxidised Silver Jhumkas",
+      "Jewellery",
+      "Earrings",
+      "Jhumkas",
+      "Traditional antique finish German silver jhumkas with pearl beads.",
+      "49.00",
+      "",
+      "40",
+      "VAR-JEW-02",
+      "Free Size",
+      "Silver",
+      "German Silver",
+      "0.150",
+      "10",
+      "10",
+      "4",
+      "1",
+      "https://images.unsplash.com/photo-1630019852942-f89202989a59",
+      "",
+      "",
+      "true",
+    ],
+  ];
+
+  return [headers.join(","), ...sampleRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(","))].join("\n");
 }
 
 /**
@@ -123,7 +244,7 @@ export function generateXlsxTemplateBlob(): Uint8Array {
       width_cm: 20,
       height_cm: 5,
       handling_days: 2,
-      image_1_url: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=800",
+      image_1_url: "https://images.unsplash.com/photo-1610030469983-98e550d6193c",
       image_2_url: "",
       video_url: "",
       return_eligible: "true",
@@ -147,7 +268,7 @@ export function generateXlsxTemplateBlob(): Uint8Array {
       width_cm: 10,
       height_cm: 4,
       handling_days: 1,
-      image_1_url: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&q=80&w=800",
+      image_1_url: "https://images.unsplash.com/photo-1630019852942-f89202989a59",
       image_2_url: "",
       video_url: "",
       return_eligible: "true",
@@ -236,7 +357,12 @@ export function validateBulkRows(rows: Partial<BulkUploadRow>[]): {
       return;
     }
 
-    if (row.sale_price !== undefined && row.sale_price !== null && String(row.sale_price).trim() !== "" && !isNaN(Number(row.sale_price))) {
+    if (
+      row.sale_price !== undefined &&
+      row.sale_price !== null &&
+      String(row.sale_price).trim() !== "" &&
+      !isNaN(Number(row.sale_price))
+    ) {
       if (Number(row.sale_price) >= price) {
         errors.push({
           rowNumber: rowNum,
@@ -262,8 +388,9 @@ export function validateBulkRows(rows: Partial<BulkUploadRow>[]): {
       return;
     }
 
-    // 6. Primary Image Check
-    if (!row.image_1_url || !row.image_1_url.trim()) {
+    // 6. Primary Image Check & SSRF Validation
+    const img1 = (row.image_1_url ?? "").trim();
+    if (!img1) {
       errors.push({
         rowNumber: rowNum,
         sku,
@@ -272,6 +399,33 @@ export function validateBulkRows(rows: Partial<BulkUploadRow>[]): {
         message: "Primary image URL (image_1_url) is required.",
       });
       return;
+    }
+
+    const ssrfCheck = isSafeRemoteMediaUrl(img1);
+    if (!ssrfCheck.safe) {
+      errors.push({
+        rowNumber: rowNum,
+        sku,
+        field: "image_1_url",
+        errorCode: "UNSAFE_URL_SSRF",
+        message: ssrfCheck.reason ?? "Image URL is rejected for security reasons.",
+      });
+      return;
+    }
+
+    // 7. Video URL SSRF Check if provided
+    if (row.video_url && row.video_url.trim()) {
+      const videoCheck = isSafeRemoteMediaUrl(row.video_url.trim());
+      if (!videoCheck.safe) {
+        errors.push({
+          rowNumber: rowNum,
+          sku,
+          field: "video_url",
+          errorCode: "UNSAFE_URL_SSRF",
+          message: videoCheck.reason ?? "Video URL is rejected for security reasons.",
+        });
+        return;
+      }
     }
 
     validRows.push({
@@ -293,7 +447,7 @@ export function validateBulkRows(rows: Partial<BulkUploadRow>[]): {
       width_cm: row.width_cm ? Number(row.width_cm) : undefined,
       height_cm: row.height_cm ? Number(row.height_cm) : undefined,
       handling_days: row.handling_days ? Number(row.handling_days) : 2,
-      image_1_url: row.image_1_url.trim(),
+      image_1_url: img1,
       image_2_url: row.image_2_url?.trim(),
       video_url: row.video_url?.trim(),
       return_eligible: String(row.return_eligible).toLowerCase() !== "false",
@@ -315,35 +469,94 @@ export function generateErrorReportCsv(errors: BulkValidationError[]): string {
 }
 
 /**
- * Ingest valid rows in serverless chunks (100 rows per chunk) into Supabase.
+ * Ingest valid rows in serverless chunks into Supabase products, product_variants, and product_media.
  */
 export async function commitBulkImportChunk(
   sellerId: string,
   rows: BulkUploadRow[],
-  mode: "CREATE" | "UPDATE" = "CREATE"
-): Promise<{ inserted: number; failed: number }> {
+  mode: "CREATE" | "UPDATE" = "CREATE",
+  blankPolicy: "ignore" | "clear" = "ignore"
+): Promise<{ inserted: number; updated: number; failed: number; batchId: string }> {
   let inserted = 0;
+  let updated = 0;
   let failed = 0;
 
-  for (const row of rows) {
-    try {
-      const slug = `${row.product_title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.random().toString(36).substring(2, 6)}`;
+  // 1. Create a tracking batch in bulk_import_batches
+  const { data: batch } = await (supabaseAdmin.from("bulk_import_batches") as any)
+    .insert({
+      seller_id: sellerId,
+      file_name: `batch_${Date.now()}.csv`,
+      import_mode: mode.toLowerCase(),
+      total_rows: rows.length,
+      valid_rows: rows.length,
+      error_rows: 0,
+      status: "IMPORTING",
+    })
+    .select("id")
+    .single();
 
-      // 1. Upsert product
-      const { data: product, error: productError } = await (supabaseAdmin as any)
-        .from("products")
-        .upsert(
-          {
-            seller_id: sellerId,
-            title: row.product_title,
-            slug,
-            description: row.description,
-            country_of_origin: "India",
-            is_return_eligible: row.return_eligible ?? true,
-            status: "LIVE",
-          },
-          { onConflict: "seller_id,slug" }
-        )
+  const batchId = batch?.id ?? `batch_${Date.now()}`;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const rowNumber = i + 2;
+
+    try {
+      if (mode === "UPDATE") {
+        // Find existing variant by SKU
+        const { data: existingVariant } = await (supabaseAdmin.from("product_variants") as any)
+          .select("id, product_id, price, compare_at_price, stock_quantity")
+          .eq("sku", row.seller_sku)
+          .single();
+
+        if (existingVariant) {
+          const updatePayload: Record<string, any> = {
+            price: row.price,
+            stock_quantity: row.stock_qty,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (row.sale_price !== undefined) {
+            updatePayload["compare_at_price"] = row.sale_price;
+          } else if (blankPolicy === "clear") {
+            updatePayload["compare_at_price"] = null;
+          }
+
+          if (row.weight_kg) {
+            updatePayload["weight_grams"] = Math.round(row.weight_kg * 1000);
+          }
+
+          await (supabaseAdmin.from("product_variants") as any)
+            .update(updatePayload)
+            .eq("id", existingVariant.id);
+
+          // Update parent product
+          await (supabaseAdmin.from("products") as any)
+            .update({
+              title: row.product_title,
+              description: row.description,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingVariant.product_id);
+
+          updated++;
+          continue;
+        }
+      }
+
+      // CREATE mode or new variant
+      const slug = `${row.product_title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.random().toString(36).substring(2, 7)}`;
+
+      // 1. Insert product
+      const { data: product, error: productError } = await (supabaseAdmin.from("products") as any)
+        .insert({
+          seller_id: sellerId,
+          title: row.product_title,
+          slug,
+          description: row.description,
+          status: "LIVE",
+          stock_quantity: row.stock_qty,
+        })
         .select("id")
         .single();
 
@@ -353,30 +566,21 @@ export async function commitBulkImportChunk(
       }
 
       const productId = product.id;
-      const priceAudCents = Math.round(row.price * 100);
-      const salePriceCents = row.sale_price ? Math.round(row.sale_price * 100) : null;
       const weightGrams = Math.round(row.weight_kg * 1000);
-      const variantName = row.size || row.colour ? `${row.size ?? ""} ${row.colour ?? ""}`.trim() : "Standard";
+      const variantTitle = row.size || row.colour ? `${row.size ?? ""} ${row.colour ?? ""}`.trim() : "Standard";
 
-      // 2. Upsert variant
-      const { data: variant, error: variantError } = await (supabaseAdmin as any)
-        .from("product_variants")
-        .upsert(
-          {
-            product_id: productId,
-            seller_sku: row.seller_sku,
-            variant_name: variantName,
-            price_aud_cents: priceAudCents,
-            compare_at_aud_cents: salePriceCents,
-            stock_quantity: row.stock_qty,
-            weight_grams: weightGrams,
-            length_cm: row.length_cm ?? null,
-            width_cm: row.width_cm ?? null,
-            height_cm: row.height_cm ?? null,
-            is_active: true,
-          },
-          { onConflict: "product_id,seller_sku" }
-        )
+      // 2. Insert variant
+      const { data: variant, error: variantError } = await (supabaseAdmin.from("product_variants") as any)
+        .insert({
+          product_id: productId,
+          sku: row.seller_sku,
+          title: variantTitle,
+          price: row.price,
+          compare_at_price: row.sale_price ?? null,
+          stock_quantity: row.stock_qty,
+          weight_grams: weightGrams,
+          is_active: true,
+        })
         .select("id")
         .single();
 
@@ -385,38 +589,35 @@ export async function commitBulkImportChunk(
         continue;
       }
 
-      // 3. Upsert primary media
+      // 3. Insert primary media
       if (row.image_1_url) {
-        await (supabaseAdmin as any).from("product_media").insert({
+        await (supabaseAdmin.from("product_media") as any).insert({
           product_id: productId,
-          variant_id: variant.id,
           media_type: "image",
-          media_url: row.image_1_url,
+          url: row.image_1_url,
           is_primary: true,
-          status: "approved",
+          alt_text: row.product_title,
         });
       }
 
-      // 4. Upsert secondary media / video
+      // 4. Insert secondary media
       if (row.image_2_url) {
-        await (supabaseAdmin as any).from("product_media").insert({
+        await (supabaseAdmin.from("product_media") as any).insert({
           product_id: productId,
-          variant_id: variant.id,
           media_type: "image",
-          media_url: row.image_2_url,
+          url: row.image_2_url,
           is_primary: false,
-          status: "approved",
+          alt_text: `${row.product_title} - view 2`,
         });
       }
 
       if (row.video_url) {
-        await (supabaseAdmin as any).from("product_media").insert({
+        await (supabaseAdmin.from("product_media") as any).insert({
           product_id: productId,
-          variant_id: variant.id,
           media_type: "video",
-          media_url: row.video_url,
+          url: row.video_url,
           is_primary: false,
-          status: "pending",
+          alt_text: `${row.product_title} video showcase`,
         });
       }
 
@@ -426,7 +627,15 @@ export async function commitBulkImportChunk(
     }
   }
 
-  return { inserted, failed };
+  // Update batch completion status
+  await (supabaseAdmin.from("bulk_import_batches") as any)
+    .update({
+      status: "COMPLETED",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", batchId);
+
+  return { inserted, updated, failed, batchId };
 }
 
 export interface SellerStockItem {
@@ -453,116 +662,59 @@ export const getSellerStockListServerFn = createServerFn({ method: "POST" })
           sku,
           stock_quantity,
           price,
-          product:products(id, title, seller_id)
+          products!inner (
+            id,
+            title,
+            seller_id
+          )
         `);
 
-      if (data.sellerId) {
-        // filter by seller if provided
-        const { data: sellerProds } = await (supabaseAdmin.from("products") as any)
-          .select("id")
-          .eq("seller_id", data.sellerId);
-        
-        const prodIds = (sellerProds || []).map((p: any) => p.id);
-        if (prodIds.length > 0) {
-          query = query.in("product_id", prodIds);
-        }
+      if (data?.sellerId) {
+        query = query.eq("products.seller_id", data.sellerId);
       }
 
-      const { data: variants, error } = await query.limit(100);
-      if (error || !variants || variants.length === 0) {
-        return [];
-      }
+      const { data: variants, error } = await query;
+      if (error || !variants) return [];
 
-      // Fetch active reservations
-      const now = new Date().toISOString();
-      const variantIds = variants.map((v: any) => v.id);
-      const { data: reservations } = await (supabaseAdmin.from("inventory_reservations") as any)
-        .select("variant_id, quantity")
-        .in("variant_id", variantIds)
-        .eq("status", "active")
-        .gt("expires_at", now);
-
-      const reservationMap: Record<string, number> = {};
-      (reservations || []).forEach((r: any) => {
-        reservationMap[r.variant_id] = (reservationMap[r.variant_id] || 0) + Number(r.quantity || 0);
-      });
-
-      return variants.map((v: any) => {
-        const reserved = reservationMap[v.id] || 0;
-        const stockOnHand = Number(v.stock_quantity || 0);
-        return {
-          id: v.product?.id || v.id,
-          variantId: v.id,
-          sku: v.sku || `SKU-${v.id.slice(0, 8)}`,
-          productName: v.product?.title || "Product Listing",
-          stockOnHand,
-          reservedUnits: reserved,
-          availableStock: Math.max(0, stockOnHand - reserved),
-          price: Number(v.price || 0),
-        };
-      });
-    } catch (err) {
-      console.error("Error fetching seller stock list:", err);
+      return variants.map((v: any) => ({
+        id: v.id,
+        variantId: v.id,
+        sku: v.sku ?? "NO-SKU",
+        productName: v.products?.title ?? "Product",
+        stockOnHand: v.stock_quantity ?? 0,
+        reservedUnits: 0,
+        availableStock: v.stock_quantity ?? 0,
+        price: Number(v.price) || 0,
+      }));
+    } catch {
       return [];
     }
   });
 
 /**
- * Server Function: Batch update variant stock levels and log inventory transactions
+ * Server Function: Batch update variant stock levels
  */
 export const updateStockBatchServerFn = createServerFn({ method: "POST" })
-  .validator((data: { updates: Array<{ sku: string; newStock: number }> }) => data)
+  .validator((data: { sellerId?: string | undefined; updates: Array<{ variantId?: string; sku?: string; newStock: number }> }) => data)
   .handler(async ({ data }) => {
     let updatedCount = 0;
-    const errors: Array<{ sku: string; error: string }> = [];
+    for (const item of data.updates) {
+      if (item.newStock < 0) continue;
+      let query = (supabaseAdmin.from("product_variants") as any)
+        .update({ stock_quantity: Math.floor(item.newStock), updated_at: new Date().toISOString() });
 
-    for (const update of data.updates) {
-      try {
-        const { data: variant, error: findError } = await (supabaseAdmin.from("product_variants") as any)
-          .select("id, stock_quantity")
-          .eq("sku", update.sku)
-          .maybeSingle();
-
-        if (findError || !variant) {
-          errors.push({ sku: update.sku, error: "SKU not found in database" });
-          continue;
-        }
-
-        const oldStock = Number(variant.stock_quantity || 0);
-        const newStock = Math.max(0, Math.floor(update.newStock));
-
-        const { error: updateError } = await (supabaseAdmin.from("product_variants") as any)
-          .update({
-            stock_quantity: newStock,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", variant.id);
-
-        if (updateError) {
-          errors.push({ sku: update.sku, error: updateError.message });
-          continue;
-        }
-
-        // Record inventory transaction
-        await (supabaseAdmin.from("inventory_transactions") as any).insert({
-          variant_id: variant.id,
-          transaction_type: "MANUAL_ADJUSTMENT",
-          quantity: newStock - oldStock,
-          balance_after: newStock,
-          notes: `Bulk stock screen adjustment (${oldStock} -> ${newStock})`,
-        });
-
-        updatedCount++;
-      } catch (err: any) {
-        errors.push({ sku: update.sku, error: err.message || "Unknown error" });
+      if (item.variantId) {
+        query = query.eq("id", item.variantId);
+      } else if (item.sku) {
+        query = query.eq("sku", item.sku);
+      } else {
+        continue;
       }
-    }
 
-    return {
-      success: true,
-      updatedCount,
-      failedCount: errors.length,
-      errors,
-    };
+      const { error } = await query;
+      if (!error) updatedCount++;
+    }
+    return { success: true, updatedCount };
   });
+
 

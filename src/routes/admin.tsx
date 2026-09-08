@@ -582,7 +582,7 @@ function AdminPage() {
                         try {
                           const res = await reconcileAndUnlockEligiblePayoutsServerFn();
                           toast.success("14-Day Delivery Holds Reconciled", {
-                            description: `${res.unlockedCount} payout(s) unlocked (${formatAUD(res.unlockedAmountAud)})`,
+                            description: `${res.eligibleSellersCount} seller(s) eligible (${formatAUD(res.totalEligiblePayoutAud)})`,
                           });
                         } catch (err: any) {
                           toast.error("Reconciliation failed", { description: err.message });
