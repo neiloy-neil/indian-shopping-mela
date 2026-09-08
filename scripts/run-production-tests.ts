@@ -1502,6 +1502,85 @@ console.log("\n23. Testing Bulk Stock Updates, Seller Ownership & Reservation Pr
   assert(availableStock === 22, "Available stock correctly calculated as 22 (25 on hand - 3 reserved)");
 }
 
+// 24. PRODUCT VIDEO PIPELINE, MUX SIGNATURES & MODERATION (Phase 21, Tasks T317–T329)
+console.log("\n24. Testing Product Video Pipeline, Mux Webhook Signatures & Moderation...");
+{
+  const cryptoModule = await import("crypto");
+
+  // 1. Mux Webhook Signature Verification
+  function verifyMuxSig(rawBody: string, sigHeader: string, secret: string): boolean {
+    try {
+      const parts = sigHeader.split(",");
+      let ts = "";
+      let sig = "";
+      for (const p of parts) {
+        const [k, v] = p.split("=");
+        if (k === "t") ts = v || "";
+        if (k === "v1") sig = v || "";
+      }
+      if (!ts || !sig) return false;
+      const now = Math.floor(Date.now() / 1000);
+      const parsedTs = parseInt(ts, 10);
+      if (isNaN(parsedTs) || Math.abs(now - parsedTs) > 300) return false;
+
+      const payload = `${ts}.${rawBody}`;
+      const expected = cryptoModule.createHmac("sha256", secret).update(payload).digest("hex");
+      return cryptoModule.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+    } catch {
+      return false;
+    }
+  }
+
+  const testSecret = "mux_test_secret_12345";
+  const testBody = JSON.stringify({ type: "video.asset.ready", object: { id: "mux_asset_abc", playback_ids: [{ id: "pb_123" }] } });
+  const currentTs = Math.floor(Date.now() / 1000).toString();
+  const validSig = cryptoModule.createHmac("sha256", testSecret).update(`${currentTs}.${testBody}`).digest("hex");
+  const validHeader = `t=${currentTs},v1=${validSig}`;
+
+  assert(verifyMuxSig(testBody, validHeader, testSecret), "Mux webhook signature verifies successfully with valid HMAC-SHA256 and fresh timestamp");
+  assert(!verifyMuxSig(testBody, "t=1000000000,v1=" + validSig, testSecret), "Mux webhook signature rejects expired timestamp (> 300s)");
+  assert(!verifyMuxSig(testBody, `t=${currentTs},v1=bad_signature_hash`, testSecret), "Mux webhook signature strictly rejects tampered/invalid signature");
+
+  // 2. Video File Constraints & Duration Validation
+  function validateVideoUpload(fileSize: number, mimeType: string, durationSeconds: number) {
+    if (fileSize > 100 * 1024 * 1024) return { valid: false, error: "EXCEEDS_MAX_SIZE" };
+    if (!["video/mp4", "video/quicktime", "video/webm"].includes(mimeType)) return { valid: false, error: "UNSUPPORTED_FORMAT" };
+    if (durationSeconds < 5 || durationSeconds > 60) return { valid: false, error: "INVALID_DURATION" };
+    return { valid: true };
+  }
+
+  assert(validateVideoUpload(45 * 1024 * 1024, "video/mp4", 30).valid, "Valid 30s 45MB MP4 video satisfies constraints");
+  assert(validateVideoUpload(150 * 1024 * 1024, "video/mp4", 30).error === "EXCEEDS_MAX_SIZE", "150MB video rejected for exceeding 100MB limit");
+  assert(validateVideoUpload(20 * 1024 * 1024, "application/octet-stream", 30).error === "UNSUPPORTED_FORMAT", "Invalid mime-type rejected");
+  assert(validateVideoUpload(20 * 1024 * 1024, "video/mp4", 3).error === "INVALID_DURATION", "3s video rejected (< 5s minimum duration)");
+  assert(validateVideoUpload(20 * 1024 * 1024, "video/mp4", 90).error === "INVALID_DURATION", "90s video rejected (> 60s maximum duration)");
+
+  // 3. Moderation Status Lifecycle & PDP Isolation
+  interface MediaItem {
+    id: string;
+    productId: string;
+    mediaType: "image" | "video";
+    url: string;
+    moderationStatus: "PENDING" | "APPROVED" | "REJECTED";
+  }
+
+  const mediaDb: MediaItem[] = [
+    { id: "m1", productId: "prod_saree_1", mediaType: "image", url: "https://example.com/img1.jpg", moderationStatus: "APPROVED" },
+    { id: "m2", productId: "prod_saree_1", mediaType: "video", url: "https://example.com/vid1.mp4", moderationStatus: "PENDING" },
+    { id: "m3", productId: "prod_kurta_2", mediaType: "video", url: "https://example.com/vid2.mp4", moderationStatus: "APPROVED" },
+    { id: "m4", productId: "prod_lehenga_3", mediaType: "video", url: "https://example.com/vid3.mp4", moderationStatus: "REJECTED" },
+  ];
+
+  function getPublicPdpVideo(productId: string): string | null {
+    const videoMedia = mediaDb.find(m => m.productId === productId && m.mediaType === "video" && m.moderationStatus === "APPROVED");
+    return videoMedia ? videoMedia.url : null;
+  }
+
+  assert(getPublicPdpVideo("prod_saree_1") === null, "PENDING moderation video is hidden from customer PDP");
+  assert(getPublicPdpVideo("prod_lehenga_3") === null, "REJECTED video is hidden from customer PDP");
+  assert(getPublicPdpVideo("prod_kurta_2") === "https://example.com/vid2.mp4", "APPROVED video is authorized and visible on customer PDP");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");

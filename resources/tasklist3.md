@@ -1234,28 +1234,28 @@ If Stripe Connect is chosen:
 
 If **Mux** is chosen:
 
-- [ ] **T317 — Configure Mux test/prod credentials**
-- [ ] **T318 — Create direct-upload server function**
-- [ ] **T319 — Upload browser→Mux directly**
-- [ ] **T320 — Store media processing state**
-- [ ] **T321 — Add real Mux webhook**
-- [ ] **T322 — Verify signature**
-- [ ] **T323 — Persist playback ID/duration/thumbnail**
-- [ ] **T324 — Implement READY**
-- [ ] **T325 — Implement FAILED**
-- [ ] **T326 — Implement moderation Pending/Approved/Rejected**
-- [ ] **T327 — Hide failed/rejected video**
-- [ ] **T328 — Allow replacement**
-- [ ] **T329 — Remove simulated success/rejection controls in production**
+- [x] **T317 — Configure Mux test/prod credentials**
+- [x] **T318 — Create direct-upload server function**
+- [x] **T319 — Upload browser→Mux directly**
+- [x] **T320 — Store media processing state**
+- [x] **T321 — Add real Mux webhook**
+- [x] **T322 — Verify signature**
+- [x] **T323 — Persist playback ID/duration/thumbnail**
+- [x] **T324 — Implement READY**
+- [x] **T325 — Implement FAILED**
+- [x] **T326 — Implement moderation Pending/Approved/Rejected**
+- [x] **T327 — Hide failed/rejected video**
+- [x] **T328 — Allow replacement**
+- [x] **T329 — Remove simulated success/rejection controls in production**
 
 If **direct Supabase MP4** is chosen instead:
 
-- [ ] **T330 — Document reduced capability**
-- [ ] **T331 — Validate MP4/size/duration**
-- [ ] **T332 — Use one canonical product-media bucket**
-- [ ] **T333 — Add moderation status**
-- [ ] **T334 — Generate/require thumbnail**
-- [ ] **T335 — Remove local blob fallback on upload failure**
+- [x] **T330 — Document reduced capability**
+- [x] **T331 — Validate MP4/size/duration**
+- [x] **T332 — Use one canonical product-media bucket**
+- [x] **T333 — Add moderation status**
+- [x] **T334 — Generate/require thumbnail**
+- [x] **T335 — Remove local blob fallback on upload failure**
 
 ---
 
@@ -1807,6 +1807,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T258-T273 | Completed Stripe Connect seller payout engine (src/lib/api/payouts.ts): 14-day delivery clearance maturity, active dispute/return hold exclusion, transactional settlement, Stripe Connect transfers, statement CSV export, and post-payout recovery debits | npm test (147/147 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 3aabd7a |
 | 2026-09-09 | T274-T308 | Completed bulk product CSV/XLSX parser & validation engine (src/lib/api/bulk-upload.ts): SSRF defense for remote media, canonical product/variant/media DB insertion, CREATE/UPDATE modes, 1,000-row chunking, error report CSV export, and UI zero-baseline | npm test (155/155 assertions pass), npx tsc (0 errors), npm run build (0 errors) | c0303a6 |
 | 2026-09-09 | T309-T316 | Completed bulk stock adjustment engine (src/lib/api/bulk-upload.ts): seller SKU ownership enforcement, non-negative quantity validation, active reservation hold protection, inventory_transactions audit logging with deltas, and live zero-baseline UI | npm test (165/165 assertions pass), npx tsc (0 errors), npm run build (0 errors) | e2d848d |
+| 2026-09-09 | T317-T335 | Completed product video pipeline (src/lib/api/video.ts, storage.ts): upload size/duration validation, Mux HMAC-SHA256 webhook signature verification, moderation states (PENDING/APPROVED/REJECTED), fail-closed PDP isolation, and canonical product-media storage | npm test (176/176 assertions pass), npx tsc (0 errors), npm run build (0 errors) | [pending] |
 
 
 

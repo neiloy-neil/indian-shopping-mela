@@ -133,28 +133,30 @@ function ProductPage() {
                   />
                 </button>
               ))}
-              <button
-                onClick={() => setView("video")}
-                className={`relative overflow-hidden rounded-sm border-2 transition-colors ${
-                  view === "video" ? "border-rani" : "border-marigold/60 hover:border-marigold"
-                }`}
-                aria-label="View product video"
-              >
-                <img
-                  src={IMAGES[product.image]}
-                  alt=""
-                  loading="lazy"
-                  width={900}
-                  height={900}
-                  className="aspect-square w-full object-cover opacity-60"
-                />
-                <span className="absolute inset-0 grid place-items-center bg-ink/50 text-primary-foreground">
-                  <Play size={16} className="fill-current" />
-                </span>
-                <span className="absolute bottom-0 inset-x-0 bg-marigold py-0.5 text-[8px] font-bold uppercase tracking-wide text-marigold-foreground">
-                  Video
-                </span>
-              </button>
+              {Boolean((product as any).videoUrl || (product as any).media?.some((m: any) => m.media_type === "video")) && (
+                <button
+                  onClick={() => setView("video")}
+                  className={`relative overflow-hidden rounded-sm border-2 transition-colors ${
+                    view === "video" ? "border-rani" : "border-marigold/60 hover:border-marigold"
+                  }`}
+                  aria-label="View product video"
+                >
+                  <img
+                    src={IMAGES[product.image]}
+                    alt=""
+                    loading="lazy"
+                    width={900}
+                    height={900}
+                    className="aspect-square w-full object-cover opacity-60"
+                  />
+                  <span className="absolute inset-0 grid place-items-center bg-ink/50 text-primary-foreground">
+                    <Play size={16} className="fill-current" />
+                  </span>
+                  <span className="absolute bottom-0 inset-x-0 bg-marigold py-0.5 text-[8px] font-bold uppercase tracking-wide text-marigold-foreground">
+                    Video
+                  </span>
+                </button>
+              )}
             </div>
 
             <div className="min-w-0 flex-1">
@@ -180,11 +182,13 @@ function ProductPage() {
                     <video
                       src={
                         (product as any).videoUrl ||
-                        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+                        (product as any).media?.find((m: any) => m.media_type === "video")?.url ||
+                        ""
                       }
                       controls
                       muted
                       playsInline
+                      onError={() => setView("image")}
                       className="size-full object-contain"
                     />
                     <span className="absolute top-2 left-2 rounded bg-ink/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground backdrop-blur-sm">
@@ -193,23 +197,25 @@ function ProductPage() {
                   </div>
                 )}
               </div>
-              <div className="mt-3 flex gap-2">
-                {(["image", "video"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={`rounded-sm px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
-                      view === v
-                        ? v === "video"
-                          ? "bg-marigold text-marigold-foreground"
-                          : "bg-primary text-primary-foreground"
-                        : "border border-border text-muted-foreground"
-                    }`}
-                  >
-                    {v === "image" ? "Photos" : "▶ Video"}
-                  </button>
-                ))}
-              </div>
+              {Boolean((product as any).videoUrl || (product as any).media?.some((m: any) => m.media_type === "video")) && (
+                <div className="mt-3 flex gap-2">
+                  {(["image", "video"] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setView(v)}
+                      className={`rounded-sm px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+                        view === v
+                          ? v === "video"
+                            ? "bg-marigold text-marigold-foreground"
+                            : "bg-primary text-primary-foreground"
+                          : "border border-border text-muted-foreground"
+                      }`}
+                    >
+                      {v === "image" ? "Photos" : "▶ Video"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

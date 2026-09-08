@@ -98,10 +98,48 @@ export async function deleteProductImageSafe(storagePath: string): Promise<void>
   if (!storagePath || storagePath.startsWith("http")) return;
 
   const { error } = await supabase.storage
-    .from("product-images")
+    .from("product-media")
     .remove([storagePath]);
 
   if (error) {
     console.warn("Storage removal warning:", error.message);
   }
 }
+
+/**
+ * T319/T331 — Upload product video directly to canonical product-media bucket (Max 100MB, MP4/QuickTime)
+ * Fails closed: Never falls back to local blob in production on failure.
+ */
+export async function uploadProductVideo(file: File, sellerId: string): Promise<string> {
+  const allowedMimeTypes = ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"];
+  if (!allowedMimeTypes.includes(file.type)) {
+    throw new Error(`Unsupported video format: ${file.type}. Please upload MP4, QuickTime, or WebM.`);
+  }
+
+  const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+  if (file.size > maxSizeBytes) {
+    throw new Error(`Video file size ${(file.size / (1024 * 1024)).toFixed(1)}MB exceeds maximum 100MB limit.`);
+  }
+
+  const fileExt = file.name.split(".").pop() || "mp4";
+  const filePath = `videos/${sellerId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+
+  const { data, error } = await supabase.storage
+    .from("product-media")
+    .upload(filePath, file, {
+      cacheControl: "31536000",
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("Product video upload error:", error);
+    throw new Error(`Video upload failed: ${error.message}`);
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from("product-media")
+    .getPublicUrl(data.path);
+
+  return publicUrlData.publicUrl;
+}
+
