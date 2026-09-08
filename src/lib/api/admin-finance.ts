@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { executeSellerPayoutTransfer, getSellerPayoutEligibility } from "./payouts";
 import { postLedgerEntry } from "./ledger";
+import { executeReturnRefund } from "./returns";
 
 export interface FinanceSummaryMetrics {
   totalGmvAud: number;
@@ -72,14 +73,14 @@ export async function generateSellerPayoutBatchCsv(): Promise<{
 }
 
 /**
- * Server Function: Moderate seller status (APPROVE, REJECT, SUSPEND)
+ * Server Function: Moderate seller status (APPROVED, REJECTED, SUSPENDED, INFO_REQUIRED)
  */
 export const moderateSellerStatusServerFn = createServerFn({ method: "POST" })
-  .validator((data: { sellerId: string; status: "APPROVED" | "REJECTED" | "SUSPENDED"; reason?: string | undefined }) => data)
+  .validator((data: { sellerId: string; status: "APPROVED" | "REJECTED" | "SUSPENDED" | "INFO_REQUIRED"; reason?: string | undefined }) => data)
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("sellers") as any)
       .update({
-        status: data.status,
+        status: data.status.toLowerCase(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.sellerId);
@@ -91,6 +92,67 @@ export const moderateSellerStatusServerFn = createServerFn({ method: "POST" })
       entity_type: "SELLER",
       entity_id: data.sellerId,
       new_data: { status: data.status, reason: data.reason },
+    });
+
+    return { success: true };
+  });
+
+/**
+ * Server Function: Moderate product status (LIVE, REJECTED, ARCHIVED)
+ */
+export const moderateProductStatusServerFn = createServerFn({ method: "POST" })
+  .validator((data: { productId: string; status: "LIVE" | "REJECTED" | "ARCHIVED"; notes?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await (supabaseAdmin.from("products") as any)
+      .update({
+        status: data.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.productId);
+
+    if (error) throw new Error(`Failed to update product status: ${error.message}`);
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      action: `PRODUCT_${data.status}`,
+      entity_type: "PRODUCT",
+      entity_id: data.productId,
+      new_data: { status: data.status, notes: data.notes },
+    });
+
+    return { success: true };
+  });
+
+/**
+ * Server Function: Moderate return request
+ */
+export const moderateReturnServerFn = createServerFn({ method: "POST" })
+  .validator((data: { returnId: string; action: "APPROVE" | "REJECT" | "REFUND"; notes?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    const { data: returnReq, error: fetchErr } = await (supabaseAdmin.from("returns") as any)
+      .select("id, sub_order_id, refund_amount, status")
+      .eq("id", data.returnId)
+      .maybeSingle();
+
+    if (fetchErr || !returnReq) throw new Error("Return request not found");
+
+    if (data.action === "APPROVE") {
+      await (supabaseAdmin.from("returns") as any)
+        .update({ status: "APPROVED", approved_at: new Date().toISOString() })
+        .eq("id", data.returnId);
+    } else if (data.action === "REJECT") {
+      await (supabaseAdmin.from("returns") as any)
+        .update({ status: "REJECTED" })
+        .eq("id", data.returnId);
+    } else if (data.action === "REFUND") {
+      // Execute Stripe refund
+      await executeReturnRefund(data.returnId, Number(returnReq.refund_amount) || undefined);
+    }
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      action: `RETURN_${data.action}`,
+      entity_type: "RETURN",
+      entity_id: data.returnId,
+      new_data: { action: data.action, notes: data.notes },
     });
 
     return { success: true };
@@ -119,8 +181,8 @@ export async function getMarketplaceFinanceMetrics(): Promise<FinanceSummaryMetr
 
   for (const entry of (ledgerEntries as any[])) {
     const amount = Number(entry.amount_cents) || 0;
-    if (entry.entry_type === "CUSTOMER_PAYMENT") totalGmvCents += amount;
-    if (entry.entry_type === "PLATFORM_COMMISSION") totalCommissionCents += amount;
+    if (entry.entry_type === "CUSTOMER_PAYMENT" || entry.entry_type === "CUSTOMER_CHARGE") totalGmvCents += amount;
+    if (entry.entry_type === "PLATFORM_COMMISSION" || entry.entry_type === "ISM_COMMISSION") totalCommissionCents += amount;
     if (entry.entry_type === "DISPUTE_HOLD") totalHoldCents += amount;
     if (entry.entry_type === "SELLER_PAYOUT") totalPaidCents += amount;
   }
@@ -238,4 +300,109 @@ export const getAdminAuditLogsServerFn = createServerFn({ method: "GET" })
 
     if (error || !logs) return [];
     return logs;
+  });
+
+/**
+ * Server Function: Get marketplace settings / configurations
+ */
+export const getMarketplaceConfigServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: configs, error } = await (supabaseAdmin.from("marketplace_configs") as any)
+      .select("*");
+
+    if (error || !configs) return [];
+    return configs;
+  });
+
+/**
+ * Server Function: Update marketplace settings / configuration item
+ */
+export const updateMarketplaceConfigServerFn = createServerFn({ method: "POST" })
+  .validator((data: { key: string; value: any; description?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await (supabaseAdmin.from("marketplace_configs") as any)
+      .upsert({
+        key: data.key,
+        value: data.value,
+        description: data.description ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+
+    if (error) throw new Error(`Failed to update marketplace config: ${error.message}`);
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      action: "MARKETPLACE_CONFIG_UPDATED",
+      entity_type: "CONFIG",
+      entity_id: data.key,
+      new_data: { key: data.key, value: data.value },
+    });
+
+    return { success: true };
+  });
+
+/**
+ * Server Function: Get users & roles for Admin management
+ */
+export const getAdminUsersServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: users, error } = await (supabaseAdmin.from("profiles") as any)
+      .select("id, email, full_name, role, created_at, phone")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !users) return [];
+    return users;
+  });
+
+/**
+ * Server Function: Update user role (Customer, Seller, Admin, Super Admin)
+ */
+export const updateUserRoleServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string; newRole: "customer" | "seller" | "admin" | "super_admin" }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await (supabaseAdmin.from("profiles") as any)
+      .update({
+        role: data.newRole,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.userId);
+
+    if (error) throw new Error(`Failed to update user role: ${error.message}`);
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      action: "USER_ROLE_CHANGED",
+      entity_type: "USER",
+      entity_id: data.userId,
+      new_data: { newRole: data.newRole },
+    });
+
+    return { success: true };
+  });
+
+/**
+ * Server Function: Get immutable ledger records
+ */
+export const getAdminLedgerServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: ledger, error } = await (supabaseAdmin.from("ledger_entries") as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !ledger) return [];
+    return ledger;
+  });
+
+/**
+ * Server Function: Get shipping exceptions & delayed packages
+ */
+export const getAdminShippingExceptionsServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: shipments, error } = await (supabaseAdmin.from("shipments") as any)
+      .select("*, sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !shipments) return [];
+    return shipments;
   });

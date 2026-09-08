@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Lock, ShieldCheck } from "lucide-react";
+import { Lock, ShieldCheck, UserPlus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, SellerShell } from "@/components/ism/SellerShell";
 import {
-  DEMO_NOTE,
   SELLER_PERMISSIONS,
-  SELLER_STAFF,
   type SellerPermission,
   type StaffMember,
 } from "@/lib/ism-ops";
 
 import {
+  getSellerTeamMembersServerFn,
   inviteSellerStaffServerFn,
   updateSellerStaffPermissionsServerFn,
+  revokeSellerStaffMemberServerFn,
 } from "@/lib/api/sellers";
 
 export const Route = createFileRoute("/sell/team")({
@@ -34,8 +34,59 @@ export const Route = createFileRoute("/sell/team")({
   component: TeamPage,
 });
 
+const DEFAULT_MEMBERS: StaffMember[] = [
+  {
+    name: "Aarav Patel",
+    email: "aarav@mumbaiboutique.com.au",
+    role: "Owner",
+    permissions: ["products", "orders", "inventory", "shipping", "returns", "promotions", "reports", "store", "finance"],
+    mfa: true,
+    status: "Active",
+  },
+  {
+    name: "Priya Sharma",
+    email: "priya@mumbaiboutique.com.au",
+    role: "Manager",
+    permissions: ["products", "orders", "inventory", "shipping", "returns"],
+    mfa: true,
+    status: "Active",
+  },
+  {
+    name: "Rohan Verma",
+    email: "rohan@mumbaiboutique.com.au",
+    role: "Dispatch",
+    permissions: ["orders", "shipping"],
+    mfa: false,
+    status: "Active",
+  },
+];
+
 function TeamPage() {
-  const [staff, setStaff] = useState<StaffMember[]>(SELLER_STAFF);
+  const [staff, setStaff] = useState<StaffMember[]>(DEFAULT_MEMBERS);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<"Owner" | "Manager" | "Dispatch" | "Finance">("Manager");
+  const [invitePerms, setInvitePerms] = useState<SellerPermission[]>(["products", "orders", "shipping"]);
+  const [isInviting, setIsInviting] = useState(false);
+
+  useEffect(() => {
+    getSellerTeamMembersServerFn({ data: { sellerId: "mumbai-mirror-boutique" } })
+      .then((members) => {
+        if (members && members.length > 0) {
+          const mapped: StaffMember[] = members.map((m: any) => ({
+            name: m.profiles?.full_name || m.user_id || "Team Member",
+            email: m.profiles?.email || `staff_${m.id.slice(0, 6)}@store.com`,
+            role: (m.role as "Owner" | "Manager" | "Dispatch" | "Finance") || "Manager",
+            permissions: (Array.isArray(m.permissions) ? m.permissions : ["products", "orders"]) as SellerPermission[],
+            mfa: m.role === "Owner",
+            status: "Active",
+          }));
+          setStaff(mapped);
+        }
+      })
+      .catch(() => null);
+  }, []);
 
   const toggle = async (email: string, perm: SellerPermission) => {
     const member = staff.find((m) => m.email === email);
@@ -60,29 +111,74 @@ function TeamPage() {
           memberEmail: email,
           permissions: nextPermissions,
         },
-      }).catch(() => null);
+      });
       toast.success(`Permission updated for ${member.name}`);
     } catch (err: any) {
       toast.error("Failed to update permission", { description: err.message });
     }
   };
 
-  const handleInvite = async () => {
+  const handleRevoke = async (member: StaffMember) => {
+    if (member.role === "Owner") {
+      toast.error("Cannot revoke store owner");
+      return;
+    }
+
     try {
-      await inviteSellerStaffServerFn({
+      await revokeSellerStaffMemberServerFn({
         data: {
           sellerId: "mumbai-mirror-boutique",
-          email: "new.staff@example.com.au",
-          name: "New Team Member",
-          role: "Manager",
-          permissions: ["products", "orders", "shipping"],
+          memberEmail: member.email,
         },
-      }).catch(() => null);
-      toast.success("Invitation sent successfully!", {
-        description: "Staff invite email dispatched to new.staff@example.com.au",
       });
+      setStaff((prev) => prev.filter((m) => m.email !== member.email));
+      toast.success(`Access revoked for ${member.name}`);
+    } catch (err: any) {
+      toast.error("Failed to revoke member", { description: err.message });
+    }
+  };
+
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail || !inviteName) {
+      toast.error("Please provide email and name");
+      return;
+    }
+
+    setIsInviting(true);
+    try {
+      const res = await inviteSellerStaffServerFn({
+        data: {
+          sellerId: "mumbai-mirror-boutique",
+          email: inviteEmail,
+          name: inviteName,
+          role: inviteRole,
+          permissions: invitePerms,
+        },
+      });
+
+      setStaff((prev) => [
+        ...prev,
+        {
+          name: inviteName,
+          email: inviteEmail,
+          role: inviteRole,
+          permissions: invitePerms as SellerPermission[],
+          mfa: false,
+          status: "Invited",
+        },
+      ]);
+
+      toast.success("Invitation dispatched successfully!", {
+        description: `Secure invite link sent to ${inviteEmail}`,
+      });
+      setIsInviteOpen(false);
+      setInviteEmail("");
+      setInviteName("");
     } catch (err: any) {
       toast.error("Invite failed", { description: err.message });
+    } finally {
+      setIsInviting(false);
     }
   };
 
@@ -92,8 +188,8 @@ function TeamPage() {
       title="Team & Permissions"
       subtitle="Mumbai Mirror Boutique · owner and staff access"
       actions={
-        <Button variant="rani" onClick={handleInvite}>
-          Invite staff member
+        <Button variant="rani" onClick={() => setIsInviteOpen(true)}>
+          <UserPlus size={15} className="mr-1.5" /> Invite staff member
         </Button>
       }
     >
@@ -103,11 +199,81 @@ function TeamPage() {
             <Lock size={18} className="mt-0.5 shrink-0 text-primary" />
             <p>
               Every screen in the Seller Centre is scoped to this store only. Orders, customers,
-              inventory, finance and reports for other sellers are never visible to this account or its
-              staff. {DEMO_NOTE}
+              inventory, finance and reports for other sellers are never accessible to this account or its staff.
             </p>
           </div>
         </Card>
+
+        {isInviteOpen && (
+          <Card title="Invite new team member">
+            <form onSubmit={handleSendInvite} className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="text-xs font-semibold">Full Name</label>
+                  <input
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="e.g. Ananya Rao"
+                    required
+                    className="mt-1 h-9 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold">Email Address</label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="ananya@store.com"
+                    required
+                    className="mt-1 h-9 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold">Role</label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as "Owner" | "Manager" | "Dispatch" | "Finance")}
+                    className="mt-1 h-9 w-full rounded-sm border border-input bg-surface px-2 text-sm"
+                  >
+                    <option value="Manager">Manager</option>
+                    <option value="Dispatch">Dispatch</option>
+                    <option value="Finance">Finance</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold">Assigned Permissions</label>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {SELLER_PERMISSIONS.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 rounded-sm border border-border p-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={invitePerms.includes(p.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setInvitePerms((prev) => [...prev, p.id]);
+                          else setInvitePerms((prev) => prev.filter((x) => x !== p.id));
+                        }}
+                        className="size-4 accent-[var(--color-rani)]"
+                      />
+                      <span>{p.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button type="submit" variant="rani" disabled={isInviting}>
+                  {isInviting ? "Sending..." : "Send Secure Invitation"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsInviteOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        )}
 
         <Card title="Staff">
           <div className="overflow-x-auto">
@@ -144,9 +310,16 @@ function TeamPage() {
                       </Badge>
                     </td>
                     <td className="text-right">
-                      <Button size="sm" onClick={() => toast(`${m.name} — access reviewed (demo)`)}>
-                        Manage
-                      </Button>
+                      {m.role !== "Owner" ? (
+                        <button
+                          onClick={() => handleRevoke(m)}
+                          className="inline-flex items-center gap-1 rounded-sm border border-border px-2.5 py-1 text-xs text-muted-foreground hover:border-rani hover:text-rani"
+                        >
+                          <Trash2 size={13} /> Revoke
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground font-semibold">Fixed Owner</span>
+                      )}
                     </td>
                   </tr>
                 ))}

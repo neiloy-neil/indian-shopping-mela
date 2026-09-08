@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
@@ -12,14 +12,25 @@ import {
   Truck,
   User,
   LayoutGrid,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { ShopLayout } from "@/components/ism/ShopLayout";
 import { LogoMark } from "@/components/ism/Logo";
 import { ProductGrid } from "@/components/ism/Rail";
-import { IMAGES, PRODUCTS, formatAUD, productById, sellerBySlug } from "@/lib/ism-data";
+import { PRODUCTS, formatAUD } from "@/lib/ism-data";
 import { useIsm } from "@/lib/ism-store";
 import { useAuth } from "@/hooks/use-auth";
-import { updateCustomerProfileServerFn } from "@/lib/api/account";
+import {
+  getCustomerOrdersServerFn,
+  getCustomerAddressesServerFn,
+  saveCustomerAddressServerFn,
+  deleteCustomerAddressServerFn,
+  getCustomerReturnsServerFn,
+  updateCustomerProfileServerFn,
+  type CustomerAddressDto,
+  type CustomerOrderSummaryDto,
+} from "@/lib/api/account";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
@@ -54,48 +65,34 @@ export const Route = createFileRoute("/account")({
 
 const TIMELINE_STEPS = ["Ordered", "Packed", "Shipped", "Out for delivery", "Delivered"] as const;
 
-const PACKAGES = [
-  {
-    n: 1,
-    seller: "mumbai-mirror-boutique",
-    status: "Delivered",
-    step: 5,
-    detail: "Left in a safe place · Sat 5:12pm",
-    items: ["ism-1001"],
-    tone: "teal",
-    courier: "Australia Post eParcel",
-    tracking: "AU100450198721",
-  },
-  {
-    n: 2,
-    seller: "jaipur-jewel-house",
-    status: "In Transit",
-    step: 3,
-    detail: "Departed Melbourne facility · ETA Wed",
-    items: ["ism-2003"],
-    tone: "marigold",
-    courier: "Aramex",
-    tracking: "AU200450298722",
-  },
-  {
-    n: 3,
-    seller: "desi-ghar-homewares",
-    status: "Preparing",
-    step: 1,
-    detail: "Seller is packing your order",
-    items: ["ism-6001"],
-    tone: "muted",
-    courier: "Sendle",
-    tracking: "AU300450398723",
-  },
-] as const;
-
 function AccountPage() {
   const { tab = "overview" } = Route.useSearch();
   const { wishlist } = useIsm();
   const { user, loading, signOut } = useAuth();
   const wishProducts = PRODUCTS.filter((p) => wishlist.includes(p.id));
   const navigate = Route.useNavigate();
+
+  const [orders, setOrders] = useState<CustomerOrderSummaryDto[]>([]);
+  const [returnsList, setReturnsList] = useState<any[]>([]);
+  const [addresses, setAddresses] = useState<CustomerAddressDto[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      setIsLoadingData(true);
+      Promise.all([
+        getCustomerOrdersServerFn({ data: { userId: user.id } }).catch(() => []),
+        getCustomerAddressesServerFn({ data: { userId: user.id } }).catch(() => []),
+        getCustomerReturnsServerFn({ data: { userId: user.id } }).catch(() => []),
+      ])
+        .then(([ord, addr, ret]) => {
+          if (ord) setOrders(ord);
+          if (addr) setAddresses(addr);
+          if (ret) setReturnsList(ret);
+        })
+        .finally(() => setIsLoadingData(false));
+    }
+  }, [user?.id]);
 
   if (!loading && !user) {
     return (
@@ -129,7 +126,7 @@ function AccountPage() {
               <h1 className="section-title text-foreground">My Account</h1>
               <span className="mt-2 block h-1 w-20 rounded-full mela-rule" aria-hidden />
               <p className="mt-2 text-sm text-muted-foreground">
-                Hello {user?.fullName ?? "Customer"} — {user?.email ?? ""} · ISM Member
+                Hello {user?.fullName ?? "Customer"} — {user?.email ?? ""} · ISM Customer
               </p>
             </div>
           </div>
@@ -145,7 +142,7 @@ function AccountPage() {
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-          {/* Mobile: select dropdown */}
+          {/* Mobile dropdown */}
           <div className="lg:hidden">
             <select
               value={tab}
@@ -160,7 +157,7 @@ function AccountPage() {
             </select>
           </div>
 
-          {/* Desktop: sidebar nav */}
+          {/* Desktop nav */}
           <aside className="hidden lg:flex lg:flex-col lg:gap-1 rounded-md border border-border bg-surface p-2">
             {TABS.map((t) => (
               <Link
@@ -179,23 +176,39 @@ function AccountPage() {
           </aside>
 
           <section className="min-w-0">
-            {tab === "overview" && <Overview wishCount={wishlist.length} />}
-            {tab === "orders" && <Orders />}
-            {tab === "track" && <Track />}
-            {tab === "returns" && <Returns />}
+            {tab === "overview" && (
+              <Overview
+                orders={orders}
+                wishCount={wishlist.length}
+                returnsCount={returnsList.length}
+              />
+            )}
+            {tab === "orders" && <Orders orders={orders} />}
+            {tab === "track" && <Track orders={orders} />}
+            {tab === "returns" && <Returns returnsList={returnsList} />}
             {tab === "wishlist" && (
               <Panel title={`Wishlist (${wishProducts.length})`}>
                 {wishProducts.length ? (
                   <ProductGrid products={wishProducts} />
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Nothing saved yet — tap the heart on any product.
+                    Nothing saved yet — tap the heart on any product to save for later.
                   </p>
                 )}
               </Panel>
             )}
-            {tab === "addresses" && <Addresses />}
-            {tab === "reviews" && <Reviews />}
+            {tab === "addresses" && (
+              <Addresses
+                userId={user?.id || ""}
+                addresses={addresses}
+                onRefresh={() => {
+                  if (user?.id) {
+                    getCustomerAddressesServerFn({ data: { userId: user.id } }).then(setAddresses);
+                  }
+                }}
+              />
+            )}
+            {tab === "reviews" && <Reviews orders={orders} />}
             {tab === "profile" && <Profile />}
           </section>
         </div>
@@ -204,138 +217,147 @@ function AccountPage() {
   );
 }
 
-function Overview({ wishCount }: { wishCount: number }) {
+function Overview({ orders, wishCount, returnsCount }: { orders: CustomerOrderSummaryDto[]; wishCount: number; returnsCount: number }) {
+  const activePackages = orders.reduce((sum, o) => sum + o.packages.filter((p) => p.status !== "DELIVERED" && p.status !== "CANCELLED").length, 0);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Open orders" value="1" note="#ISM10001" />
-        <Stat label="Packages in transit" value="2" note="of 3" />
-        <Stat label="Wishlist items" value={String(wishCount)} note="saved" />
-        <Stat label="ISM reward credit" value="$25" note="expires June" />
+        <Stat label="Total Orders" value={String(orders.length)} note="all time" />
+        <Stat label="Packages in Transit" value={String(activePackages)} note="active shipping" />
+        <Stat label="Wishlist Items" value={String(wishCount)} note="saved items" />
+        <Stat label="Returns & Exchanges" value={String(returnsCount)} note="in progress" />
       </div>
-      <Panel title="Latest order — #ISM10001">
-        <div className="space-y-3">
-          {PACKAGES.map((p) => (
-            <PackageCard key={p.n} pkg={p} compact />
-          ))}
-        </div>
-      </Panel>
+
+      {orders.length > 0 ? (
+        <Panel title={`Latest Order — #${orders[0]!.orderNumber}`}>
+          <div className="space-y-3">
+            {orders[0]!.packages.map((pkg, idx) => (
+              <PackageItemCard key={pkg.subOrderId} pkg={pkg} index={idx + 1} total={orders[0]!.packages.length} />
+            ))}
+          </div>
+        </Panel>
+      ) : (
+        <Panel title="Recent Orders">
+          <p className="text-sm text-muted-foreground">No orders placed yet. Explore our curated Indian catalogue!</p>
+        </Panel>
+      )}
     </div>
   );
 }
 
-function Orders() {
+function Orders({ orders }: { orders: CustomerOrderSummaryDto[] }) {
+  if (orders.length === 0) {
+    return (
+      <Panel title="My Orders">
+        <p className="text-sm text-muted-foreground">You have not placed any orders yet.</p>
+      </Panel>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <Panel
-        title="Order #ISM10001 · Placed 12 Aug 2026 · Total $412"
-        action={
-          <Link to="/orders/$id" params={{ id: "ISM10001" }} className="text-[11px] font-bold uppercase tracking-wide text-rani">
-            View order details
-          </Link>
-        }
-      >
-        <div className="space-y-3">
-          {PACKAGES.map((p) => (
-            <PackageCard key={p.n} pkg={p} compact />
-          ))}
-        </div>
-      </Panel>
-      <Panel title="Order #ISM09884 · Placed 2 Jul 2026 · Total $148">
-        <p className="text-sm text-muted-foreground">
-          1 package · Delivered 5 Jul 2026 by Shubh Pooja Store (Perth, WA).
-        </p>
-      </Panel>
+      {orders.map((o) => (
+        <Panel
+          key={o.id}
+          title={`Order #${o.orderNumber} · Total ${formatAUD(o.totalAmountAud)}`}
+          action={
+            <Link to="/orders/$id" params={{ id: o.id }} className="text-[11px] font-bold uppercase tracking-wide text-rani">
+              View Order Details
+            </Link>
+          }
+        >
+          <div className="space-y-3">
+            {o.packages.map((p, idx) => (
+              <PackageItemCard key={p.subOrderId} pkg={p} index={idx + 1} total={o.packages.length} />
+            ))}
+          </div>
+        </Panel>
+      ))}
     </div>
   );
 }
 
-function Track() {
+function Track({ orders }: { orders: CustomerOrderSummaryDto[] }) {
+  const allPackages = orders.flatMap((o) => o.packages.map((p) => ({ ...p, orderId: o.id, orderNumber: o.orderNumber })));
+
   return (
-    <Panel title="Order #ISM10001 · Multi-seller tracking">
+    <Panel title="Multi-Seller Package Tracking">
       <p className="mb-4 text-xs text-muted-foreground">
-        This order was split across 3 sellers. Each package ships and is tracked independently.
+        Orders with items from different sellers ship independently with live Australia Post / Sendle tracking.
       </p>
-      <div className="space-y-4">
-        {PACKAGES.map((p) => (
-          <PackageCard key={p.n} pkg={p} />
-        ))}
-      </div>
+      {allPackages.length > 0 ? (
+        <div className="space-y-4">
+          {allPackages.map((p, idx) => (
+            <PackageItemCard key={p.subOrderId} pkg={p} index={idx + 1} total={allPackages.length} showTimeline />
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">No active shipments to track.</p>
+      )}
     </Panel>
   );
 }
 
-function toneClasses(tone: (typeof PACKAGES)[number]["tone"]) {
-  return tone === "teal"
-    ? "bg-teal/12 text-teal"
-    : tone === "marigold"
-      ? "bg-marigold/20 text-marigold-foreground"
-      : "bg-muted text-muted-foreground";
-}
-
-function PackageCard({ pkg: p, compact = false }: { pkg: (typeof PACKAGES)[number]; compact?: boolean }) {
-  const seller = sellerBySlug(p.seller)!;
-  const product = productById(p.items[0])!;
+function PackageItemCard({
+  pkg,
+  index,
+  total,
+  showTimeline = false,
+}: {
+  pkg: CustomerOrderSummaryDto["packages"][number];
+  index: number;
+  total: number;
+  showTimeline?: boolean;
+}) {
+  const isDelivered = pkg.status === "DELIVERED";
+  const isShipped = pkg.status === "SHIPPED" || isDelivered;
 
   return (
     <div className="rounded-md border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold">
-          Package {p.n} of 3 ·{" "}
-          <Link to="/seller/$slug" params={{ slug: seller.slug }} className="text-primary hover:text-rani">
-            {seller.name}
+          Package {index} of {total} ·{" "}
+          <Link to="/seller/$slug" params={{ slug: pkg.sellerSlug }} className="text-primary hover:text-rani">
+            {pkg.sellerName}
           </Link>
         </p>
-        <span className={`rounded-sm px-2.5 py-1 text-[11px] font-bold uppercase ${toneClasses(p.tone)}`}>
-          {p.status}
+        <span className="rounded-sm bg-primary/10 px-2.5 py-1 text-[11px] font-bold uppercase text-primary">
+          {pkg.status.replace(/_/g, " ")}
         </span>
       </div>
 
-      <div className="mt-3 flex gap-3">
-        <img
-          src={IMAGES[product.image]}
-          alt={product.name}
-          loading="lazy"
-          width={900}
-          height={900}
-          className="size-16 shrink-0 rounded-sm object-cover"
-        />
-        <div className="min-w-0 text-sm">
-          <Link to="/product/$id" params={{ id: product.id }} className="font-medium hover:text-rani">
-            {product.name}
-          </Link>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {formatAUD(product.price)} · {p.courier} · Tracking {p.tracking}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">{p.detail}</p>
-        </div>
+      <div className="mt-3 space-y-2">
+        {pkg.items.map((item) => (
+          <div key={item.id} className="flex gap-3 text-sm">
+            {item.imageUrl && (
+              <img src={item.imageUrl} alt={item.title} className="size-14 shrink-0 rounded-sm object-cover border border-border" />
+            )}
+            <div>
+              <p className="font-medium">{item.title}</p>
+              <p className="text-xs text-muted-foreground">
+                Qty: {item.quantity} · {formatAUD(item.unitPriceAud)}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {!compact && (
+      {pkg.trackingNumber && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Carrier: {pkg.carrier || "Australia Post"} · Tracking: <span className="font-mono">{pkg.trackingNumber}</span>
+        </p>
+      )}
+
+      {showTimeline && (
         <div className="mt-4 border-t border-border pt-4">
-          <ol className="space-y-3">
+          <ol className="space-y-2">
             {TIMELINE_STEPS.map((step, i) => {
-              const stepNo = i + 1;
-              const done = stepNo <= p.step;
-              const isLast = i === TIMELINE_STEPS.length - 1;
+              const done = isDelivered || (isShipped && i <= 2) || i === 0;
               return (
-                <li key={step} className="relative flex gap-3 pl-0.5">
-                  <div className="flex flex-col items-center">
-                    {done ? (
-                      <CheckCircle2 size={16} className="text-teal" />
-                    ) : (
-                      <Circle size={16} className="text-border" />
-                    )}
-                    {!isLast && (
-                      <span
-                        className={`mt-0.5 h-6 w-px ${done && stepNo < p.step ? "bg-teal" : "bg-border"}`}
-                        aria-hidden
-                      />
-                    )}
-                  </div>
-                  <span className={`text-xs font-semibold ${done ? "text-foreground" : "text-muted-foreground"}`}>
-                    {step}
-                  </span>
+                <li key={step} className="flex items-center gap-2 text-xs">
+                  {done ? <CheckCircle2 size={14} className="text-teal" /> : <Circle size={14} className="text-border" />}
+                  <span className={done ? "font-semibold text-foreground" : "text-muted-foreground"}>{step}</span>
                 </li>
               );
             })}
@@ -344,20 +366,12 @@ function PackageCard({ pkg: p, compact = false }: { pkg: (typeof PACKAGES)[numbe
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          to="/orders/$id"
-          params={{ id: "ISM10001" }}
-          className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:border-rani hover:text-rani"
-        >
-          Track package
-        </Link>
-        <SmallBtn>View tax invoice</SmallBtn>
-        {p.status === "Delivered" && (
+        {isDelivered && (
           <Link
             to="/returns/new"
             className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:border-rani hover:text-rani"
           >
-            Return or exchange
+            Return or Exchange (7-day ACL)
           </Link>
         )}
       </div>
@@ -365,73 +379,164 @@ function PackageCard({ pkg: p, compact = false }: { pkg: (typeof PACKAGES)[numbe
   );
 }
 
-function Returns() {
+function Returns({ returnsList }: { returnsList: any[] }) {
   return (
     <Panel
-      title="Returns & Refunds"
+      title="Returns & Exchanges"
       action={
         <Link to="/returns/new" className="text-[11px] font-bold uppercase tracking-wide text-rani">
-          Start a return
+          Start a Return
         </Link>
       }
     >
       <div className="space-y-3 text-sm">
-        <div className="rounded-md border border-border p-4">
-          <p className="font-semibold">RET-4412 · Banarasi Silk Saree</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Size exchange approved · Return label emailed · Refund of $0 (exchange)
-          </p>
-        </div>
-        <div className="rounded-md border border-border p-4">
-          <p className="font-semibold">RET-4390 · Oxidised Jhumkas</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Refunded $39 to card ending 4242 on 18 Jul 2026
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Returns are handled per package — each seller receives their own return separately. Change of
-          mind returns are accepted within 7 days of delivery; faulty, damaged or not-as-described items
-          are covered by Australian Consumer Law rights that are not limited by that window.
+        {returnsList.length > 0 ? (
+          returnsList.map((ret) => (
+            <div key={ret.id} className="rounded-md border border-border p-4">
+              <div className="flex justify-between items-center">
+                <p className="font-semibold">Return #{ret.id.slice(0, 8)}</p>
+                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase">{ret.status}</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Reason: {ret.reason}</p>
+              <p className="text-xs text-muted-foreground">Refund Amount: {formatAUD(Number(ret.refund_amount))}</p>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No active return requests.</p>
+        )}
+        <p className="text-xs text-muted-foreground mt-4">
+          Change of mind returns are accepted within 7 days of confirmed delivery. Statutory ACL warranty claims for damaged or faulty goods are supported outside this window.
         </p>
       </div>
     </Panel>
   );
 }
 
-function Addresses() {
+function Addresses({
+  userId,
+  addresses,
+  onRefresh,
+}: {
+  userId: string;
+  addresses: CustomerAddressDto[];
+  onRefresh: () => void;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [tag, setTag] = useState("Home");
+  const [recipientName, setRecipientName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [line1, setLine1] = useState("");
+  const [suburb, setSuburb] = useState("");
+  const [state, setState] = useState("NSW");
+  const [postcode, setPostcode] = useState("");
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await saveCustomerAddressServerFn({
+        data: {
+          userId,
+          tag,
+          recipientName,
+          phone,
+          address: { line1, suburb, state, postcode, country: "Australia" },
+          isDefault: addresses.length === 0,
+        },
+      });
+      toast.success("Address saved!");
+      setIsAdding(false);
+      onRefresh();
+    } catch (err: any) {
+      toast.error("Failed to save address", { description: err.message });
+    }
+  };
+
+  const handleDelete = async (addressId: string) => {
+    try {
+      await deleteCustomerAddressServerFn({ data: { userId, addressId } });
+      toast.success("Address removed");
+      onRefresh();
+    } catch (err: any) {
+      toast.error("Failed to remove address", { description: err.message });
+    }
+  };
+
   return (
-    <Panel title="Saved Addresses">
-      <div className="grid gap-3 md:grid-cols-2">
-        {[
-          { tag: "Home (default)", body: "24 Wigram Street, Harris Park NSW 2150" },
-          { tag: "Work", body: "Level 8, 100 George Street, Parramatta NSW 2150" },
-        ].map((a) => (
-          <div key={a.tag} className="rounded-md border border-border p-4 text-sm">
-            <p className="font-semibold">{a.tag}</p>
-            <p className="mt-1 text-muted-foreground">Priya Sharma · {a.body} · 0412 345 678</p>
-            <div className="mt-3 flex gap-2">
-              <SmallBtn>Edit</SmallBtn>
-              <SmallBtn>Remove</SmallBtn>
+    <Panel
+      title="Saved Addresses"
+      action={
+        <button
+          onClick={() => setIsAdding(true)}
+          className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-rani"
+        >
+          <Plus size={14} /> Add Address
+        </button>
+      }
+    >
+      <div className="space-y-4">
+        {isAdding && (
+          <form onSubmit={handleSave} className="rounded-md border border-border p-4 space-y-3 bg-muted/20">
+            <h3 className="text-xs font-bold uppercase">Add New Australian Delivery Address</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Full Name" required className="h-9 px-3 border rounded-sm text-sm" />
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone Number" required className="h-9 px-3 border rounded-sm text-sm" />
+              <input value={line1} onChange={(e) => setLine1(e.target.value)} placeholder="Street Address" required className="h-9 px-3 border rounded-sm text-sm sm:col-span-2" />
+              <input value={suburb} onChange={(e) => setSuburb(e.target.value)} placeholder="Suburb" required className="h-9 px-3 border rounded-sm text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <select value={state} onChange={(e) => setState(e.target.value)} className="h-9 px-2 border rounded-sm text-sm">
+                  <option value="NSW">NSW</option><option value="VIC">VIC</option><option value="QLD">QLD</option><option value="WA">WA</option><option value="SA">SA</option><option value="TAS">TAS</option><option value="ACT">ACT</option><option value="NT">NT</option>
+                </select>
+                <input value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="Postcode" required className="h-9 px-3 border rounded-sm text-sm" />
+              </div>
             </div>
-          </div>
-        ))}
+            <div className="flex gap-2">
+              <button type="submit" className="bg-primary text-primary-foreground px-4 py-1.5 text-xs font-bold uppercase rounded-sm">Save</button>
+              <button type="button" onClick={() => setIsAdding(false)} className="border px-4 py-1.5 text-xs font-bold uppercase rounded-sm">Cancel</button>
+            </div>
+          </form>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {addresses.map((a) => (
+            <div key={a.id} className="rounded-md border border-border p-4 text-sm flex justify-between items-start">
+              <div>
+                <p className="font-semibold">{a.tag} {a.isDefault && "(Default)"}</p>
+                <p className="mt-1 text-muted-foreground">{a.recipientName} · {a.address.line1}, {a.address.suburb} {a.address.state} {a.address.postcode}</p>
+                <p className="text-xs text-muted-foreground">{a.phone}</p>
+              </div>
+              <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-rani p-1">
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </Panel>
   );
 }
 
-function Reviews() {
+function Reviews({ orders }: { orders: CustomerOrderSummaryDto[] }) {
   return (
-    <Panel title="My Reviews">
+    <Panel title="Product Reviews">
       <div className="space-y-3 text-sm">
-        <div className="rounded-md border border-border p-4">
-          <p className="font-semibold">Jaipuri Cotton Double Bedsheet Set</p>
-          <p className="mt-1 text-xs text-muted-foreground">★★★★★ · "Soft, true colours, washes well."</p>
-        </div>
-        <div className="rounded-md border border-border p-4">
-          <p className="font-semibold">Hand-Embroidered Punjabi Juttis</p>
-          <p className="mt-1 text-xs text-muted-foreground">★★★★☆ · "Gorgeous work, size up half."</p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          You can write verified reviews for products you have purchased and received.
+        </p>
+        {orders.length > 0 ? (
+          orders.flatMap((o) => o.packages.flatMap((p) => p.items)).slice(0, 3).map((item) => (
+            <div key={item.id} className="rounded-md border border-border p-4 flex justify-between items-center">
+              <div>
+                <p className="font-semibold">{item.title}</p>
+                <p className="text-xs text-muted-foreground">Verified Purchase · Delivered</p>
+              </div>
+              <Link to="/product/$id" params={{ id: item.id }} className="text-xs font-bold uppercase text-rani hover:underline">
+                Write Review
+              </Link>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No purchase reviews yet.</p>
+        )}
       </div>
     </Panel>
   );
@@ -452,8 +557,7 @@ function Profile() {
     try {
       await updateCustomerProfileServerFn({
         data: { userId: user.id, fullName, phone },
-      }).catch((e: any) => console.warn("Live profile update note:", e.message));
-
+      });
       toast.success("Profile updated successfully!");
     } catch (err: any) {
       toast.error("Profile update failed", { description: err.message });
@@ -463,60 +567,26 @@ function Profile() {
   };
 
   return (
-    <Panel title="Profile">
+    <Panel title="Profile & Preferences">
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Full name
-          </label>
-          <input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
-          />
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Full name</label>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm" />
         </div>
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Email
-          </label>
-          <input
-            defaultValue={user?.email ?? "customer@example.com.au"}
-            disabled
-            className="mt-1 h-10 w-full rounded-sm border border-input bg-muted/40 px-3 text-sm text-muted-foreground"
-          />
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Email</label>
+          <input defaultValue={user?.email ?? "customer@example.com.au"} disabled className="mt-1 h-10 w-full rounded-sm border border-input bg-muted/40 px-3 text-sm text-muted-foreground" />
         </div>
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Mobile
-          </label>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
-          />
-        </div>
-        <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Preferred language
-          </label>
-          <input
-            defaultValue="English / Hindi"
-            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
-          />
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Mobile</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm" />
         </div>
       </div>
       <div className="mt-4 flex gap-3">
-        <button
-          onClick={handleSaveProfile}
-          disabled={isSaving}
-          className="rounded-sm bg-rani px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:opacity-90"
-        >
+        <button onClick={handleSaveProfile} disabled={isSaving} className="rounded-sm bg-rani px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:opacity-90">
           {isSaving ? "Saving..." : "Save changes"}
         </button>
-        <button
-          onClick={() => signOut()}
-          className="rounded-sm border border-border px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:border-rani hover:text-rani"
-        >
+        <button onClick={() => signOut()} className="rounded-sm border border-border px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:border-rani hover:text-rani">
           Sign out
         </button>
       </div>
@@ -551,13 +621,5 @@ function Stat({ label, value, note }: { label: string; value: string; note: stri
       <p className="mt-1 font-display text-2xl font-bold text-primary">{value}</p>
       <p className="text-[11px] text-muted-foreground">{note}</p>
     </div>
-  );
-}
-
-function SmallBtn({ children }: { children: React.ReactNode }) {
-  return (
-    <button className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground hover:border-rani hover:text-rani">
-      {children}
-    </button>
   );
 }

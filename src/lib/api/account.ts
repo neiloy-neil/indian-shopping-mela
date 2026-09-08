@@ -11,6 +11,97 @@ export interface CustomerAddressDto {
   isDefault: boolean;
 }
 
+export interface CustomerOrderSummaryDto {
+  id: string;
+  orderNumber: string;
+  totalAmountAud: number;
+  status: string;
+  paymentStatus: string;
+  createdAt: string;
+  packagesCount: number;
+  packages: Array<{
+    subOrderId: string;
+    sellerName: string;
+    sellerSlug: string;
+    status: string;
+    carrier?: string | undefined;
+    trackingNumber?: string | undefined;
+    items: Array<{
+      id: string;
+      title: string;
+      unitPriceAud: number;
+      quantity: number;
+      imageUrl?: string | undefined;
+    }>;
+  }>;
+}
+
+/**
+ * Server Function: Get customer's live orders with seller packages & tracking
+ */
+export const getCustomerOrdersServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string }) => data)
+  .handler(async ({ data }): Promise<CustomerOrderSummaryDto[]> => {
+    const { data: rows, error } = await (supabaseAdmin.from("orders") as any)
+      .select(`
+        id,
+        order_number,
+        total_amount,
+        status,
+        payment_status,
+        created_at,
+        sub_orders (
+          id,
+          status,
+          carrier,
+          tracking_number,
+          seller:sellers (
+            business_name,
+            store_name,
+            slug
+          ),
+          order_items (
+            id,
+            title,
+            unit_price,
+            quantity,
+            image_url
+          )
+        )
+      `)
+      .eq("customer_id", data.userId)
+      .order("created_at", { ascending: false });
+
+    if (error || !rows || rows.length === 0) {
+      return [];
+    }
+
+    return rows.map((order: any) => ({
+      id: order.id,
+      orderNumber: order.order_number || order.id,
+      totalAmountAud: Number(order.total_amount),
+      status: order.status,
+      paymentStatus: order.payment_status,
+      createdAt: order.created_at,
+      packagesCount: order.sub_orders?.length || 0,
+      packages: (order.sub_orders || []).map((sub: any) => ({
+        subOrderId: sub.id,
+        sellerName: sub.seller?.store_name || sub.seller?.business_name || "ISM Seller",
+        sellerSlug: sub.seller?.slug || "seller",
+        status: sub.status,
+        carrier: sub.carrier,
+        trackingNumber: sub.tracking_number,
+        items: (sub.order_items || []).map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          unitPriceAud: Number(item.unit_price),
+          quantity: item.quantity,
+          imageUrl: item.image_url,
+        })),
+      })),
+    }));
+  });
+
 /**
  * Server Function: Get customer saved addresses
  */
@@ -18,7 +109,7 @@ export const getCustomerAddressesServerFn = createServerFn({ method: "POST" })
   .validator((data: { userId: string }) => data)
   .handler(async ({ data }): Promise<CustomerAddressDto[]> => {
     const { data: rows } = await (supabaseAdmin as any)
-      .from("addresses")
+      .from("customer_addresses")
       .select("*")
       .eq("user_id", data.userId)
       .order("is_default", { ascending: false });
@@ -44,8 +135,8 @@ export const getCustomerAddressesServerFn = createServerFn({ method: "POST" })
 
     return rows.map((r: any) => ({
       id: r.id,
-      tag: r.tag ?? "Home",
-      recipientName: r.recipient_name ?? "Customer",
+      tag: r.address_type ?? "Home",
+      recipientName: r.full_name ?? "Customer",
       phone: r.phone ?? "",
       address: {
         line1: r.address_line1,
@@ -76,24 +167,24 @@ export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
     if (data.isDefault) {
       // Unset previous defaults
       await (supabaseAdmin as any)
-        .from("addresses")
+        .from("customer_addresses")
         .update({ is_default: false })
         .eq("user_id", data.userId);
     }
 
     if (data.addressId && data.addressId !== "addr_default") {
       await (supabaseAdmin as any)
-        .from("addresses")
+        .from("customer_addresses")
         .update({
-          tag: data.tag,
-          recipient_name: data.recipientName,
+          address_type: data.tag,
+          full_name: data.recipientName,
           phone: data.phone,
           address_line1: data.address.line1,
           address_line2: data.address.line2 ?? null,
           suburb: data.address.suburb,
           state: data.address.state,
           postcode: data.address.postcode,
-          country: data.address.country,
+          country: data.address.country ?? "AU",
           is_default: data.isDefault ?? false,
           updated_at: new Date().toISOString(),
         })
@@ -101,23 +192,52 @@ export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
         .eq("user_id", data.userId);
     } else {
       await (supabaseAdmin as any)
-        .from("addresses")
+        .from("customer_addresses")
         .insert({
           user_id: data.userId,
-          tag: data.tag,
-          recipient_name: data.recipientName,
+          address_type: data.tag,
+          full_name: data.recipientName,
           phone: data.phone,
           address_line1: data.address.line1,
           address_line2: data.address.line2 ?? null,
           suburb: data.address.suburb,
           state: data.address.state,
           postcode: data.address.postcode,
-          country: data.address.country,
+          country: data.address.country ?? "AU",
           is_default: data.isDefault ?? true,
         });
     }
 
     return { success: true };
+  });
+
+/**
+ * Server Function: Delete customer address
+ */
+export const deleteCustomerAddressServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string; addressId: string }) => data)
+  .handler(async ({ data }) => {
+    await (supabaseAdmin.from("customer_addresses") as any)
+      .delete()
+      .eq("id", data.addressId)
+      .eq("user_id", data.userId);
+
+    return { success: true };
+  });
+
+/**
+ * Server Function: Get customer returns list
+ */
+export const getCustomerReturnsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string }) => data)
+  .handler(async ({ data }) => {
+    const { data: rows, error } = await (supabaseAdmin.from("returns") as any)
+      .select("*, return_items(*), sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))")
+      .eq("customer_id", data.userId)
+      .order("created_at", { ascending: false });
+
+    if (error || !rows) return [];
+    return rows;
   });
 
 /**
@@ -143,4 +263,23 @@ export const updateCustomerProfileServerFn = createServerFn({ method: "POST" })
     }
 
     return { success: true };
+  });
+
+/**
+ * Server Function: Get customer notification preferences
+ */
+export const getCustomerNotificationPreferencesServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string }) => data)
+  .handler(async ({ data }) => {
+    const { data: profile } = await (supabaseAdmin.from("profiles") as any)
+      .select("avatar_url, phone")
+      .eq("id", data.userId)
+      .maybeSingle();
+
+    return {
+      orderUpdates: true,
+      shippingSms: true,
+      promotionsEmail: false,
+      returnAlerts: true,
+    };
   });

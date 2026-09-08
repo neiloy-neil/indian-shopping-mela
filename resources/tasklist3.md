@@ -1282,73 +1282,73 @@ If **direct Supabase MP4** is chosen instead:
 
 # PHASE 23 — ADMIN CONSOLE
 
-- [ ] **T352 — Remove “Admin console demo” production state**
-- [ ] **T353 — Replace static overview metrics**
-- [ ] **T354 — Connect seller approval queue**
-- [ ] **T355 — Connect catalogue moderation**
-- [ ] **T356 — Connect real order support view**
-- [ ] **T357 — Connect real returns queue**
-- [ ] **T358 — Connect real refunds**
-- [ ] **T359 — Connect immutable ledger**
-- [ ] **T360 — Connect payout holds/settlements**
-- [ ] **T361 — Connect shipping exceptions**
-- [ ] **T362 — Connect marketplace config persistence**
-- [ ] **T363 — Connect users/roles**
-- [ ] **T364 — Connect audit log search**
-- [ ] **T365 — Remove demo retry/replay toasts**
-- [ ] **T366 — Require finance role + MFA on financial mutations**
-- [ ] **T367 — Add pagination to all large admin lists**
+- [x] **T352 — Remove “Admin console demo” production state**
+- [x] **T353 — Replace static overview metrics**
+- [x] **T354 — Connect seller approval queue**
+- [x] **T355 — Connect catalogue moderation**
+- [x] **T356 — Connect real order support view**
+- [x] **T357 — Connect real returns queue**
+- [x] **T358 — Connect real refunds**
+- [x] **T359 — Connect immutable ledger**
+- [x] **T360 — Connect payout holds/settlements**
+- [x] **T361 — Connect shipping exceptions**
+- [x] **T362 — Connect marketplace config persistence**
+- [x] **T363 — Connect users/roles**
+- [x] **T364 — Connect audit log search**
+- [x] **T365 — Remove demo retry/replay toasts**
+- [x] **T366 — Require finance role + MFA on financial mutations**
+- [x] **T367 — Add pagination to all large admin lists**
 
 ---
 
 # PHASE 24 — SELLER TEAM
 
-- [ ] **T368 — Replace static `SELLER_STAFF`**
-- [ ] **T369 — Resolve seller ID from authenticated membership**
-- [ ] **T370 — Implement staff invite**
-- [ ] **T371 — Implement secure invite acceptance**
-- [ ] **T372 — Implement permission update**
-- [ ] **T373 — Implement revoke**
-- [ ] **T374 — Preserve historical actor/audit**
-- [ ] **T375 — Verify revoked staff loses access**
+- [x] **T368 — Replace static `SELLER_STAFF`**
+- [x] **T369 — Resolve seller ID from authenticated membership**
+- [x] **T370 — Implement staff invite**
+- [x] **T371 — Implement secure invite acceptance**
+- [x] **T372 — Implement permission update**
+- [x] **T373 — Implement revoke**
+- [x] **T374 — Preserve historical actor/audit**
+- [x] **T375 — Verify revoked staff loses access**
 
 ---
 
 # PHASE 25 — CUSTOMER ACCOUNT & REVIEWS
 
-- [ ] **T376 — Replace static customer order history**
-- [ ] **T377 — Replace static package/tracking data**
-- [ ] **T378 — Implement address CRUD**
-- [ ] **T379 — Connect wishlist to DB**
-- [ ] **T380 — Connect return centre**
-- [ ] **T381 — Implement notification preferences**
-- [ ] **T382 — Implement verified-purchase product review**
-- [ ] **T383 — Implement seller review separately**
-- [ ] **T384 — Prevent seller self-review**
-- [ ] **T385 — Prevent duplicate review**
-- [ ] **T386 — Add admin review moderation/reporting**
+- [x] **T376 — Replace static customer order history**
+- [x] **T377 — Replace static package/tracking data**
+- [x] **T378 — Implement address CRUD**
+- [x] **T379 — Connect wishlist to DB**
+- [x] **T380 — Connect return centre**
+- [x] **T381 — Implement notification preferences**
+- [x] **T382 — Implement verified-purchase product review**
+- [x] **T383 — Implement seller review separately**
+- [x] **T384 — Prevent seller self-review**
+- [x] **T385 — Prevent duplicate review**
+- [x] **T386 — Add admin review moderation/reporting**
 
 ---
 
 # PHASE 26 — JOBS, WEBHOOKS & IDENTITY OF WORK
 
-- [ ] **T387 — Standardize webhook framework**
+- [x] **T387 — Standardize webhook framework**
   - raw request
   - signature
   - unique event insert
   - process
   - mark result
   - retry.
-- [ ] **T388 — Add request/correlation IDs**
-- [ ] **T389 — Add background job abstraction**
-- [ ] **T390 — Add reservation-expiry job**
-- [ ] **T391 — Add payout-eligibility job**
-- [ ] **T392 — Add import worker**
-- [ ] **T393 — Add notification retry worker**
-- [ ] **T394 — Add provider integration retry**
-- [ ] **T395 — Add dead-letter/failure visibility**
-- [ ] **T396 — Make every job idempotent**
-- [ ] **T397 — Test duplicate job execution**
+- [x] **T388 — Add request/correlation IDs**
+- [x] **T389 — Add background job abstraction**
+- [x] **T390 — Add reservation-expiry job**
+- [x] **T391 — Add payout-eligibility job**
+- [x] **T392 — Add import worker**
+- [x] **T393 — Add notification retry worker**
+- [x] **T394 — Add provider integration retry**
+- [x] **T395 — Add dead-letter/failure visibility**
+- [x] **T396 — Make every job idempotent**
+- [x] **T397 — Test duplicate job execution**
 
 ---
 
@@ -1809,6 +1809,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T309-T316 | Completed bulk stock adjustment engine (src/lib/api/bulk-upload.ts): seller SKU ownership enforcement, non-negative quantity validation, active reservation hold protection, inventory_transactions audit logging with deltas, and live zero-baseline UI | npm test (165/165 assertions pass), npx tsc (0 errors), npm run build (0 errors) | e2d848d |
 | 2026-09-09 | T317-T335 | Completed product video pipeline (src/lib/api/video.ts, storage.ts): upload size/duration validation, Mux HMAC-SHA256 webhook signature verification, moderation states (PENDING/APPROVED/REJECTED), fail-closed PDP isolation, and canonical product-media storage | npm test (176/176 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 29e1d9d |
 | 2026-09-09 | T336-T351 | Completed transactional notifications engine (src/lib/api/notifications.ts): Brevo API client, idempotency key deduplication, 3-retry exponential backoff, in-app notification queries, fail-closed missing key protection, 8 business event generators, and Stripe webhook order confirmation email wiring | npm test (190/190 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 4cb76e1 |
+| 2026-09-09 | T352-T397 | Completed Admin Console live wiring & Finance MFA (Phase 23), Seller Team invite/permission/revocation (Phase 24), Customer Account address CRUD & verified reviews (Phase 25), and Webhook Framework & Background Jobs Engine (Phase 26) with correlation IDs, reservation expiry, payout eligibility, notification retry & dead-letter queue | npm test (220/220 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending |
 
 
 

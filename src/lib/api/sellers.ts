@@ -411,6 +411,15 @@ export async function getSellerTeamMembers(sellerId: string): Promise<SellerMemb
 }
 
 /**
+ * Server Function: Get seller team members
+ */
+export const getSellerTeamMembersServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string }) => data)
+  .handler(async ({ data }) => {
+    return getSellerTeamMembers(data.sellerId);
+  });
+
+/**
  * Server Function: Invite a new staff member to seller team
  */
 export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
@@ -422,6 +431,8 @@ export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
     permissions: string[];
   }) => data)
   .handler(async ({ data }) => {
+    const inviteToken = `inv_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+
     const { error } = await (supabaseAdmin as any).from("seller_members").insert({
       seller_id: data.sellerId,
       role: data.role,
@@ -436,10 +447,39 @@ export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
       action: "SELLER_MEMBER_INVITED",
       entity_type: "SELLER_MEMBER",
       entity_id: data.sellerId,
-      payload: { email: data.email, role: data.role, permissions: data.permissions },
+      new_data: { email: data.email, role: data.role, permissions: data.permissions, inviteToken },
     });
 
-    return { success: true };
+    return { success: true, inviteToken };
+  });
+
+/**
+ * Server Function: Accept staff invite
+ */
+export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" })
+  .validator((data: { inviteToken: string; userId: string }) => data)
+  .handler(async ({ data }) => {
+    const { data: log } = await (supabaseAdmin.from("audit_logs") as any)
+      .select("*")
+      .eq("action", "SELLER_MEMBER_INVITED")
+      .filter("new_data->>inviteToken", "eq", data.inviteToken)
+      .maybeSingle();
+
+    if (!log) throw new Error("Invalid or expired staff invite token");
+
+    const sellerId = log.entity_id;
+    const role = log.new_data?.role || "member";
+    const permissions = log.new_data?.permissions || ["products", "orders"];
+
+    await (supabaseAdmin.from("seller_staff") as any).upsert({
+      seller_id: sellerId,
+      user_id: data.userId,
+      staff_role: role,
+      permissions,
+      is_active: true,
+    }, { onConflict: "seller_id,user_id" });
+
+    return { success: true, sellerId };
   });
 
 /**
@@ -456,7 +496,7 @@ export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "PO
       action: "SELLER_PERMISSIONS_UPDATED",
       entity_type: "SELLER_MEMBER",
       entity_id: data.sellerId,
-      payload: { memberEmail: data.memberEmail, permissions: data.permissions },
+      new_data: { memberEmail: data.memberEmail, permissions: data.permissions },
     });
 
     return { success: true };
@@ -475,8 +515,10 @@ export const removeSellerStaffServerFn = createServerFn({ method: "POST" })
       action: "SELLER_MEMBER_REMOVED",
       entity_type: "SELLER_MEMBER",
       entity_id: data.sellerId,
-      payload: { memberEmail: data.memberEmail },
+      new_data: { memberEmail: data.memberEmail },
     });
 
     return { success: true };
   });
+
+export const revokeSellerStaffMemberServerFn = removeSellerStaffServerFn;
