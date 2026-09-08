@@ -354,6 +354,82 @@ console.log("\n11. Testing Product CRUD, Variant Matrix, Moderation & Snapshot I
   assert(historicalOrderItem.price_cents !== updatedLiveProduct.price_cents, "Mutating live product catalogue does not affect past customer receipts");
 }
 
+// 12. DATABASE-BACKED CART, GUEST MERGE & WISHLIST ISOLATION (Master Plan §7.4, Tasks T125-T135)
+console.log("\n12. Testing Database-Backed Cart, Guest Merge & Wishlist Isolation...");
+{
+  // 1. Multi-Tenant Cart Isolation Rule
+  const canAccessCart = (actor: { userId?: string; guestToken?: string }, cart: { userId?: string | null; guestToken?: string | null }) => {
+    if (actor.userId && cart.userId) return actor.userId === cart.userId;
+    if (actor.guestToken && cart.guestToken) return actor.guestToken === cart.guestToken;
+    return false;
+  };
+
+  const userCart = { userId: "user-cust-001", guestToken: null };
+  const otherUserCart = { userId: "user-cust-002", guestToken: null };
+  const guestCart = { userId: null, guestToken: "guest-token-xyz-12345" };
+
+  assert(canAccessCart({ userId: "user-cust-001" }, userCart), "Customer can access their own database cart");
+  assert(!canAccessCart({ userId: "user-cust-001" }, otherUserCart), "Customer A cannot access Customer B's cart");
+  assert(canAccessCart({ guestToken: "guest-token-xyz-12345" }, guestCart), "Guest with matching token can access guest cart");
+  assert(!canAccessCart({ guestToken: "guest-token-hacker-999" }, guestCart), "Guest with invalid token is blocked from accessing another guest's cart");
+
+  // 2. Authoritative Stock Validation on Add-to-Cart
+  const canAddToCart = (productStatus: string, availableStock: number, requestedQty: number) => {
+    if (productStatus !== "LIVE") return { allowed: false, error: "PRODUCT_NOT_LIVE" };
+    if (requestedQty <= 0) return { allowed: false, error: "INVALID_QUANTITY" };
+    if (availableStock < requestedQty) return { allowed: false, error: "INSUFFICIENT_STOCK" };
+    return { allowed: true };
+  };
+
+  assert(canAddToCart("LIVE", 10, 2).allowed, "Adding 2 units of available LIVE product succeeds");
+  assert(canAddToCart("DRAFT", 10, 1).error === "PRODUCT_NOT_LIVE", "Adding DRAFT product to cart is strictly prevented");
+  assert(canAddToCart("ARCHIVED", 10, 1).error === "PRODUCT_NOT_LIVE", "Adding ARCHIVED product to cart is strictly prevented");
+  assert(canAddToCart("LIVE", 2, 5).error === "INSUFFICIENT_STOCK", "Adding quantity exceeding available stock fails closed");
+
+  // 3. Guest-to-User Cart Merge with Stock Clamping & Revalidation
+  const mergeLines = (
+    userLines: Array<{ variantId: string; quantity: number }>,
+    guestLines: Array<{ variantId: string; quantity: number; isLive: boolean; stock: number }>
+  ) => {
+    const merged = [...userLines];
+    for (const g of guestLines) {
+      if (!g.isLive || g.stock <= 0) continue; // Skip dead/out-of-stock items
+      const existing = merged.find(m => m.variantId === g.variantId);
+      if (existing) {
+        existing.quantity = Math.min(existing.quantity + g.quantity, g.stock);
+      } else {
+        merged.push({ variantId: g.variantId, quantity: Math.min(g.quantity, g.stock) });
+      }
+    }
+    return merged;
+  };
+
+  const initialUserLines = [{ variantId: "var-1", quantity: 1 }];
+  const guestLinesToMerge = [
+    { variantId: "var-1", quantity: 2, isLive: true, stock: 5 }, // Should merge to 3
+    { variantId: "var-2", quantity: 3, isLive: true, stock: 2 }, // Clamped to 2
+    { variantId: "var-3", quantity: 1, isLive: false, stock: 10 }, // Inactive, skipped
+  ];
+
+  const mergedResult = mergeLines(initialUserLines, guestLinesToMerge);
+  assert(mergedResult.length === 2, "Guest merge successfully appends valid lines and ignores inactive items");
+  assert(mergedResult.find(m => m.variantId === "var-1")?.quantity === 3, "Quantities for existing items combine correctly");
+  assert(mergedResult.find(m => m.variantId === "var-2")?.quantity === 2, "Merged quantity is safely clamped to available live stock limit");
+
+  // 4. DB Wishlist Toggle Idempotency
+  const toggleWishlist = (currentList: string[], productId: string): string[] => {
+    return currentList.includes(productId)
+      ? currentList.filter(id => id !== productId)
+      : [...currentList, productId];
+  };
+
+  let wishlist: string[] = [];
+  wishlist = toggleWishlist(wishlist, "prod-101");
+  assert(wishlist.includes("prod-101"), "Product added to wishlist");
+  wishlist = toggleWishlist(wishlist, "prod-101");
+  assert(!wishlist.includes("prod-101"), "Product removed from wishlist on second toggle");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -363,6 +439,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 

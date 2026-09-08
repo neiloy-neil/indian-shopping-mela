@@ -13,10 +13,15 @@ import {
   getCartServerFn,
   removeFromCartServerFn,
   updateCartQtyServerFn,
+  mergeGuestCartServerFn,
+  getWishlistServerFn,
+  toggleWishlistServerFn,
 } from "./api/cart";
+import { supabase } from "./supabase/client";
 
 export type CartLine = {
-  id: string;
+  id: string; // product id or line id
+  lineId?: string | undefined;
   qty: number;
   size?: string | undefined;
   colour?: string | undefined;
@@ -28,6 +33,7 @@ type Ctx = {
   wishlist: string[];
   cartCount: number;
   guestToken: string;
+  userId: string | null;
   addToCart: (
     id: string,
     opts?: {
@@ -43,6 +49,7 @@ type Ctx = {
   isWishlisted: (id: string) => boolean;
   subtotal: number;
   refreshCartFromServer: () => Promise<void>;
+  refreshWishlistFromServer: () => Promise<void>;
 };
 
 const IsmContext = createContext<Ctx | null>(null);
@@ -66,6 +73,7 @@ export function getOrCreateGuestToken(): string {
 
 export function IsmProvider({ children }: { children: ReactNode }) {
   const [guestToken] = useState<string>(() => getOrCreateGuestToken());
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [cart, setCart] = useState<CartLine[]>(() => {
     if (typeof window === "undefined") return [];
@@ -87,6 +95,32 @@ export function IsmProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  // Track Supabase Auth user session changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user?.id ?? null);
+    });
+
+    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const newUserId = session?.user?.id ?? null;
+      setUserId(newUserId);
+
+      // On Sign-In: Merge guest cart into user account cart
+      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && newUserId && typeof window !== "undefined") {
+        const token = getOrCreateGuestToken();
+        try {
+          await mergeGuestCartServerFn({ data: { userId: newUserId, guestToken: token } });
+        } catch (err) {
+          console.warn("Guest cart merge warning:", err);
+        }
+      }
+    });
+
+    return () => {
+      authSub?.subscription?.unsubscribe();
+    };
+  }, []);
+
   const updateCart = useCallback((updater: (prev: CartLine[]) => CartLine[]) => {
     setCart((prev) => {
       const next = updater(prev);
@@ -94,7 +128,7 @@ export function IsmProvider({ children }: { children: ReactNode }) {
         try {
           localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
         } catch {
-          // ignore storage quota errors
+          // ignore quota error
         }
       }
       return next;
@@ -119,81 +153,129 @@ export function IsmProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     try {
       const token = getOrCreateGuestToken();
-      const serverCart = await getCartServerFn({ data: { guestToken: token } });
+      const serverCart = await getCartServerFn({
+        data: {
+          userId: userId ?? undefined,
+          guestToken: userId ? undefined : token,
+        },
+      });
+
       if (serverCart && serverCart.items.length > 0) {
         const mappedLines: CartLine[] = serverCart.items.map((item) => ({
           id: item.productId,
+          lineId: item.lineId,
           variantId: item.variantId,
           qty: item.quantity,
           size: item.variantTitle,
           colour: undefined,
         }));
         updateCart(() => mappedLines);
+      } else if (serverCart && serverCart.items.length === 0 && userId) {
+        // Clear local cache if remote DB cart is empty
+        updateCart(() => []);
       }
     } catch (err) {
       console.warn("Could not sync cart from database:", err);
     }
-  }, [updateCart]);
+  }, [userId, updateCart]);
+
+  const refreshWishlistFromServer = useCallback(async () => {
+    if (!userId || typeof window === "undefined") return;
+    try {
+      const res = await getWishlistServerFn({ data: { userId } });
+      if (res?.productIds) {
+        updateWishlist(() => res.productIds);
+      }
+    } catch (err) {
+      console.warn("Could not sync wishlist from database:", err);
+    }
+  }, [userId, updateWishlist]);
 
   useEffect(() => {
-    // Initial sync
     refreshCartFromServer();
-  }, [refreshCartFromServer]);
+    refreshWishlistFromServer();
+  }, [refreshCartFromServer, refreshWishlistFromServer]);
 
   const addToCart = useCallback<Ctx["addToCart"]>(
     (id, opts) => {
+      const qtyToAdd = opts?.qty ?? 1;
+      const variantId = opts?.variantId ?? id;
+
       updateCart((prev) => {
-        const existing = prev.find((l) => l.id === id);
+        const existing = prev.find((l) => l.variantId === variantId || l.id === id);
         if (existing) {
           return prev.map((l) =>
-            l.id === id ? { ...l, qty: l.qty + (opts?.qty ?? 1) } : l
+            l.variantId === variantId || l.id === id ? { ...l, qty: l.qty + qtyToAdd } : l
           );
         }
         return [
           ...prev,
           {
             id,
-            qty: opts?.qty ?? 1,
+            qty: qtyToAdd,
             size: opts?.size,
             colour: opts?.colour,
-            variantId: opts?.variantId ?? id,
+            variantId,
           },
         ];
       });
 
-      // Background server mutation
+      // Background authoritative server mutation
       if (typeof window !== "undefined") {
         const token = getOrCreateGuestToken();
         addToCartServerFn({
           data: {
-            guestToken: token,
-            variantId: opts?.variantId ?? id,
-            quantity: opts?.qty ?? 1,
+            userId: userId ?? undefined,
+            guestToken: userId ? undefined : token,
+            variantId,
+            quantity: qtyToAdd,
           },
         }).catch((err) => {
           console.warn("Background addToCartServerFn failed:", err);
         });
       }
     },
-    [updateCart]
+    [userId, updateCart]
   );
 
   const setQty = useCallback(
     (id: string, qty: number) => {
+      const line = cart.find((l) => l.id === id || l.variantId === id);
+      const lineId = line?.lineId;
+
       updateCart((prev) =>
         qty <= 0
-          ? prev.filter((l) => l.id !== id)
-          : prev.map((l) => (l.id === id ? { ...l, qty } : l))
+          ? prev.filter((l) => l.id !== id && l.variantId !== id)
+          : prev.map((l) => (l.id === id || l.variantId === id ? { ...l, qty } : l))
       );
+
+      if (lineId && typeof window !== "undefined") {
+        updateCartQtyServerFn({
+          data: { lineId, quantity: qty },
+        }).catch((err) => {
+          console.warn("Background updateCartQtyServerFn failed:", err);
+        });
+      }
     },
-    [updateCart]
+    [cart, updateCart]
   );
 
   const removeFromCart = useCallback(
     (id: string) => {
-      updateCart((prev) => prev.filter((l) => l.id !== id));
+      const line = cart.find((l) => l.id === id || l.variantId === id);
+      const lineId = line?.lineId;
+
+      updateCart((prev) => prev.filter((l) => l.id !== id && l.variantId !== id));
+
+      if (lineId && typeof window !== "undefined") {
+        removeFromCartServerFn({
+          data: { lineId },
+        }).catch((err) => {
+          console.warn("Background removeFromCartServerFn failed:", err);
+        });
+      }
     },
-    [updateCart]
+    [cart, updateCart]
   );
 
   const toggleWishlist = useCallback(
@@ -201,8 +283,16 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       updateWishlist((prev) =>
         prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
       );
+
+      if (userId && typeof window !== "undefined") {
+        toggleWishlistServerFn({
+          data: { userId, productId: id },
+        }).catch((err) => {
+          console.warn("Background toggleWishlistServerFn failed:", err);
+        });
+      }
     },
-    [updateWishlist]
+    [userId, updateWishlist]
   );
 
   const value = useMemo<Ctx>(() => {
@@ -216,6 +306,7 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       wishlist,
       cartCount,
       guestToken,
+      userId,
       addToCart,
       setQty,
       removeFromCart,
@@ -223,16 +314,19 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       isWishlisted: (id: string) => wishlist.includes(id),
       subtotal,
       refreshCartFromServer,
+      refreshWishlistFromServer,
     };
   }, [
     cart,
     wishlist,
     guestToken,
+    userId,
     addToCart,
     setQty,
     removeFromCart,
     toggleWishlist,
     refreshCartFromServer,
+    refreshWishlistFromServer,
   ]);
 
   return <IsmContext.Provider value={value}>{children}</IsmContext.Provider>;

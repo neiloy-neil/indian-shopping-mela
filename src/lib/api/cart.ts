@@ -13,7 +13,7 @@ export interface CartItemDto {
   priceAud: number;
   quantity: number;
   availableStock: number;
-  imageUrl?: string;
+  imageUrl?: string | undefined;
   weightKg: number;
 }
 
@@ -24,73 +24,87 @@ export interface CartSummaryDto {
 }
 
 /**
+ * Helper to ensure or fetch cart ID for user or guest
+ */
+async function resolveOrCreateCartId(userId?: string | null, guestToken?: string | null): Promise<string | null> {
+  if (userId) {
+    const { data: userCart } = await (supabaseAdmin.from("carts") as any)
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (userCart?.id) return userCart.id;
+
+    const { data: newCart, error } = await (supabaseAdmin.from("carts") as any)
+      .insert({ user_id: userId, currency: "AUD" })
+      .select("id")
+      .single();
+
+    if (error) console.error("Error creating user cart:", error);
+    return newCart?.id ?? null;
+  }
+
+  if (guestToken && guestToken.trim().length >= 8) {
+    const sanitizedToken = guestToken.trim();
+    const { data: guestCart } = await (supabaseAdmin.from("carts") as any)
+      .select("id")
+      .eq("guest_token", sanitizedToken)
+      .maybeSingle();
+
+    if (guestCart?.id) return guestCart.id;
+
+    const { data: newGuestCart, error } = await (supabaseAdmin.from("carts") as any)
+      .insert({ guest_token: sanitizedToken, currency: "AUD" })
+      .select("id")
+      .single();
+
+    if (error) console.error("Error creating guest cart:", error);
+    return newGuestCart?.id ?? null;
+  }
+
+  return null;
+}
+
+/**
  * Server Function: Get current user or guest cart lines from database
  */
 export const getCartServerFn = createServerFn({ method: "POST" })
   .validator((data: { userId?: string | undefined; guestToken?: string | undefined }) => data)
   .handler(async ({ data }): Promise<CartSummaryDto> => {
-    let cartId: string | null = null;
-
-    if (data.userId) {
-      const { data: userCart } = await (supabaseAdmin.from("carts") as any)
-        .select("id")
-        .eq("user_id", data.userId)
-        .maybeSingle();
-
-      if (userCart) {
-        cartId = userCart.id;
-      } else {
-        const { data: newCart } = await (supabaseAdmin.from("carts") as any)
-          .insert({ user_id: data.userId })
-          .select("id")
-          .single();
-        cartId = newCart?.id ?? null;
-      }
-    } else if (data.guestToken) {
-      const { data: guestCart } = await (supabaseAdmin.from("carts") as any)
-        .select("id")
-        .eq("guest_token", data.guestToken)
-        .maybeSingle();
-
-      if (guestCart) {
-        cartId = guestCart.id;
-      } else {
-        const { data: newGuestCart } = await (supabaseAdmin.from("carts") as any)
-          .insert({ guest_token: data.guestToken })
-          .select("id")
-          .single();
-        cartId = newGuestCart?.id ?? null;
-      }
-    }
+    const cartId = await resolveOrCreateCartId(data.userId, data.guestToken);
 
     if (!cartId) {
       return { items: [], subtotalAud: 0, totalQuantity: 0 };
     }
 
-    const { data: lines } = await (supabaseAdmin.from("cart_lines") as any)
+    const { data: lines, error } = await (supabaseAdmin.from("cart_lines") as any)
       .select(`
         id,
         quantity,
         variant_id,
-        product_variants (
+        variant:product_variants (
           id,
           product_id,
           seller_sku,
-          variant_name,
-          price_aud_cents,
+          title,
+          price,
+          sale_price,
           stock_quantity,
-          weight_grams,
-          products (
+          weight_kg_override,
+          images,
+          product:products (
             id,
             title,
             seller_id,
-            sellers (
+            status,
+            weight_kg,
+            seller:sellers (
               id,
               business_name,
               store_name
             ),
-            product_media (
-              media_url,
+            media:product_media (
+              url,
               is_primary
             )
           )
@@ -98,19 +112,23 @@ export const getCartServerFn = createServerFn({ method: "POST" })
       `)
       .eq("cart_id", cartId);
 
-    if (!lines || lines.length === 0) {
+    if (error || !lines || lines.length === 0) {
       return { items: [], subtotalAud: 0, totalQuantity: 0 };
     }
 
     const items: CartItemDto[] = lines
-      .filter((l: any) => l.product_variants)
+      .filter((l: any) => l.variant && l.variant.product)
       .map((l: any) => {
-        const variant = l.product_variants;
-        const product = variant.products;
-        const seller = product?.sellers;
-        const primaryMedia = product?.product_media?.find((m: any) => m.is_primary) ?? product?.product_media?.[0];
-        const priceAud = variant.price_aud_cents ? variant.price_aud_cents / 100 : 0;
-        const availableStock = Math.max(0, variant.stock_quantity ?? 0);
+        const variant = l.variant;
+        const product = variant.product;
+        const seller = product?.seller;
+        const primaryMedia = (product?.media || []).find((m: any) => m.is_primary) ?? product?.media?.[0];
+        const rawPrice = variant.price ?? variant.sale_price ?? 0;
+        const priceAud = Number(rawPrice);
+        const availableStock = Math.max(0, Number(variant.stock_quantity) || 0);
+        const fallbackImg = (variant.images && variant.images.length > 0) ? variant.images[0] : undefined;
+        const imageUrl = primaryMedia?.url ?? fallbackImg ?? undefined;
+        const weightKg = Number(variant.weight_kg_override ?? product?.weight_kg ?? 0.5);
 
         return {
           lineId: l.id,
@@ -119,13 +137,13 @@ export const getCartServerFn = createServerFn({ method: "POST" })
           sellerId: product?.seller_id ?? "unknown-seller",
           sellerName: seller?.store_name ?? seller?.business_name ?? "Marketplace Seller",
           productName: product?.title ?? "Product",
-          variantTitle: variant.variant_name ?? "Standard",
+          variantTitle: variant.title ?? "Standard",
           sku: variant.seller_sku ?? "SKU-STD",
           priceAud,
-          quantity: l.quantity,
+          quantity: Number(l.quantity) || 1,
           availableStock,
-          imageUrl: primaryMedia?.media_url ?? undefined,
-          weightKg: Number((variant.weight_grams ? variant.weight_grams / 1000 : 0.5).toFixed(3)),
+          imageUrl,
+          weightKg,
         };
       });
 
@@ -140,7 +158,7 @@ export const getCartServerFn = createServerFn({ method: "POST" })
   });
 
 /**
- * Server Function: Add item to cart (with authoritative price and stock check)
+ * Server Function: Add item to cart (with authoritative stock and price validation)
  */
 export const addToCartServerFn = createServerFn({ method: "POST" })
   .validator((data: {
@@ -150,45 +168,33 @@ export const addToCartServerFn = createServerFn({ method: "POST" })
     quantity: number;
   }) => data)
   .handler(async ({ data }) => {
-    let cartId: string | null = null;
-
-    if (data.userId) {
-      const { data: userCart } = await (supabaseAdmin.from("carts") as any)
-        .select("id")
-        .eq("user_id", data.userId)
-        .maybeSingle();
-
-      if (userCart) {
-        cartId = userCart.id;
-      } else {
-        const { data: newCart } = await (supabaseAdmin.from("carts") as any)
-          .insert({ user_id: data.userId })
-          .select("id")
-          .single();
-        cartId = newCart?.id ?? null;
-      }
-    } else if (data.guestToken) {
-      const { data: guestCart } = await (supabaseAdmin.from("carts") as any)
-        .select("id")
-        .eq("guest_token", data.guestToken)
-        .maybeSingle();
-
-      if (guestCart) {
-        cartId = guestCart.id;
-      } else {
-        const { data: newGuestCart } = await (supabaseAdmin.from("carts") as any)
-          .insert({ guest_token: data.guestToken })
-          .select("id")
-          .single();
-        cartId = newGuestCart?.id ?? null;
-      }
-    }
+    const qtyToAdd = Math.max(1, data.quantity || 1);
+    const cartId = await resolveOrCreateCartId(data.userId, data.guestToken);
 
     if (!cartId) {
       throw new Error("Unable to identify or create cart session.");
     }
 
-    // Check existing line by variant_id
+    // Authoritatively check variant existence and available stock
+    const { data: variant, error: varErr } = await (supabaseAdmin.from("product_variants") as any)
+      .select("id, stock_quantity, product:products!inner(status)")
+      .eq("id", data.variantId)
+      .single();
+
+    if (varErr || !variant) {
+      throw new Error("Product variant not found.");
+    }
+
+    if (variant.product?.status !== "LIVE") {
+      throw new Error("This product is currently unavailable for purchase.");
+    }
+
+    const availableStock = Math.max(0, variant.stock_quantity || 0);
+    if (availableStock < qtyToAdd) {
+      throw new Error(`Only ${availableStock} units available in stock.`);
+    }
+
+    // Check existing line in cart
     const { data: existingLine } = await (supabaseAdmin.from("cart_lines") as any)
       .select("id, quantity")
       .eq("cart_id", cartId)
@@ -196,16 +202,20 @@ export const addToCartServerFn = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (existingLine) {
+      const newTotalQty = existingLine.quantity + qtyToAdd;
+      if (newTotalQty > availableStock) {
+        throw new Error(`Cannot add more than available stock (${availableStock} max).`);
+      }
       await (supabaseAdmin.from("cart_lines") as any)
         .update({
-          quantity: existingLine.quantity + data.quantity,
+          quantity: newTotalQty,
         })
         .eq("id", existingLine.id);
     } else {
       await (supabaseAdmin.from("cart_lines") as any).insert({
         cart_id: cartId,
         variant_id: data.variantId,
-        quantity: data.quantity,
+        quantity: qtyToAdd,
       });
     }
 
@@ -220,12 +230,27 @@ export const updateCartQtyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (data.quantity <= 0) {
       await (supabaseAdmin.from("cart_lines") as any).delete().eq("id", data.lineId);
-    } else {
-      await (supabaseAdmin.from("cart_lines") as any)
-        .update({ quantity: data.quantity })
-        .eq("id", data.lineId);
+      return { success: true };
     }
-    return { success: true };
+
+    // Validate available stock for the line
+    const { data: line } = await (supabaseAdmin.from("cart_lines") as any)
+      .select("id, variant_id, variant:product_variants(stock_quantity)")
+      .eq("id", data.lineId)
+      .maybeSingle();
+
+    if (!line) {
+      throw new Error("Cart line not found.");
+    }
+
+    const availableStock = Math.max(0, line.variant?.stock_quantity ?? 0);
+    const targetQty = Math.min(data.quantity, availableStock);
+
+    await (supabaseAdmin.from("cart_lines") as any)
+      .update({ quantity: targetQty })
+      .eq("id", data.lineId);
+
+    return { success: true, adjustedQuantity: targetQty };
   });
 
 /**
@@ -240,6 +265,7 @@ export const removeFromCartServerFn = createServerFn({ method: "POST" })
 
 /**
  * Server Function: Merge guest cart into user account cart on sign-in
+ * Revalidates product status and live stock during merge
  */
 export const mergeGuestCartServerFn = createServerFn({ method: "POST" })
   .validator((data: { userId: string; guestToken: string }) => data)
@@ -251,28 +277,36 @@ export const mergeGuestCartServerFn = createServerFn({ method: "POST" })
 
     if (!guestCart) return { success: true, merged: 0 };
 
-    const { data: userCart } = await (supabaseAdmin.from("carts") as any)
-      .select("id")
-      .eq("user_id", data.userId)
-      .maybeSingle();
-
-    let targetCartId = userCart?.id;
-    if (!targetCartId) {
-      const { data: newCart } = await (supabaseAdmin.from("carts") as any)
-        .insert({ user_id: data.userId })
-        .select("id")
-        .single();
-      targetCartId = newCart?.id;
-    }
-
+    const targetCartId = await resolveOrCreateCartId(data.userId, null);
     if (!targetCartId) throw new Error("Could not create user cart.");
 
     const { data: guestLines } = await (supabaseAdmin.from("cart_lines") as any)
-      .select("variant_id, quantity")
+      .select(`
+        id,
+        variant_id,
+        quantity,
+        variant:product_variants(
+          stock_quantity,
+          product:products(status)
+        )
+      `)
       .eq("cart_id", guestCart.id);
+
+    let mergedCount = 0;
 
     if (guestLines && guestLines.length > 0) {
       for (const line of guestLines) {
+        // Revalidate product and stock status
+        const isLive = line.variant?.product?.status === "LIVE";
+        const stockQty = Math.max(0, line.variant?.stock_quantity ?? 0);
+
+        if (!isLive || stockQty <= 0) {
+          // Skip inactive/out-of-stock items
+          continue;
+        }
+
+        const qtyToMerge = Math.min(line.quantity, stockQty);
+
         const { data: existingUserLine } = await (supabaseAdmin.from("cart_lines") as any)
           .select("id, quantity")
           .eq("cart_id", targetCartId)
@@ -280,21 +314,67 @@ export const mergeGuestCartServerFn = createServerFn({ method: "POST" })
           .maybeSingle();
 
         if (existingUserLine) {
+          const finalQty = Math.min(existingUserLine.quantity + qtyToMerge, stockQty);
           await (supabaseAdmin.from("cart_lines") as any)
-            .update({ quantity: existingUserLine.quantity + line.quantity })
+            .update({ quantity: finalQty })
             .eq("id", existingUserLine.id);
         } else {
           await (supabaseAdmin.from("cart_lines") as any).insert({
             cart_id: targetCartId,
             variant_id: line.variant_id,
-            quantity: line.quantity,
+            quantity: qtyToMerge,
           });
         }
+        mergedCount++;
       }
     }
 
-    // Delete guest cart
+    // Delete guest cart post-merge
     await (supabaseAdmin.from("carts") as any).delete().eq("id", guestCart.id);
 
-    return { success: true, merged: guestLines?.length ?? 0 };
+    return { success: true, merged: mergedCount };
+  });
+
+/**
+ * Server Function: Get authenticated user wishlist from database
+ */
+export const getWishlistServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string }) => data)
+  .handler(async ({ data }): Promise<{ productIds: string[] }> => {
+    const { data: rows, error } = await (supabaseAdmin.from("wishlists") as any)
+      .select("product_id")
+      .eq("user_id", data.userId);
+
+    if (error) {
+      console.warn("Wishlist fetch warning:", error.message);
+      return { productIds: [] };
+    }
+
+    return { productIds: (rows || []).map((r: any) => r.product_id) };
+  });
+
+/**
+ * Server Function: Toggle product in user wishlist
+ */
+export const toggleWishlistServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string; productId: string }) => data)
+  .handler(async ({ data }): Promise<{ wishlisted: boolean }> => {
+    const { data: existing } = await (supabaseAdmin.from("wishlists") as any)
+      .select("id")
+      .eq("user_id", data.userId)
+      .eq("product_id", data.productId)
+      .maybeSingle();
+
+    if (existing) {
+      await (supabaseAdmin.from("wishlists") as any)
+        .delete()
+        .eq("id", existing.id);
+      return { wishlisted: false };
+    } else {
+      await (supabaseAdmin.from("wishlists") as any).insert({
+        user_id: data.userId,
+        product_id: data.productId,
+      });
+      return { wishlisted: true };
+    }
   });
