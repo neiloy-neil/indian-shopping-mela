@@ -1,17 +1,18 @@
 /**
  * Indian Shopping Mela — Canonical Schema & Migration Integrity Checker
- * Validates active migration files, required database tables, atomic RPCs,
- * storage buckets, and RLS policies.
+ * Validates active migration files, required database tables, table creation order,
+ * foreign key integrity, atomic RPCs, storage buckets, RLS policies, and seed consistency.
  */
 
 import * as fs from "fs";
 import * as path from "path";
 
 const MIGRATIONS_DIR = path.resolve(process.cwd(), "supabase/migrations");
+const SEED_FILE = path.resolve(process.cwd(), "supabase/seed.sql");
 const CANONICAL_MIGRATION = "20260907_canonical_schema.sql";
 
 console.log("\n=======================================================");
-console.log("  ISM CANONICAL SCHEMA INTEGRITY AUDIT");
+console.log("  ISM CANONICAL SCHEMA & SEED INTEGRITY AUDIT");
 console.log("=======================================================");
 
 // 1. Verify only canonical migrations are active
@@ -32,9 +33,9 @@ const sqlContent = fs.readFileSync(path.join(MIGRATIONS_DIR, CANONICAL_MIGRATION
 const REQUIRED_TABLES = [
   "profiles", "sellers", "seller_members", "seller_addresses", "seller_documents",
   "departments", "categories", "category_attributes", "attribute_options",
-  "collections", "collection_products", "products", "product_variants",
-  "product_variant_options", "product_media", "inventory_reservations",
-  "inventory_transactions", "customer_addresses", "carts", "cart_lines",
+  "products", "product_variants", "product_variant_options", "product_media",
+  "collections", "collection_products",
+  "inventory_reservations", "inventory_transactions", "customer_addresses", "carts", "cart_lines",
   "wishlists", "orders", "sub_orders", "order_items",
   "order_status_history", "payments", "ledger_entries", "shipments",
   "tracking_events", "returns", "return_items", "refunds", "payouts",
@@ -44,10 +45,13 @@ const REQUIRED_TABLES = [
 
 console.log(`\n2. Verifying ${REQUIRED_TABLES.length} canonical tables in SQL schema...`);
 let missingTables = 0;
+const tablePositions = new Map<string, number>();
+
 for (const table of REQUIRED_TABLES) {
   const tableRegex = new RegExp(`CREATE TABLE IF NOT EXISTS public\\.${table}\\b|CREATE TABLE public\\.${table}\\b`, "i");
-  if (tableRegex.test(sqlContent)) {
-    // found
+  const match = tableRegex.exec(sqlContent);
+  if (match) {
+    tablePositions.set(table, match.index);
   } else {
     console.error(`   [FAIL] Missing table definition: public.${table}`);
     missingTables++;
@@ -60,12 +64,56 @@ if (missingTables > 0) {
 }
 console.log(`   [PASS] All ${REQUIRED_TABLES.length} canonical tables exist.`);
 
-// 3. Verify atomic inventory RPCs
-console.log(`\n3. Verifying atomic inventory RPC functions...`);
+// 3. Verify table creation ordering for key dependencies
+console.log(`\n3. Verifying table creation and foreign-key order dependencies...`);
+const ORDER_DEPENDENCIES: Array<[string, string]> = [
+  ["departments", "categories"],
+  ["categories", "category_attributes"],
+  ["category_attributes", "attribute_options"],
+  ["sellers", "products"],
+  ["categories", "products"],
+  ["products", "product_variants"],
+  ["product_variants", "product_variant_options"],
+  ["products", "product_media"],
+  ["collections", "collection_products"],
+  ["products", "collection_products"],
+  ["product_variants", "inventory_reservations"],
+  ["carts", "cart_lines"],
+  ["product_variants", "cart_lines"],
+  ["orders", "sub_orders"],
+  ["sub_orders", "order_items"],
+  ["sub_orders", "shipments"],
+  ["shipments", "tracking_events"],
+  ["sub_orders", "returns"],
+  ["returns", "return_items"],
+  ["payouts", "payout_items"],
+];
+
+let orderErrors = 0;
+for (const [parent, child] of ORDER_DEPENDENCIES) {
+  const parentPos = tablePositions.get(parent);
+  const childPos = tablePositions.get(child);
+  if (parentPos !== undefined && childPos !== undefined) {
+    if (parentPos > childPos) {
+      console.error(`   [FAIL] Ordering violation: Table "${parent}" must be created before dependent table "${child}".`);
+      orderErrors++;
+    }
+  }
+}
+
+if (orderErrors > 0) {
+  process.exit(1);
+}
+console.log(`   [PASS] All ${ORDER_DEPENDENCIES.length} table creation order dependencies verified.`);
+
+// 4. Verify atomic inventory & stock RPCs
+console.log(`\n4. Verifying atomic inventory RPC functions...`);
 const REQUIRED_RPCS = [
   "reserve_inventory_atomic",
   "commit_inventory_reservation",
-  "release_inventory_reservation"
+  "release_inventory_reservation",
+  "decrement_variant_stock",
+  "release_expired_reservations"
 ];
 
 let missingRpcs = 0;
@@ -82,8 +130,18 @@ if (missingRpcs > 0) {
   process.exit(1);
 }
 
-// 4. Verify storage buckets
-console.log(`\n4. Verifying storage buckets configuration...`);
+// 5. Verify SECURITY DEFINER functions have search_path = public
+console.log(`\n5. Verifying search_path security on all SECURITY DEFINER functions...`);
+const strippedSql = sqlContent.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+const secDefRegex = /SECURITY\s+DEFINER(?!\s+SET\s+search_path\s*=\s*public)/g;
+if (secDefRegex.test(strippedSql)) {
+  console.error(`   [FAIL] Found SECURITY DEFINER function missing "SET search_path = public" hardening.`);
+  process.exit(1);
+}
+console.log(`   [PASS] All SECURITY DEFINER functions explicitly set search_path = public.`);
+
+// 6. Verify storage buckets
+console.log(`\n6. Verifying storage buckets configuration...`);
 const REQUIRED_BUCKETS = ["product-media", "seller-documents", "return-evidence"];
 for (const bucket of REQUIRED_BUCKETS) {
   if (sqlContent.includes(`'${bucket}'`)) {
@@ -94,7 +152,37 @@ for (const bucket of REQUIRED_BUCKETS) {
   }
 }
 
+// 7. Verify seed.sql consistency
+console.log(`\n7. Verifying seed.sql consistency against canonical schema...`);
+if (!fs.existsSync(SEED_FILE)) {
+  console.error(`   [FAIL] Missing seed file: ${SEED_FILE}`);
+  process.exit(1);
+}
+
+const seedContent = fs.readFileSync(SEED_FILE, "utf-8");
+const SEED_TARGET_TABLES = [
+  "public.departments",
+  "public.categories",
+  "auth.users",
+  "public.profiles",
+  "public.sellers",
+  "public.seller_addresses",
+  "public.products",
+  "public.product_variants",
+  "public.product_variant_options",
+  "public.product_media"
+];
+
+for (const table of SEED_TARGET_TABLES) {
+  if (seedContent.includes(table)) {
+    console.log(`   [PASS] Seed populates valid table: ${table}`);
+  } else {
+    console.error(`   [FAIL] Seed missing population for table: ${table}`);
+    process.exit(1);
+  }
+}
+
 console.log("\n=======================================================");
-console.log("  SCHEMA INTEGRITY CHECK: 100% PASSED (0 ERRORS)");
+console.log("  SCHEMA & SEED INTEGRITY CHECK: 100% PASSED (0 ERRORS)");
 console.log("=======================================================\n");
 process.exit(0);

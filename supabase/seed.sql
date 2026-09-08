@@ -1,5 +1,5 @@
--- Indian Shopping Mela (ISM) Initial Staging Seed
--- Populates departments, categories, showcase sellers, products, and variants
+-- Indian Shopping Mela (ISM) Canonical Staging Seed
+-- Populates departments, categories, showcase sellers, seller addresses, products, variants, and media.
 
 -- 1. DEPARTMENTS
 INSERT INTO public.departments (name, slug, description, sort_order)
@@ -12,26 +12,39 @@ VALUES
 ON CONFLICT (slug) DO NOTHING;
 
 -- 2. CATEGORIES
-INSERT INTO public.categories (department, name, slug, description, sort_order)
-VALUES
-  ('Women''s Ethnic Wear', 'Sarees', 'sarees', 'Banarasi, Kanjeevaram, Chanderi, Organza and Silk Sarees', 1),
-  ('Women''s Ethnic Wear', 'Lehengas', 'lehengas', 'Bridal, Festive and Reception Lehengas', 2),
-  ('Women''s Ethnic Wear', 'Salwar Suits & Anarkalis', 'suits', 'Anarkalis, Shararas, Ghararas and Straight Suits', 3),
-  ('Women''s Ethnic Wear', 'Kurtis & Tunics', 'kurtis', 'Cotton, Silk and Embroidered Everyday and Festive Kurtis', 4),
-  ('Men''s Ethnic Wear', 'Men''s Kurtas', 'men-kurtas', 'Chikankari, Silk and Linen Kurta Sets', 5),
-  ('Men''s Ethnic Wear', 'Sherwanis & Indo-Western', 'sherwanis', 'Wedding Sherwanis and Royal Indo-Western Suits', 6),
-  ('Men''s Ethnic Wear', 'Nehru & Bandhgala Jackets', 'nehru-jackets', 'Silk, Brocade and Modi Style Waistcoats', 7),
-  ('Jewellery & Accessories', 'Kundan & Polki Jewellery', 'kundan-jewellery', 'Bridal Chokers, Necklaces and Jhumkas', 8),
-  ('Jewellery & Accessories', 'Temple & Antique Jewellery', 'temple-jewellery', 'South Indian Antique Gold & Matte Finish Sets', 9),
-  ('Jewellery & Accessories', 'Mojaris & Juttis', 'juttis', 'Punjabi Juttis, Embroidered Mojaris and Kolhapuris', 10),
-  ('Home & Pooja', 'Pooja Essentials', 'pooja-essentials', 'Brass Diyas, Pooja Thalis, Idols and Incense', 11),
-  ('Home & Pooja', 'Home Décor & Furnishings', 'home-decor', 'Block-print Dohars, Cushion Covers and Blue Pottery', 12)
-ON CONFLICT (slug) DO NOTHING;
-
--- 3. SELLER PROFILES & SELLERS
 DO $$
 DECLARE
-    v_owner_id UUID := '00000000-0000-0000-0000-000000000001'::uuid;
+    v_dept_women UUID;
+    v_dept_men UUID;
+    v_dept_jewel UUID;
+    v_dept_home UUID;
+BEGIN
+    SELECT id INTO v_dept_women FROM public.departments WHERE slug = 'women-ethnic';
+    SELECT id INTO v_dept_men FROM public.departments WHERE slug = 'men-ethnic';
+    SELECT id INTO v_dept_jewel FROM public.departments WHERE slug = 'jewellery';
+    SELECT id INTO v_dept_home FROM public.departments WHERE slug = 'home-living';
+
+    INSERT INTO public.categories (department_id, name, slug, description, sort_order)
+    VALUES
+      (v_dept_women, 'Sarees', 'sarees', 'Banarasi, Kanjeevaram, Chanderi, Organza and Silk Sarees', 1),
+      (v_dept_women, 'Lehengas', 'lehengas', 'Bridal, Festive and Reception Lehengas', 2),
+      (v_dept_women, 'Salwar Suits & Anarkalis', 'suits', 'Anarkalis, Shararas, Ghararas and Straight Suits', 3),
+      (v_dept_women, 'Kurtis & Tunics', 'kurtis', 'Cotton, Silk and Embroidered Everyday and Festive Kurtis', 4),
+      (v_dept_men, 'Men''s Kurtas', 'men-kurtas', 'Chikankari, Silk and Linen Kurta Sets', 5),
+      (v_dept_men, 'Sherwanis & Indo-Western', 'sherwanis', 'Wedding Sherwanis and Royal Indo-Western Suits', 6),
+      (v_dept_men, 'Nehru & Bandhgala Jackets', 'nehru-jackets', 'Silk, Brocade and Modi Style Waistcoats', 7),
+      (v_dept_jewel, 'Kundan & Polki Jewellery', 'kundan-jewellery', 'Bridal Chokers, Necklaces and Jhumkas', 8),
+      (v_dept_jewel, 'Temple & Antique Jewellery', 'temple-jewellery', 'South Indian Antique Gold & Matte Finish Sets', 9),
+      (v_dept_jewel, 'Mojaris & Juttis', 'juttis', 'Punjabi Juttis, Embroidered Mojaris and Kolhapuris', 10),
+      (v_dept_home, 'Pooja Essentials', 'pooja-essentials', 'Brass Diyas, Pooja Thalis, Idols and Incense', 11),
+      (v_dept_home, 'Home Décor & Furnishings', 'home-decor', 'Block-print Dohars, Cushion Covers and Blue Pottery', 12)
+    ON CONFLICT (slug) DO NOTHING;
+END $$;
+
+-- 3. SELLER PROFILES, SELLERS & SHOWCASE CATALOGUE
+DO $$
+DECLARE
+    v_admin_id UUID := '00000000-0000-0000-0000-000000000001'::uuid;
     v_seller1_id UUID := '11111111-1111-1111-1111-111111111111'::uuid;
     v_seller2_id UUID := '22222222-2222-2222-2222-222222222222'::uuid;
     v_seller3_id UUID := '33333333-3333-3333-3333-333333333333'::uuid;
@@ -41,6 +54,10 @@ DECLARE
     v_prod1_id UUID := 'aaaa1111-0000-0000-0000-000000000001'::uuid;
     v_prod2_id UUID := 'bbbb2222-0000-0000-0000-000000000002'::uuid;
     v_prod3_id UUID := 'cccc3333-0000-0000-0000-000000000003'::uuid;
+    v_var1_id UUID := 'aaaa1111-1111-0000-0000-000000000001'::uuid;
+    v_var2_id UUID := 'aaaa1111-2222-0000-0000-000000000002'::uuid;
+    v_var3_id UUID := 'bbbb2222-1111-0000-0000-000000000001'::uuid;
+    v_var4_id UUID := 'cccc3333-1111-0000-0000-000000000001'::uuid;
 BEGIN
     -- Provision admin user in auth.users
     INSERT INTO auth.users (
@@ -48,7 +65,7 @@ BEGIN
         raw_app_meta_data, raw_user_meta_data, created_at, updated_at
     )
     VALUES (
-        v_owner_id,
+        v_admin_id,
         '00000000-0000-0000-0000-000000000000',
         'authenticated',
         'authenticated',
@@ -62,125 +79,161 @@ BEGIN
     )
     ON CONFLICT (id) DO NOTHING;
 
-    -- Provision mock admin/owner profile
+    -- Provision admin profile
     INSERT INTO public.profiles (id, email, full_name, role)
-    VALUES (v_owner_id, 'admin@indianshoppingmela.com.au', 'Priya Sharma (ISM Admin)', 'admin_super')
-    ON CONFLICT (id) DO UPDATE SET role = 'admin_super';
+    VALUES (v_admin_id, 'admin@indianshoppingmela.com.au', 'Priya Sharma (ISM Admin)', 'super_admin')
+    ON CONFLICT (id) DO UPDATE SET role = 'super_admin';
 
-    -- Insert verified showcase boutique sellers
+    -- Insert verified boutique sellers
     INSERT INTO public.sellers (
-        id, owner_id, business_name, legal_name, abn, business_type, slug,
-        about_text, status, commission_rate, handling_days_default,
-        dispatch_address, return_address
+        id, user_id, store_name, slug, business_name, abn, phone, email,
+        description, commission_rate_pct, status, is_verified, onboarding_step
     )
     VALUES
     (
-        v_seller1_id, v_owner_id, 'Ananya Sarees Sydney', 'Ananya Sarees Pty Ltd', '88123456789', 'Company', 'ananya-sarees',
+        v_seller1_id, v_admin_id, 'Ananya Sarees Sydney', 'ananya-sarees', 'Ananya Sarees Pty Ltd', '88123456789', '+61298765432', 'ananya@indianshoppingmela.com.au',
         'Boutique Banarasi, Kanjeevaram and Chanderi sarees curated directly from Varanasi and Kanchipuram master weavers.',
-        'APPROVED', 10.00, 2,
-        '{"line1": "14 Wigram St", "suburb": "Harris Park", "state": "NSW", "postcode": "2150", "country": "Australia"}'::jsonb,
-        '{"line1": "14 Wigram St", "suburb": "Harris Park", "state": "NSW", "postcode": "2150", "country": "Australia"}'::jsonb
+        12.00, 'approved', TRUE, 4
     ),
     (
-        v_seller2_id, v_owner_id, 'Royal Jaipur Crafts Melbourne', 'Royal Jaipur Crafts Partnership', '77987654321', 'Partnership', 'royal-jaipur',
+        v_seller2_id, v_admin_id, 'Royal Jaipur Crafts Melbourne', 'royal-jaipur', 'Royal Jaipur Crafts Partnership', '77987654321', '+61398765432', 'jaipur@indianshoppingmela.com.au',
         'Authentic Rajasthani hand block printed mulmul dohars, cushion covers, and blue pottery handcrafted by artisan families.',
-        'APPROVED', 10.00, 2,
-        '{"line1": "250 Foster St", "suburb": "Dandenong", "state": "VIC", "postcode": "3175", "country": "Australia"}'::jsonb,
-        '{"line1": "250 Foster St", "suburb": "Dandenong", "state": "VIC", "postcode": "3175", "country": "Australia"}'::jsonb
+        12.00, 'approved', TRUE, 4
     ),
     (
-        v_seller3_id, v_owner_id, 'Shreeji Pooja & Brassware Brisbane', 'Shreeji Collections Sole Trader', '66543219876', 'Sole Trader', 'shreeji-collections',
+        v_seller3_id, v_admin_id, 'Shreeji Pooja & Brassware Brisbane', 'shreeji-collections', 'Shreeji Collections Sole Trader', '66543219876', '+61798765432', 'shreeji@indianshoppingmela.com.au',
         'Heavy cast brass temple diyas, pooja thalis, incense burners, and festive sacred idols shipped Australia-wide.',
-        'APPROVED', 10.00, 2,
-        '{"line1": "88 Logan Rd", "suburb": "Woolloongabba", "state": "QLD", "postcode": "4102", "country": "Australia"}'::jsonb,
-        '{"line1": "88 Logan Rd", "suburb": "Woolloongabba", "state": "QLD", "postcode": "4102", "country": "Australia"}'::jsonb
+        12.00, 'approved', TRUE, 4
     )
     ON CONFLICT (slug) DO NOTHING;
+
+    -- Insert Seller Addresses
+    INSERT INTO public.seller_addresses (seller_id, address_type, address_line1, suburb, state, postcode, country, is_default)
+    VALUES
+      (v_seller1_id, 'dispatch', '14 Wigram St', 'Harris Park', 'NSW', '2150', 'AU', TRUE),
+      (v_seller2_id, 'dispatch', '250 Foster St', 'Dandenong', 'VIC', '3175', 'AU', TRUE),
+      (v_seller3_id, 'dispatch', '88 Logan Rd', 'Woolloongabba', 'QLD', '4102', 'AU', TRUE)
+    ON CONFLICT DO NOTHING;
 
     -- Lookup Category UUIDs
     SELECT id INTO v_cat_sarees FROM public.categories WHERE slug = 'sarees' LIMIT 1;
     SELECT id INTO v_cat_home FROM public.categories WHERE slug = 'home-decor' LIMIT 1;
     SELECT id INTO v_cat_pooja FROM public.categories WHERE slug = 'pooja-essentials' LIMIT 1;
 
-    -- Insert Products
+    -- 1. Insert Product: Banarasi Saree
     IF v_cat_sarees IS NOT NULL THEN
         INSERT INTO public.products (
-            id, seller_id, title, slug, department, category_id, subcategory,
-            description, country_of_origin, return_eligible, handling_days, status
+            id, seller_id, category_id, title, slug, description, short_description,
+            price, sale_price, stock_quantity, status, is_featured, is_ready_to_ship,
+            fabric, craft_region, care_instructions
         )
         VALUES (
-            v_prod1_id, v_seller1_id, 'Varanasi Pure Katan Silk Banarasi Saree', 'varanasi-pure-katan-silk-banarasi-saree',
-            'Women''s Ethnic Wear', v_cat_sarees, 'Sarees',
+            v_prod1_id, v_seller1_id, v_cat_sarees, 'Varanasi Pure Katan Silk Banarasi Saree', 'varanasi-pure-katan-silk-banarasi-saree',
             'Handcrafted in Varanasi using ancient handloom jacquard weaving. Rich gold kadwa zari floral jaal with unstitched blouse piece.',
-            'India', true, 2, 'LIVE'
+            'Pure Katan Silk Banarasi Saree with antique gold zari',
+            289.00, 349.00, 20, 'LIVE', TRUE, TRUE,
+            'Pure Katan Silk', 'Varanasi, Uttar Pradesh', 'Dry Clean Only'
         )
-        ON CONFLICT (seller_id, slug) DO NOTHING;
+        ON CONFLICT (slug) DO NOTHING;
 
         INSERT INTO public.product_variants (
-            product_id, seller_sku, title, price, sale_price, stock_quantity, attributes, images
+            id, product_id, title, sku, price, compare_at_price, stock_quantity
         )
         VALUES
         (
-            v_prod1_id, 'ANA-BAN-RED-001', 'Crimson Red / Free Size', 289.00, 349.00, 12,
-            '{"size": "Free Size", "color": "Crimson Red"}'::jsonb,
-            ARRAY['/assets/p-kanjivaram.jpg']
+            v_var1_id, v_prod1_id, 'Crimson Red / Free Size', 'ANA-BAN-RED-001', 289.00, 349.00, 12
         ),
         (
-            v_prod1_id, 'ANA-BAN-GRN-002', 'Emerald Green / Free Size', 289.00, 349.00, 8,
-            '{"size": "Free Size", "color": "Emerald Green"}'::jsonb,
-            ARRAY['/assets/p-kanjivaram.jpg']
+            v_var2_id, v_prod1_id, 'Emerald Green / Free Size', 'ANA-BAN-GRN-002', 289.00, 349.00, 8
         )
-        ON CONFLICT (product_id, seller_sku) DO NOTHING;
+        ON CONFLICT (sku) DO NOTHING;
+
+        INSERT INTO public.product_variant_options (variant_id, option_name, option_value)
+        VALUES
+          (v_var1_id, 'Color', 'Crimson Red'),
+          (v_var1_id, 'Size', 'Free Size'),
+          (v_var2_id, 'Color', 'Emerald Green'),
+          (v_var2_id, 'Size', 'Free Size')
+        ON CONFLICT (variant_id, option_name) DO NOTHING;
+
+        INSERT INTO public.product_media (product_id, url, alt_text, sort_order, is_primary)
+        VALUES
+          (v_prod1_id, '/assets/p-kanjivaram.jpg', 'Varanasi Pure Katan Silk Banarasi Saree', 0, TRUE)
+        ON CONFLICT DO NOTHING;
     END IF;
 
+    -- 2. Insert Product: Jaipur Cotton Dohar
     IF v_cat_home IS NOT NULL THEN
         INSERT INTO public.products (
-            id, seller_id, title, slug, department, category_id, subcategory,
-            description, country_of_origin, return_eligible, handling_days, status
+            id, seller_id, category_id, title, slug, description, short_description,
+            price, sale_price, stock_quantity, status, is_featured, is_ready_to_ship,
+            fabric, craft_region, care_instructions
         )
         VALUES (
-            v_prod2_id, v_seller2_id, 'Hand Block Printed Mulmul Cotton Dohar', 'hand-block-printed-mulmul-cotton-dohar',
-            'Home & Pooja', v_cat_home, 'Home Décor',
+            v_prod2_id, v_seller2_id, v_cat_home, 'Hand Block Printed Mulmul Cotton Dohar', 'hand-block-printed-mulmul-cotton-dohar',
             'Traditional Sanganeri hand block printed 3-layer AC blanket made of 100% breathable mulmul cotton.',
-            'India', true, 2, 'LIVE'
+            'Sanganeri hand block printed mulmul cotton dohar',
+            89.00, 115.00, 25, 'LIVE', TRUE, TRUE,
+            '100% Mulmul Cotton', 'Jaipur, Rajasthan', 'Gentle Machine Wash'
         )
-        ON CONFLICT (seller_id, slug) DO NOTHING;
+        ON CONFLICT (slug) DO NOTHING;
 
         INSERT INTO public.product_variants (
-            product_id, seller_sku, title, price, sale_price, stock_quantity, attributes, images
+            id, product_id, title, sku, price, compare_at_price, stock_quantity
         )
         VALUES
         (
-            v_prod2_id, 'RJ-DOH-BLU-Q', 'Indigo Blue Floral / Queen Size', 89.00, 115.00, 25,
-            '{"size": "Queen", "color": "Indigo Blue"}'::jsonb,
-            ARRAY['/assets/p-dohar.jpg']
+            v_var3_id, v_prod2_id, 'Indigo Blue Floral / Queen Size', 'RJ-DOH-BLU-Q', 89.00, 115.00, 25
         )
-        ON CONFLICT (product_id, seller_sku) DO NOTHING;
+        ON CONFLICT (sku) DO NOTHING;
+
+        INSERT INTO public.product_variant_options (variant_id, option_name, option_value)
+        VALUES
+          (v_var3_id, 'Color', 'Indigo Blue'),
+          (v_var3_id, 'Size', 'Queen')
+        ON CONFLICT (variant_id, option_name) DO NOTHING;
+
+        INSERT INTO public.product_media (product_id, url, alt_text, sort_order, is_primary)
+        VALUES
+          (v_prod2_id, '/assets/p-dohar.jpg', 'Hand Block Printed Mulmul Cotton Dohar', 0, TRUE)
+        ON CONFLICT DO NOTHING;
     END IF;
 
+    -- 3. Insert Product: Brass Peacock Diya Stand
     IF v_cat_pooja IS NOT NULL THEN
         INSERT INTO public.products (
-            id, seller_id, title, slug, department, category_id, subcategory,
-            description, country_of_origin, return_eligible, handling_days, status
+            id, seller_id, category_id, title, slug, description, short_description,
+            price, sale_price, stock_quantity, status, is_featured, is_ready_to_ship,
+            material, craft_region, care_instructions
         )
         VALUES (
-            v_prod3_id, v_seller3_id, 'Handcrafted Brass Peacock Diya Stand', 'handcrafted-brass-peacock-diya-stand',
-            'Home & Pooja', v_cat_pooja, 'Pooja Essentials',
+            v_prod3_id, v_seller3_id, v_cat_pooja, 'Handcrafted Brass Peacock Diya Stand', 'handcrafted-brass-peacock-diya-stand',
             'Solid cast brass traditional temple diya with intricate peacock finial. Perfect for mandir, Diwali and housewarming pooja.',
-            'India', true, 2, 'LIVE'
+            'Solid cast brass traditional temple diya with peacock finial',
+            79.00, 99.00, 18, 'LIVE', TRUE, TRUE,
+            'Pure Cast Brass', 'Moradabad, Uttar Pradesh', 'Wipe with Dry Cloth, Brass Polish'
         )
-        ON CONFLICT (seller_id, slug) DO NOTHING;
+        ON CONFLICT (slug) DO NOTHING;
 
         INSERT INTO public.product_variants (
-            product_id, seller_sku, title, price, sale_price, stock_quantity, attributes, images
+            id, product_id, title, sku, price, compare_at_price, stock_quantity
         )
         VALUES
         (
-            v_prod3_id, 'SHR-DIYA-PEA-28', 'Antique Gold / 28cm Stand', 79.00, 99.00, 18,
-            '{"size": "28cm", "color": "Antique Gold"}'::jsonb,
-            ARRAY['/assets/p-diyas.jpg']
+            v_var4_id, v_prod3_id, 'Antique Gold / 28cm Stand', 'SHR-DIYA-PEA-28', 79.00, 99.00, 18
         )
-        ON CONFLICT (product_id, seller_sku) DO NOTHING;
+        ON CONFLICT (sku) DO NOTHING;
+
+        INSERT INTO public.product_variant_options (variant_id, option_name, option_value)
+        VALUES
+          (v_var4_id, 'Color', 'Antique Gold'),
+          (v_var4_id, 'Size', '28cm Stand')
+        ON CONFLICT (variant_id, option_name) DO NOTHING;
+
+        INSERT INTO public.product_media (product_id, url, alt_text, sort_order, is_primary)
+        VALUES
+          (v_prod3_id, '/assets/p-diyas.jpg', 'Handcrafted Brass Peacock Diya Stand', 0, TRUE)
+        ON CONFLICT DO NOTHING;
     END IF;
 
 END $$;

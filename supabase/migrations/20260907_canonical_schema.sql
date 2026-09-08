@@ -181,26 +181,6 @@ CREATE TABLE IF NOT EXISTS public.departments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.collections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    description TEXT,
-    banner_url TEXT,
-    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.collection_products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    collection_id UUID NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
-    sort_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(collection_id, product_id)
-);
-
 CREATE TABLE IF NOT EXISTS public.categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
@@ -302,6 +282,26 @@ CREATE TABLE IF NOT EXISTS public.product_media (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_product_media_sort ON public.product_media(product_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS public.collections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    description TEXT,
+    banner_url TEXT,
+    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.collection_products (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    collection_id UUID NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(collection_id, product_id)
+);
 
 -- ----------------------------------------------------------------------------
 -- 5. INVENTORY & CONCURRENCY RESERVATIONS
@@ -484,6 +484,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- Atomic Variant Stock Decrement RPC
+CREATE OR REPLACE FUNCTION public.decrement_variant_stock(
+    p_variant_id UUID,
+    p_qty INT
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_new_stock INT;
+    v_prod_id UUID;
+BEGIN
+    UPDATE public.product_variants
+    SET stock_quantity = GREATEST(0, stock_quantity - p_qty),
+        updated_at = NOW()
+    WHERE id = p_variant_id
+    RETURNING stock_quantity, product_id INTO v_new_stock, v_prod_id;
+
+    IF v_prod_id IS NOT NULL THEN
+        UPDATE public.products
+        SET stock_quantity = (
+            SELECT COALESCE(SUM(stock_quantity), 0)
+            FROM public.product_variants
+            WHERE product_id = v_prod_id
+        ),
+        updated_at = NOW()
+        WHERE id = v_prod_id;
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'new_stock', v_new_stock);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- ----------------------------------------------------------------------------
 -- 6. CUSTOMER CARTS & ADDRESSES
 -- ----------------------------------------------------------------------------
@@ -551,8 +582,10 @@ CREATE TABLE IF NOT EXISTS public.orders (
     total_amount NUMERIC(10,2) NOT NULL CHECK (total_amount >= 0),
     status order_status NOT NULL DEFAULT 'PENDING',
     payment_status order_payment_status NOT NULL DEFAULT 'PENDING',
+    payment_provider TEXT DEFAULT 'STRIPE_AU',
     payment_intent_id TEXT,
     payment_method payment_method DEFAULT 'STRIPE',
+    payment_authorized_at TIMESTAMPTZ,
     currency TEXT NOT NULL DEFAULT 'AUD',
     notes TEXT,
     idempotency_key TEXT UNIQUE,
@@ -564,15 +597,18 @@ CREATE TABLE IF NOT EXISTS public.sub_orders (
     id TEXT PRIMARY KEY,
     master_order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
-    subtotal NUMERIC(10,2) NOT NULL CHECK (subtotal >= 0),
+    package_label TEXT,
+    subtotal NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (subtotal >= 0),
     shipping_cost NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (shipping_cost >= 0),
     commission_rate_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00,
     commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
     net_seller_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
     status sub_order_status NOT NULL DEFAULT 'NEW_ORDER',
     shipping_method TEXT NOT NULL DEFAULT 'standard',
+    shipping_service TEXT,
     carrier TEXT,
     tracking_number TEXT,
+    dispatch_deadline TIMESTAMPTZ,
     estimated_delivery TIMESTAMPTZ,
     dispatched_at TIMESTAMPTZ,
     delivered_at TIMESTAMPTZ,
@@ -585,12 +621,15 @@ CREATE TABLE IF NOT EXISTS public.order_items (
     sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
     product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
     variant_id UUID REFERENCES public.product_variants(id) ON DELETE SET NULL,
+    product_name TEXT,
+    variant_name TEXT,
     title TEXT NOT NULL,
     variant_title TEXT,
     sku TEXT,
     unit_price NUMERIC(10,2) NOT NULL CHECK (unit_price >= 0),
     quantity INT NOT NULL CHECK (quantity > 0),
     total_price NUMERIC(10,2) NOT NULL CHECK (total_price >= 0),
+    gst_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
     image_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
