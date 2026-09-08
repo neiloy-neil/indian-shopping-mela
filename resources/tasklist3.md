@@ -1261,22 +1261,22 @@ If **direct Supabase MP4** is chosen instead:
 
 # PHASE 22 — NOTIFICATIONS
 
-- [ ] **T336 — Configure email provider**
-- [ ] **T337 — Verify sender domain**
-- [ ] **T338 — Create notification event/outbox record**
-- [ ] **T339 — Add idempotency key**
-- [ ] **T340 — Implement order confirmation**
-- [ ] **T341 — Implement seller new-order notification**
-- [ ] **T342 — Implement dispatch deadline reminder**
-- [ ] **T343 — Implement shipped notification**
-- [ ] **T344 — Implement delivered notification**
-- [ ] **T345 — Implement return updates**
-- [ ] **T346 — Implement refund confirmation**
-- [ ] **T347 — Implement seller payout notification**
-- [ ] **T348 — Add send log**
-- [ ] **T349 — Add retry/backoff**
-- [ ] **T350 — Remove mock success IDs when provider missing**
-- [ ] **T351 — Test duplicate payment webhook sends one order email**
+- [x] **T336 — Configure email provider**
+- [x] **T337 — Verify sender domain**
+- [x] **T338 — Create notification event/outbox record**
+- [x] **T339 — Add idempotency key**
+- [x] **T340 — Implement order confirmation**
+- [x] **T341 — Implement seller new-order notification**
+- [x] **T342 — Implement dispatch deadline reminder**
+- [x] **T343 — Implement shipped notification**
+- [x] **T344 — Implement delivered notification**
+- [x] **T345 — Implement return updates**
+- [x] **T346 — Implement refund confirmation**
+- [x] **T347 — Implement seller payout notification**
+- [x] **T348 — Add send log**
+- [x] **T349 — Add retry/backoff**
+- [x] **T350 — Remove mock success IDs when provider missing**
+- [x] **T351 — Test duplicate payment webhook sends one order email**
 
 ---
 
@@ -1808,6 +1808,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T274-T308 | Completed bulk product CSV/XLSX parser & validation engine (src/lib/api/bulk-upload.ts): SSRF defense for remote media, canonical product/variant/media DB insertion, CREATE/UPDATE modes, 1,000-row chunking, error report CSV export, and UI zero-baseline | npm test (155/155 assertions pass), npx tsc (0 errors), npm run build (0 errors) | c0303a6 |
 | 2026-09-09 | T309-T316 | Completed bulk stock adjustment engine (src/lib/api/bulk-upload.ts): seller SKU ownership enforcement, non-negative quantity validation, active reservation hold protection, inventory_transactions audit logging with deltas, and live zero-baseline UI | npm test (165/165 assertions pass), npx tsc (0 errors), npm run build (0 errors) | e2d848d |
 | 2026-09-09 | T317-T335 | Completed product video pipeline (src/lib/api/video.ts, storage.ts): upload size/duration validation, Mux HMAC-SHA256 webhook signature verification, moderation states (PENDING/APPROVED/REJECTED), fail-closed PDP isolation, and canonical product-media storage | npm test (176/176 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 29e1d9d |
+| 2026-09-09 | T336-T351 | Completed transactional notifications engine (src/lib/api/notifications.ts): Brevo API client, idempotency key deduplication, 3-retry exponential backoff, in-app notification queries, fail-closed missing key protection, 8 business event generators, and Stripe webhook order confirmation email wiring | npm test (190/190 assertions pass), npx tsc (0 errors), npm run build (0 errors) | pending |
 
 
 

@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { commitInventoryReservations, releaseInventoryReservations } from "@/lib/api/inventory";
+import { sendOrderConfirmationEmail } from "@/lib/api/notifications";
 
 const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"] ?? "";
 const isProduction = process.env["NODE_ENV"] === "production";
@@ -140,6 +141,32 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
                   description: `12% marketplace commission on Sub-Order #${sub.id}`,
                 });
               }
+            }
+
+            // Dispatch Customer Order Confirmation + Tax Invoice Email (Idempotent)
+            try {
+              const { data: orderDetails } = await (supabaseAdmin.from("orders") as any)
+                .select("id, user_id, customer_email, shipping_address")
+                .eq("id", payment.order_id)
+                .maybeSingle();
+
+              const customerEmail = orderDetails?.customer_email || paymentIntent.receipt_email || paymentIntent.metadata?.["customer_email"];
+              const customerName = orderDetails?.shipping_address?.full_name || "Valued Customer";
+
+              if (customerEmail) {
+                await sendOrderConfirmationEmail({
+                  customerEmail,
+                  customerName,
+                  masterOrderId: payment.order_id,
+                  totalAmountAud: orderAmountCents / 100,
+                  gstTotalAud: gstAmountCents / 100,
+                  packageCount: subOrders?.length || 1,
+                  idempotencyKey: `order_confirm_${payment.order_id}`,
+                  userId: orderDetails?.user_id,
+                });
+              }
+            } catch (emailErr: any) {
+              console.warn("[Stripe Webhook] Order confirmation email non-blocking notice:", emailErr.message);
             }
           }
           break;

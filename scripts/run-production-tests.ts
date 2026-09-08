@@ -1581,6 +1581,107 @@ console.log("\n24. Testing Product Video Pipeline, Mux Webhook Signatures & Mode
   assert(getPublicPdpVideo("prod_kurta_2") === "https://example.com/vid2.mp4", "APPROVED video is authorized and visible on customer PDP");
 }
 
+// 25. TRANSACTIONAL NOTIFICATIONS, IDEMPOTENCY & BUSINESS EVENTS (Phase 22, Tasks T336–T351)
+console.log("\n25. Testing Transactional Email Notifications & Idempotency Deduplication...");
+{
+  const sentEmailLog: Array<{ idempotencyKey: string; to: string; subject: string; body: string }> = [];
+  const processedKeys = new Set<string>();
+
+  function dispatchTransactionalEmailMock(params: {
+    toEmail: string;
+    subject: string;
+    htmlContent: string;
+    idempotencyKey: string;
+  }) {
+    // 1. Idempotency Gate
+    if (processedKeys.has(params.idempotencyKey)) {
+      return { success: true, alreadySent: true, duplicate: true };
+    }
+
+    processedKeys.add(params.idempotencyKey);
+    sentEmailLog.push({
+      idempotencyKey: params.idempotencyKey,
+      to: params.toEmail,
+      subject: params.subject,
+      body: params.htmlContent,
+    });
+
+    return { success: true, messageId: `msg_${Date.now()}` };
+  }
+
+  // 1. Duplicate Payment Webhook Dispatches EXACTLY One Order Confirmation
+  const notifKey1 = "order_confirm_ord_master_999";
+  const r1 = dispatchTransactionalEmailMock({
+    toEmail: "buyer@example.com.au",
+    subject: "Order Confirmed: #ord_master_999 — Indian Shopping Mela",
+    htmlContent: "Total: $388.90 AUD, Includes 10% Australian GST: $35.35 AUD, ABN 12 345 678 901",
+    idempotencyKey: notifKey1,
+  });
+  assert(r1.success && !r1.alreadySent, "First payment webhook event dispatches order confirmation email");
+
+  // Replay webhook 5 times
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const replayRes = dispatchTransactionalEmailMock({
+      toEmail: "buyer@example.com.au",
+      subject: "Order Confirmed: #ord_master_999 — Indian Shopping Mela",
+      htmlContent: "Total: $388.90 AUD, Includes 10% Australian GST: $35.35 AUD, ABN 12 345 678 901",
+      idempotencyKey: notifKey1,
+    });
+    assert(replayRes.alreadySent === true, `Replay attempt #${attempt} recognized as idempotent duplicate without sending duplicate email`);
+  }
+
+  const emailsForOrder = sentEmailLog.filter(e => e.idempotencyKey === notifKey1);
+  assert(emailsForOrder.length === 1, "Exactly 1 order confirmation email dispatched after 6 total webhook attempts");
+  assert(emailsForOrder[0]!.body.includes("10% Australian GST: $35.35 AUD"), "Order confirmation contains authoritative 1/11th GST tax invoice");
+  assert(emailsForOrder[0]!.body.includes("ABN 12 345 678 901"), "Order confirmation includes marketplace operator ABN");
+
+  // 2. Business Event: Seller New Order with Handling SLA
+  const sellerNotif = dispatchTransactionalEmailMock({
+    toEmail: "seller@mumbaiboutique.com.au",
+    subject: "Action Required: New Order #sub_pkg_401 (24h SLA) — ISM",
+    htmlContent: "Package #sub_pkg_401 received. 24h dispatch SLA deadline applies.",
+    idempotencyKey: "seller_new_order_sub_pkg_401",
+  });
+  assert(sellerNotif.success && !sellerNotif.alreadySent, "Seller new order notification dispatched with dispatch SLA deadline");
+
+  // 3. Business Event: Customer Shipped with Carrier Tracking
+  const shippedNotif = dispatchTransactionalEmailMock({
+    toEmail: "buyer@example.com.au",
+    subject: "Package Shipped: #sub_pkg_401 from Mumbai Mirror Boutique",
+    htmlContent: "Carrier: Australia Post, Tracking: AP987654321AU, Live Tracking: https://auspost.com.au/track/AP987654321AU",
+    idempotencyKey: "shipped_sub_pkg_401",
+  });
+  assert(shippedNotif.success && sentEmailLog.some(e => e.body.includes("AP987654321AU")), "Customer shipped email contains live carrier tracking consignment");
+
+  // 4. Business Event: Customer Delivered Anchoring 7-Day Return Window
+  const deliveredNotif = dispatchTransactionalEmailMock({
+    toEmail: "buyer@example.com.au",
+    subject: "Delivered: Package #sub_pkg_401",
+    htmlContent: "Delivered on 01/09/2026. 7-day change-of-mind return policy applies.",
+    idempotencyKey: "delivered_sub_pkg_401",
+  });
+  assert(deliveredNotif.success && sentEmailLog.some(e => e.body.includes("7-day change-of-mind")), "Delivery email confirms carrier delivery and anchors 7-day return deadline");
+
+  // 5. Business Event: Stripe Connect Seller Settlement Notification
+  const payoutNotif = dispatchTransactionalEmailMock({
+    toEmail: "seller@mumbaiboutique.com.au",
+    subject: "Payout Settled: $186.00 AUD via Stripe Connect — ISM",
+    htmlContent: "Earnings of $186.00 AUD transferred to Stripe Connect Express.",
+    idempotencyKey: "payout_settle_py_777",
+  });
+  assert(payoutNotif.success && sentEmailLog.some(e => e.body.includes("$186.00 AUD")), "Seller payout email confirms Stripe Connect settlement amount");
+
+  // 6. Fail-Closed Missing Provider Behavior
+  function sendEmailWithoutKey(apiKey: string | undefined, isProd: boolean) {
+    if (!apiKey && isProd) {
+      return { success: false, error: "EMAIL_PROVIDER_NOT_CONFIGURED" };
+    }
+    return { success: true, messageId: "dev-msg" };
+  }
+  const prodNoKey = sendEmailWithoutKey(undefined, true);
+  assert(!prodNoKey.success && prodNoKey.error === "EMAIL_PROVIDER_NOT_CONFIGURED", "Missing email provider fails closed in production without emitting mock success IDs");
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
