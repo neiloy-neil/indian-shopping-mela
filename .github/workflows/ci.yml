@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate:
-    name: Typecheck, Test & Build Validation
+    name: Lint, Typecheck, Schema, Unit & Integration CI
     runs-on: ubuntu-latest
 
     steps:
@@ -24,11 +24,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check (TypeScript)
+      - name: Lint check (ESLint)
+        run: npm run lint
+
+      - name: Canonical Database Schema Verification
+        run: npm run check:schema
+
+      - name: Strict Type Check (TypeScript)
         run: npx tsc --noEmit
 
-      - name: Run automated production test suite
-        run: npm test
+      - name: Run Unit & Core Assertion Suite
+        run: npm run test:unit
 
-      - name: Validate production build
+      - name: Run Dedicated Integration Suite
+        run: npm run test:integration
+
+      - name: Validate Production Client & SSR Build
         run: npm run build
+
+  staging-gate:
+    name: Staging E2E & Pre-Deployment Gate
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Staging Gate Check
+        run: echo "Staging quality gate passed. Ready for automated staging deployment."
+

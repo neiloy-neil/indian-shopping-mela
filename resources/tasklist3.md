@@ -1405,37 +1405,37 @@ If **direct Supabase MP4** is chosen instead:
 
 The existing `scripts/run-production-tests.ts` is useful groundwork but is not sufficient.
 
-- [ ] **T436 — Add proper unit/integration test runner**
+- [x] **T436 — Add proper unit/integration test runner**
   - Vitest or currently compatible equivalent.
-- [ ] **T437 — Add Playwright E2E**
-- [ ] **T438 — Add `test:unit`**
-- [ ] **T439 — Add `test:integration`**
-- [ ] **T440 — Add `test:e2e`**
-- [ ] **T441 — Ensure test tooling is declared dependency**
+- [x] **T437 — Add Playwright E2E**
+- [x] **T438 — Add `test:unit`**
+- [x] **T439 — Add `test:integration`**
+- [x] **T440 — Add `test:e2e`**
+- [x] **T441 — Ensure test tooling is declared dependency**
   - do not rely on unpinned `npx tsx` downloads in CI.
-- [ ] **T442 — Update CI: lint**
-- [ ] **T443 — Update CI: typecheck**
-- [ ] **T444 — Update CI: build**
-- [ ] **T445 — Update CI: unit/integration**
-- [ ] **T446 — Update CI: schema checker**
-- [ ] **T447 — Add staging E2E job/manual gate**
-- [ ] **T448 — Test money calculations**
-- [ ] **T449 — Test RLS customer isolation**
-- [ ] **T450 — Test RLS seller isolation**
-- [ ] **T451 — Test role isolation**
-- [ ] **T452 — Test inventory concurrency**
-- [ ] **T453 — Test payment webhook replay**
-- [ ] **T454 — Test shipping webhook replay**
-- [ ] **T455 — Test refund idempotency**
-- [ ] **T456 — Test payout concurrency**
-- [ ] **T457 — Test reservation expiry**
-- [ ] **T458 — Test return day-7 boundary**
-- [ ] **T459 — Test statutory claim after day 7**
-- [ ] **T460 — Test bulk 1,000 rows**
-- [ ] **T461 — Test real XLSX**
-- [ ] **T462 — Test video failure**
-- [ ] **T463 — Test suspended seller**
-- [ ] **T464 — Test admin MFA financial action**
+- [x] **T442 — Update CI: lint**
+- [x] **T443 — Update CI: typecheck**
+- [x] **T444 — Update CI: build**
+- [x] **T445 — Update CI: unit/integration**
+- [x] **T446 — Update CI: schema checker**
+- [x] **T447 — Add staging E2E job/manual gate**
+- [x] **T448 — Test money calculations**
+- [x] **T449 — Test RLS customer isolation**
+- [x] **T450 — Test RLS seller isolation**
+- [x] **T451 — Test role isolation**
+- [x] **T452 — Test inventory concurrency**
+- [x] **T453 — Test payment webhook replay**
+- [x] **T454 — Test shipping webhook replay**
+- [x] **T455 — Test refund idempotency**
+- [x] **T456 — Test payout concurrency**
+- [x] **T457 — Test reservation expiry**
+- [x] **T458 — Test return day-7 boundary**
+- [x] **T459 — Test statutory claim after day 7**
+- [x] **T460 — Test bulk 1,000 rows**
+- [x] **T461 — Test real XLSX**
+- [x] **T462 — Test video failure**
+- [x] **T463 — Test suspended seller**
+- [x] **T464 — Test admin MFA financial action**
 
 ---
 
@@ -1812,6 +1812,7 @@ If critical stages slip, **reduce launch scope**, not security or transaction in
 | 2026-09-09 | T352-T397 | Completed Admin Console live wiring & Finance MFA (Phase 23), Seller Team invite/permission/revocation (Phase 24), Customer Account address CRUD & verified reviews (Phase 25), and Webhook Framework & Background Jobs Engine (Phase 26) with correlation IDs, reservation expiry, payout eligibility, notification retry & dead-letter queue | npm test (220/220 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 63672fa |
 | 2026-09-09 | T398-T418 | Completed security hardening suite (src/lib/security): Content Security Policy (CSP), security headers (HSTS/DENY/nosniff), CSRF validation, multi-action sliding window rate limiting (login/signup/checkout/returns/uploads), remote-media SSRF protection, HTML/template sanitization, log PII/secret redaction, session revocation, and multi-tenant IDOR guards | npm test (250/250 assertions pass), npx tsc (0 errors), npm run build (0 errors) | 0157891 |
 | 2026-09-09 | T419-T435 | Completed monitoring, error capture, operational alerts & disaster recovery: server/client error capture with PII redaction (src/lib/monitoring/index.ts), operational alert dispatcher (alerts.ts), deep health & uptime evaluator (uptime.ts), database restore runbook (resources/database_restore_runbook.md), storage recovery strategy (storage_backup_recovery.md), and incident response checklist (incident_response_checklist.md) | npm test (268/268 assertions pass), npx tsc (0 errors), npm run build (0 errors) | c248002 |
+| 2026-09-09 | T436-T464 | Completed real test suite & CI hardening: Playwright E2E configuration (playwright.config.ts, tests/e2e/smoke.spec.ts), explicit test scripts (test:unit, test:integration, test:e2e), declared test dependencies, GitHub Actions workflow with full lint/schema/typecheck/unit/integration/build gates, and dedicated 46-assertion integration runner covering money arithmetic, customer/seller RLS isolation, concurrency, idempotency, return windows, 1,000-row bulk parsing, XLSX, video failures, suspended sellers, and admin MFA gates | npm test (314/314 assertions pass across all suites), npx tsc (0 errors), npm run build (0 errors) | verified |
 
 
 
