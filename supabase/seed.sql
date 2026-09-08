@@ -236,4 +236,20 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END IF;
 
+    -- 4. Authoritative Marketplace Operational Settings (T503)
+    INSERT INTO public.marketplace_configs (key, value, description)
+    VALUES
+      ('return_window_days', '7'::jsonb, 'Ordinary change-of-mind return window in calendar days from delivery'),
+      ('payout_delay_days', '14'::jsonb, 'Maturity delay in calendar days from delivery before seller payout release'),
+      ('default_commission_rate_pct', '10.00'::jsonb, 'Default platform commission percentage on seller gross items'),
+      ('seller_dispatch_sla_hours', '48'::jsonb, 'Standard seller dispatch SLA in hours from order placement'),
+      ('media_limits', '{"max_images": 8, "max_image_mb": 10, "max_video_mb": 50, "max_video_seconds": 60}'::jsonb, 'Product image and video upload constraints'),
+      ('import_limits', '{"max_rows_per_batch": 1000, "supported_formats": ["csv", "xlsx"]}'::jsonb, 'Bulk spreadsheet import constraints'),
+      ('policy_versions', '{"terms": "v1.0_2026", "privacy": "v1.0_2026", "seller_agreement": "v1.1_2026", "returns": "v1.2_2026"}'::jsonb, 'Current active legal terms & policy versions')
+    ON CONFLICT (key) DO UPDATE SET
+      value = EXCLUDED.value,
+      description = EXCLUDED.description,
+      updated_at = NOW();
+
 END $$;
+
