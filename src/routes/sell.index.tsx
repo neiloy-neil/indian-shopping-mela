@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowUpRight, Truck, Upload, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
@@ -18,8 +18,13 @@ import {
   PAYOUT_STAGES,
   BACKEND_REQUIRED_NOTES,
 } from "@/lib/ism-ops";
-import { acceptSubOrderServerFn, generateShippingLabelServerFn } from "@/lib/api/fulfilment";
-
+import {
+  acceptSubOrderServerFn,
+  generateShippingLabelServerFn,
+  getSellerSubOrdersServerFn,
+  markSubOrderPackedServerFn,
+} from "@/lib/api/fulfilment";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/sell/")({
   head: () => ({
@@ -125,9 +130,61 @@ const TRANSACTIONS = [
 ];
 
 function SellerDashboard() {
+  const { user } = useAuth();
   const [section, setSection] = useState<SellerSection>("dashboard");
   const [orders, setOrders] = useState<OrderItemType[]>(INITIAL_ORDERS);
   const products = productsBySeller("mumbai-mirror-boutique");
+
+  useEffect(() => {
+    async function loadLiveOrders() {
+      try {
+        const liveSubOrders = await getSellerSubOrdersServerFn({ data: { sellerId: user?.id } });
+        if (liveSubOrders && liveSubOrders.length > 0) {
+          const mapped: OrderItemType[] = liveSubOrders.map((so) => {
+            let tone: "new" | "prep" | "ready" | "ship" | "done" = "new";
+            let action = "Accept Order";
+            let statusText = "New Order";
+
+            if (so.status === "ACCEPTED" || so.status === "PROCESSING") {
+              tone = "prep";
+              action = "Mark Ready to Ship";
+              statusText = "Preparing";
+            } else if (so.status === "PACKED") {
+              tone = "ready";
+              action = "Create Shipping Label";
+              statusText = "Ready To Ship";
+            } else if (so.status === "SHIPPED") {
+              tone = "ship";
+              action = "Track";
+              statusText = "Shipped";
+            } else if (so.status === "DELIVERED") {
+              tone = "done";
+              action = "Track";
+              statusText = "Delivered";
+            }
+
+            return {
+              id: so.id,
+              customer: `${so.customerName} · ${so.customerState}`,
+              items: so.itemCount,
+              total: so.total,
+              status: statusText,
+              tone,
+              action,
+              deadline: "Dispatch in standard SLA (24h-48h)",
+              urgent: tone === "new" || tone === "prep",
+              carrier: so.carrier,
+              trackingNumber: so.trackingNumber,
+            };
+          });
+          setOrders(mapped);
+        }
+      } catch (err) {
+        console.error("Error loading seller sub-orders:", err);
+      }
+    }
+    loadLiveOrders();
+  }, [user?.id]);
 
   const handleOrderAction = async (orderId: string) => {
     const currentOrder = orders.find((o) => o.id === orderId);
@@ -136,7 +193,7 @@ function SellerDashboard() {
     if (currentOrder.status === "New Order") {
       try {
         await acceptSubOrderServerFn({
-          data: { subOrderId: orderId, sellerId: "mumbai-mirror-boutique" },
+          data: { subOrderId: orderId, sellerId: user?.id ?? "mumbai-mirror-boutique" },
         }).catch((e: any) => console.warn("Live sub-order update note:", e.message));
 
         setOrders((prev) =>
@@ -153,22 +210,30 @@ function SellerDashboard() {
         toast.error("Failed to accept order", { description: err.message });
       }
     } else if (currentOrder.status === "Preparing") {
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, status: "Ready To Ship", tone: "ready", action: "Create Shipping Label" }
-            : o
-        )
-      );
-      toast.success(`Order ${orderId} marked Ready to Ship`, {
-        description: "Generate courier shipping label to finalize dispatch.",
-      });
+      try {
+        await markSubOrderPackedServerFn({
+          data: { subOrderId: orderId, sellerId: user?.id ?? "mumbai-mirror-boutique" },
+        }).catch((e: any) => console.warn("Live sub-order pack note:", e.message));
+
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === orderId
+              ? { ...o, status: "Ready To Ship", tone: "ready", action: "Create Shipping Label" }
+              : o
+          )
+        );
+        toast.success(`Order ${orderId} marked Ready to Ship`, {
+          description: "Generate courier shipping label to finalize dispatch.",
+        });
+      } catch (err: any) {
+        toast.error("Failed to update status", { description: err.message });
+      }
     } else if (currentOrder.status === "Ready To Ship") {
       try {
         const res = await generateShippingLabelServerFn({
           data: {
             subOrderId: orderId,
-            sellerId: "mumbai-mirror-boutique",
+            sellerId: user?.id ?? "mumbai-mirror-boutique",
             parcel: { weightKg: 0.5 },
           },
         }).catch(() => ({

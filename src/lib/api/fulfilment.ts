@@ -130,3 +130,95 @@ export async function processCarrierDeliveryConfirmation(subOrderId: string, del
 
   return true;
 }
+
+/**
+ * Server Function: Mark sub-order packed and ready for carrier pickup
+ */
+export const markSubOrderPackedServerFn = createServerFn({ method: "POST" })
+  .validator((data: { subOrderId: string; sellerId: string }) => data)
+  .handler(async ({ data }) => {
+    const { error } = await (supabaseAdmin.from("sub_orders") as any)
+      .update({
+        status: "PACKED",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.subOrderId)
+      .eq("seller_id", data.sellerId);
+
+    if (error) {
+      throw new Error(`Failed to update sub-order status: ${error.message}`);
+    }
+    return true;
+  });
+
+export interface SellerSubOrderRow {
+  id: string;
+  masterOrderId: string;
+  orderNumber: string;
+  customerName: string;
+  customerState: string;
+  itemCount: number;
+  total: number;
+  status: string;
+  carrier?: string;
+  trackingNumber?: string;
+  createdAt: string;
+}
+
+/**
+ * Server Function: Fetch sub-orders for seller fulfilment dashboard
+ */
+export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId?: string | undefined }) => data)
+  .handler(async ({ data }): Promise<SellerSubOrderRow[]> => {
+    try {
+      let query = (supabaseAdmin.from("sub_orders") as any)
+        .select(`
+          id,
+          master_order_id,
+          subtotal,
+          shipping_cost,
+          status,
+          carrier,
+          tracking_number,
+          created_at,
+          items:order_items(id, quantity, title),
+          master_order:orders(order_number, customer_name, shipping_address)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (data.sellerId) {
+        query = query.eq("seller_id", data.sellerId);
+      }
+
+      const { data: subOrders, error } = await query.limit(50);
+      if (error || !subOrders || subOrders.length === 0) {
+        return [];
+      }
+
+      return subOrders.map((so: any) => {
+        const address = so.master_order?.shipping_address as any;
+        const state = address?.state || "NSW";
+        const itemCount = (so.items || []).reduce((acc: number, item: any) => acc + Number(item.quantity || 1), 0);
+        const total = Number(so.subtotal || 0) + Number(so.shipping_cost || 0);
+
+        return {
+          id: so.id,
+          masterOrderId: so.master_order_id,
+          orderNumber: so.master_order?.order_number || so.master_order_id,
+          customerName: so.master_order?.customer_name || "Customer",
+          customerState: state,
+          itemCount: Math.max(1, itemCount),
+          total,
+          status: so.status || "NEW_ORDER",
+          carrier: so.carrier,
+          trackingNumber: so.tracking_number,
+          createdAt: so.created_at,
+        };
+      });
+    } catch (err) {
+      console.error("Error fetching seller sub-orders:", err);
+      return [];
+    }
+  });
+

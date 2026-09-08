@@ -20,6 +20,9 @@ import {
 import {
   generateErrorReportCsv,
   validateBulkRows,
+  parseSpreadsheetBuffer,
+  generateXlsxTemplateBlob,
+  commitBulkImportChunkServerFn,
   type BulkValidationError,
   type BulkUploadRow,
 } from "@/lib/api/bulk-upload";
@@ -148,6 +151,9 @@ function BulkUpload() {
     previewRows: PREVIEW_ROWS as any,
   });
 
+  const [rawParsedRows, setRawParsedRows] = useState<BulkUploadRow[]>([]);
+  const [isCommitting, setIsCommitting] = useState(false);
+
   const totals = {
     rows: validationResult.totalRows,
     ready: validationResult.readyCount,
@@ -155,61 +161,39 @@ function BulkUpload() {
     errors: validationResult.errorCount,
   };
 
-  const handleFileSelected = (file: File) => {
+  const handleFileSelected = async (file: File) => {
     setFileName(file.name);
     setStage("upload");
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      setFileContent(text);
-    };
-    reader.readAsText(file);
-    toast.success(`${file.name} attached (${(file.size / 1024).toFixed(1)} KB)`);
+    try {
+      const buffer = await file.arrayBuffer();
+      const parsed = parseSpreadsheetBuffer(buffer);
+      const { validRows, errors } = validateBulkRows(parsed);
+      setRawParsedRows(validRows);
+
+      setValidationResult({
+        totalRows: parsed.length,
+        readyCount: validRows.length,
+        warningCount: Math.floor(errors.length * 0.3),
+        errorCount: errors.length,
+        errors: errors.length > 0 ? errors : [],
+        previewRows: validRows.slice(0, 8).map((r: BulkUploadRow) => [
+          r.seller_sku,
+          r.product_title,
+          `${r.department} / ${r.category}`,
+          `$${r.price.toFixed(2)}`,
+          `${r.stock_qty}`,
+          mode === "create" ? "Create" : "Update",
+        ]),
+      });
+      toast.success(`${file.name} loaded and parsed (${validRows.length} valid rows)`);
+    } catch (err: any) {
+      toast.error("Failed to parse file", { description: err.message });
+    }
   };
 
   const validate = () => {
     setStage("validating");
     setProgress(0);
-
-    // If real file content is present, parse CSV rows
-    if (fileContent) {
-      try {
-        const lines = fileContent.split(/\r?\n/).filter((l) => l.trim().length > 0);
-        if (lines.length > 1) {
-          const header = lines[0]!.split(",").map((h) => h.trim());
-          const parsedRows: Partial<any>[] = [];
-
-          for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i]!.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-            const rowObj: Record<string, any> = {};
-            header.forEach((h, idx) => {
-              rowObj[h] = cols[idx];
-            });
-            parsedRows.push(rowObj);
-          }
-
-          const { validRows, errors } = validateBulkRows(parsedRows);
-
-          setValidationResult({
-            totalRows: parsedRows.length,
-            readyCount: validRows.length,
-            warningCount: Math.floor(errors.length * 0.3),
-            errorCount: errors.length,
-            errors: errors.length > 0 ? errors : ERROR_ROWS,
-            previewRows: validRows.slice(0, 8).map((r: BulkUploadRow) => [
-              r.seller_sku,
-              r.product_title,
-              `${r.department} / ${r.category}`,
-              `$${r.price.toFixed(2)}`,
-              `${r.stock_qty}`,
-              mode === "create" ? "Create" : "Update",
-            ]),
-          });
-        }
-      } catch (err: any) {
-        console.warn("CSV parse warning:", err.message);
-      }
-    }
 
     const t = setInterval(() => {
       setProgress((p) => {
@@ -244,6 +228,21 @@ function BulkUpload() {
     toast.success("CSV template downloaded", { description: "Open in Excel, Google Sheets, or Numbers to edit." });
   };
 
+  const handleDownloadExcelTemplate = () => {
+    const uint8Array = generateXlsxTemplateBlob();
+    const blob = new Blob([uint8Array.buffer as ArrayBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "ism_product_bulk_template_v1.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Excel template (.xlsx) downloaded successfully.");
+  };
+
   const handleDownloadErrorReport = () => {
     const csv = generateErrorReportCsv(validationResult.errors);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -257,13 +256,33 @@ function BulkUpload() {
     toast.success("Error report downloaded", { description: "Includes exact row numbers, SKUs, and fix recommendations." });
   };
 
-  const handleCommitImport = () => {
-    setStage("imported");
-    toast.success(`Batch committed — ${totals.ready} products imported!`, {
-      description: "Listings are now active in the catalog.",
-    });
-  };
+  const handleCommitImport = async () => {
+    if (rawParsedRows.length === 0) {
+      toast.info("Import simulation completed for demo file.");
+      setStage("imported");
+      return;
+    }
 
+    setIsCommitting(true);
+    try {
+      const result = await commitBulkImportChunkServerFn({
+        data: {
+          sellerId: "00000000-0000-0000-0000-000000000001",
+          rows: rawParsedRows,
+          mode: mode === "create" ? "CREATE" : "UPDATE",
+        },
+      });
+
+      setStage("imported");
+      toast.success(`Batch committed — ${result.inserted} products imported!`, {
+        description: result.failed > 0 ? `${result.failed} rows failed validation.` : "Listings are now active in the database.",
+      });
+    } catch (err: any) {
+      toast.error("Bulk commit failed", { description: err.message });
+    } finally {
+      setIsCommitting(false);
+    }
+  };
 
   return (
     <SellerShell
@@ -275,7 +294,7 @@ function BulkUpload() {
           <Ghost onClick={handleDownloadCsvTemplate}>
             <Download size={14} /> Download CSV
           </Ghost>
-          <Ghost onClick={handleDownloadCsvTemplate}>
+          <Ghost onClick={handleDownloadExcelTemplate}>
             <FileSpreadsheet size={14} /> Download Excel
           </Ghost>
         </>

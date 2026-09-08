@@ -413,10 +413,10 @@ export async function getOrderTrackingDetails(orderId: string) {
       return {
         id: dbOrder.order_number ?? dbOrder.id,
         placed: placedDate,
-        total: (dbOrder.total_cents ?? 0) / 100,
-        itemsTotal: (dbOrder.subtotal_cents ?? 0) / 100,
-        shippingTotal: (dbOrder.shipping_cents ?? 0) / 100,
-        gst: (dbOrder.gst_cents ?? 0) / 100,
+        total: Number(dbOrder.total_amount ?? (dbOrder.total_cents ? dbOrder.total_cents / 100 : 0)),
+        itemsTotal: Number(dbOrder.subtotal ?? (dbOrder.subtotal_cents ? dbOrder.subtotal_cents / 100 : 0)),
+        shippingTotal: Number(dbOrder.shipping_total ?? (dbOrder.shipping_cents ? dbOrder.shipping_cents / 100 : 0)),
+        gst: Number(dbOrder.gst_total ?? (dbOrder.gst_cents ? dbOrder.gst_cents / 100 : 0)),
         payment: `${dbOrder.payment_provider ?? "Stripe AU"} · ${dbOrder.payment_status ?? "PAID"}`,
         paymentNote: "Payment authorized and verified via Stripe AU. Funds held until package delivery.",
         address: address
@@ -439,7 +439,7 @@ export async function getOrderTrackingDetails(orderId: string) {
             carrier: so.carrier ?? "Australia Post",
             service: so.shipping_service ?? "Parcel Post",
             tracking: so.tracking_number ?? "AP-AU-PENDING",
-            shipping: (so.shipping_cost_cents ?? 0) / 100,
+            shipping: Number(so.shipping_cost ?? (so.shipping_cost_cents ? so.shipping_cost_cents / 100 : 0)),
             payout: isDelivered ? "Payout clearing (14-day hold)" : "Payout pending delivery",
             canCancel: so.status === "NEW_ORDER" || so.status === "PREPARING",
             canReturn: isDelivered,
@@ -447,7 +447,7 @@ export async function getOrderTrackingDetails(orderId: string) {
               productId: it.product_id,
               name: it.title,
               variant: it.variant_title ?? "Standard",
-              price: (it.unit_price_cents ?? 0) / 100,
+              price: Number(it.unit_price ?? (it.unit_price_cents ? it.unit_price_cents / 100 : 0)),
               qty: it.quantity ?? 1,
             })),
             timeline: [

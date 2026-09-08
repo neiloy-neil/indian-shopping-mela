@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Download, Upload } from "lucide-react";
+import { Download, Loader2, Upload } from "lucide-react";
 import { Badge, Button, Card, Metric, SellerShell } from "@/components/ism/SellerShell";
-import { DEMO_NOTE } from "@/lib/ism-ops";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  getSellerStockListServerFn,
+  updateStockBatchServerFn,
+  parseSpreadsheetBuffer,
+  type SellerStockItem,
+} from "@/lib/api/bulk-upload";
 import { productsBySeller } from "@/lib/ism-data";
 
 export const Route = createFileRoute("/sell/bulk-stock")({
@@ -25,16 +31,59 @@ export const Route = createFileRoute("/sell/bulk-stock")({
 });
 
 function BulkStockPage() {
-  const products = productsBySeller("mumbai-mirror-boutique");
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stockItems, setStockItems] = useState<SellerStockItem[]>([]);
   const [validated, setValidated] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, number>>({});
   const [fileName, setFileName] = useState<string | null>(null);
+  const [uploadedUpdates, setUploadedUpdates] = useState<Array<{ sku: string; newStock: number }>>([]);
+
+  const loadStock = async () => {
+    try {
+      setLoading(true);
+      const items = await getSellerStockListServerFn({ data: { sellerId: user?.id } });
+      if (items && items.length > 0) {
+        setStockItems(items);
+      } else {
+        // Fallback to sample data for display
+        const sampleProds = productsBySeller("mumbai-mirror-boutique");
+        setStockItems(
+          sampleProds.map((p, i) => ({
+            id: p.id,
+            variantId: `var-${p.id}`,
+            sku: p.id.toUpperCase(),
+            productName: p.name,
+            stockOnHand: p.stock,
+            reservedUnits: i % 3,
+            availableStock: Math.max(0, p.stock - (i % 3)),
+            price: p.price,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Error loading stock:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStock();
+  }, [user?.id]);
+
+  const totalSKUs = stockItems.length;
+  const totalReserved = stockItems.reduce((acc, item) => acc + item.reservedUnits, 0);
+  const lowStockCount = stockItems.filter((item) => item.availableStock > 0 && item.availableStock <= 5).length;
+  const outOfStockCount = stockItems.filter((item) => item.availableStock === 0).length;
 
   const handleDownloadStockCsv = () => {
     const header = "seller_sku,product_name,stock_on_hand,reserved_units,available_stock\n";
-    const rows = products.map(
-      (p, i) => `${p.id.toUpperCase()},"${p.name}",${p.stock},${i % 3},${Math.max(0, p.stock - (i % 3))}`
+    const rows = stockItems.map(
+      (item) =>
+        `${item.sku},"${item.productName.replace(/"/g, '""')}",${item.stockOnHand},${item.reservedUnits},${item.availableStock}`
     );
     const csvContent = "data:text/csv;charset=utf-8," + header + rows.join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -47,16 +96,80 @@ function BulkStockPage() {
     toast.success("Stock sheet CSV downloaded successfully.");
   };
 
-  const handleSaveStockChanges = () => {
-    const count = Object.keys(edits).length;
-    if (count === 0) {
+  const handleFileUpload = async (file: File) => {
+    try {
+      setFileName(file.name);
+      const buffer = await file.arrayBuffer();
+      const rawRows = parseSpreadsheetBuffer(buffer, file.name);
+
+      if (rawRows.length === 0) {
+        toast.error("No valid data rows found in uploaded file.");
+        return;
+      }
+
+      const updates: Array<{ sku: string; newStock: number }> = [];
+      for (const row of rawRows) {
+        const r = row as any;
+        const sku = String(r.seller_sku || r.sku || r.SKU || "").trim();
+        const stockStr = r.stock_on_hand || r.stock_qty || r.stock || r.Stock;
+        const newStock = Number(stockStr);
+
+        if (sku && !isNaN(newStock) && newStock >= 0) {
+          updates.push({ sku, newStock: Math.floor(newStock) });
+        }
+      }
+
+      if (updates.length === 0) {
+        toast.error("No valid rows matching 'seller_sku' and 'stock_on_hand' columns found.");
+        return;
+      }
+
+      setUploadedUpdates(updates);
+      setValidated(true);
+      setApplied(false);
+      toast.success(`${file.name} validated: ${updates.length} SKU(s) ready.`);
+    } catch (err: any) {
+      toast.error("Failed to parse file", { description: err.message });
+    }
+  };
+
+  const handleApplyUploadedBatch = async () => {
+    if (uploadedUpdates.length === 0) return;
+    setIsSaving(true);
+    try {
+      const res = await updateStockBatchServerFn({ data: { updates: uploadedUpdates } });
+      setApplied(true);
+      toast.success("Stock levels updated successfully", {
+        description: `${res.updatedCount} SKU(s) updated in the active catalogue.`,
+      });
+      await loadStock();
+    } catch (err: any) {
+      toast.error("Failed to apply stock updates", { description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveStockChanges = async () => {
+    const skuEntries = Object.entries(edits);
+    if (skuEntries.length === 0) {
       toast.info("No stock adjustments were modified.");
       return;
     }
-    toast.success("Inventory stock levels updated", {
-      description: `${count} SKU(s) updated in the active catalogue.`,
-    });
-    setEdits({});
+    setIsSaving(true);
+    try {
+      const updates = skuEntries.map(([sku, newStock]) => ({ sku, newStock }));
+      const res = await updateStockBatchServerFn({ data: { updates } });
+      toast.success("Inventory stock levels updated", {
+        description: `${res.updatedCount} SKU(s) updated in the active catalogue.`,
+      });
+      setEdits({});
+      await loadStock();
+    } catch (err: any) {
+      toast.error("Failed to update stock", { description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -80,10 +193,15 @@ function BulkStockPage() {
     >
       <div className="space-y-5">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="SKUs on file" value="248" />
-          <Metric label="Reserved units" value="34" note="held by unpaid / in-flight orders" tone="marigold" />
-          <Metric label="Low stock" value="12" tone="rani" />
-          <Metric label="Out of stock" value="3" />
+          <Metric label="SKUs on file" value={String(totalSKUs)} />
+          <Metric
+            label="Reserved units"
+            value={String(totalReserved)}
+            note="held by unpaid / in-flight orders"
+            tone="marigold"
+          />
+          <Metric label="Low stock" value={String(lowStockCount)} tone="rani" />
+          <Metric label="Out of stock" value={String(outOfStockCount)} />
         </div>
 
         <Card title="Upload a stock sheet">
@@ -95,19 +213,14 @@ function BulkStockPage() {
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <label className="cursor-pointer inline-flex items-center rounded-sm bg-rani px-4 py-2 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:bg-rani/90">
-                Choose CSV File
+                Choose CSV or Excel File
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      setFileName(file.name);
-                      setValidated(true);
-                      setApplied(false);
-                      toast.success(`${file.name} validated: 248 SKUs ready.`);
-                    }
+                    if (file) handleFileUpload(file);
                   }}
                 />
               </label>
@@ -120,10 +233,10 @@ function BulkStockPage() {
 
           {validated && (
             <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Metric label="Rows read" value="248" />
-              <Metric label="Ready" value="245" tone="teal" />
-              <Metric label="Warnings" value="3" tone="marigold" note="stock below threshold" />
-              <Metric label="Errors" value="0" tone="teal" note="all SKUs matched" />
+              <Metric label="Rows read" value={String(uploadedUpdates.length)} />
+              <Metric label="Ready" value={String(uploadedUpdates.length)} tone="teal" />
+              <Metric label="Warnings" value="0" tone="marigold" note="stock within limits" />
+              <Metric label="Errors" value="0" tone="teal" note="all SKUs valid format" />
             </div>
           )}
 
@@ -131,20 +244,11 @@ function BulkStockPage() {
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 variant="primary"
-                onClick={() => {
-                  setApplied(true);
-                  toast.success("Stock levels updated successfully", {
-                    description: "245 SKUs updated · batch STK-2026-0042 committed to catalogue.",
-                  });
-                }}
+                disabled={isSaving}
+                onClick={handleApplyUploadedBatch}
               >
-                Apply 245 valid rows
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => toast.info("No errors detected in current batch.")}
-              >
-                Download error report
+                {isSaving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+                Apply {uploadedUpdates.length} valid rows
               </Button>
               <Badge tone="teal">Protected: Reserved units are preserved</Badge>
             </div>
@@ -152,12 +256,19 @@ function BulkStockPage() {
 
           {applied && (
             <p className="mt-3 text-xs text-teal font-medium">
-              ✓ Batch STK-2026-0042 applied. Inventory counts are now live in store.
+              ✓ Batch committed. Inventory counts are now live in store.
             </p>
           )}
         </Card>
 
-        <Card title="Quick edit on screen" action={<span className="text-xs text-muted-foreground">{products.length} items shown</span>}>
+        <Card
+          title="Quick edit on screen"
+          action={
+            <span className="text-xs text-muted-foreground">
+              {loading ? "Loading SKUs..." : `${stockItems.length} items shown`}
+            </span>
+          }
+        >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -170,18 +281,24 @@ function BulkStockPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {products.slice(0, 8).map((p, i) => (
-                  <tr key={p.id}>
-                    <td className="py-2 font-medium">{p.name}</td>
-                    <td className="text-xs text-muted-foreground">{p.id.toUpperCase()}</td>
-                    <td>{p.stock}</td>
-                    <td className="text-muted-foreground">{i % 3}</td>
+                {stockItems.slice(0, 15).map((item) => (
+                  <tr key={item.sku}>
+                    <td className="py-2 font-medium">{item.productName}</td>
+                    <td className="text-xs text-muted-foreground">{item.sku}</td>
+                    <td>{item.stockOnHand}</td>
+                    <td className="text-muted-foreground">{item.reservedUnits}</td>
                     <td>
                       <input
                         type="number"
-                        aria-label={`New stock for ${p.name}`}
-                        value={edits[p.id] ?? p.stock}
-                        onChange={(e) => setEdits((prev) => ({ ...prev, [p.id]: Number(e.target.value) }))}
+                        min="0"
+                        aria-label={`New stock for ${item.productName}`}
+                        value={edits[item.sku] ?? item.stockOnHand}
+                        onChange={(e) =>
+                          setEdits((prev) => ({
+                            ...prev,
+                            [item.sku]: Math.max(0, Number(e.target.value)),
+                          }))
+                        }
                         className="h-8 w-24 rounded-sm border border-input bg-surface px-2 text-sm"
                       />
                     </td>
@@ -193,13 +310,16 @@ function BulkStockPage() {
           <Button
             className="mt-4"
             variant="primary"
+            disabled={isSaving || Object.keys(edits).length === 0}
             onClick={handleSaveStockChanges}
           >
-            Save stock changes
+            {isSaving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+            Save stock changes ({Object.keys(edits).length})
           </Button>
         </Card>
       </div>
     </SellerShell>
   );
 }
+
 

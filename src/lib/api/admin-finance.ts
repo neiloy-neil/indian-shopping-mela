@@ -215,3 +215,154 @@ export async function generateSellerPayoutBatchCsv(): Promise<{
     totalPayoutAud: Number(totalPayout.toFixed(2)),
   };
 }
+
+/**
+ * Server Function: Execute Stripe Connect payout transfer for matured sub-orders (§8, §21, GAP-16)
+ */
+export const executeSellerStripePayoutServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string; amountAud: number; subOrderId?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    try {
+      // 1. Fetch seller stripe account details
+      const { data: seller, error: sellerError } = await (supabaseAdmin.from("sellers") as any)
+        .select("id, business_name, stripe_account_id, payouts_enabled")
+        .eq("id", data.sellerId)
+        .single();
+
+      if (sellerError || !seller) {
+        throw new Error("Seller not found");
+      }
+
+      const amountCents = Math.round(data.amountAud * 100);
+      if (amountCents <= 0) {
+        throw new Error("Invalid payout amount");
+      }
+
+      // Check dispute or return hold
+      if (data.subOrderId) {
+        const { data: openReturns } = await (supabaseAdmin.from("returns") as any)
+          .select("id")
+          .eq("sub_order_id", data.subOrderId)
+          .not("status", "in", "('REFUNDED','CLOSED')");
+
+        if (openReturns && openReturns.length > 0) {
+          throw new Error("Cannot execute payout: active return/dispute exists on sub-order.");
+        }
+      }
+
+      let transferId = `tr_sim_${Date.now()}`;
+      if (seller.stripe_account_id && !seller.stripe_account_id.startsWith("acct_mock")) {
+        const { stripe } = await import("@/lib/stripe-server");
+        const transfer = await stripe.transfers.create({
+          amount: amountCents,
+          currency: "aud",
+          destination: seller.stripe_account_id,
+          description: `ISM Marketplace Settlement for ${seller.business_name}`,
+        });
+        transferId = transfer.id;
+      }
+
+      // Record payout in database
+      const { data: payoutRecord } = await (supabaseAdmin.from("payouts") as any)
+        .insert({
+          seller_id: data.sellerId,
+          amount: data.amountAud,
+          currency: "AUD",
+          status: "TRANSFERRED",
+          transfer_id: transferId,
+          paid_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      // Insert ledger entry
+      await (supabaseAdmin.from("ledger_entries") as any).insert({
+        seller_id: data.sellerId,
+        sub_order_id: data.subOrderId ?? null,
+        entry_type: "SELLER_PAYOUT",
+        amount: -data.amountAud,
+        currency: "AUD",
+        description: `Stripe Connect transfer #${transferId}`,
+      });
+
+      return {
+        success: true,
+        payoutId: payoutRecord?.id || `payout_${Date.now()}`,
+        transferId,
+        amountAud: data.amountAud,
+      };
+    } catch (err: any) {
+      console.error("Error executing seller payout:", err);
+      throw new Error(`Payout transfer failed: ${err.message}`);
+    }
+  });
+
+/**
+ * Server Function: Get sellers for Admin console
+ */
+export const getAdminSellersServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: sellers, error } = await (supabaseAdmin.from("sellers") as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error || !sellers) return [];
+    return sellers;
+  });
+
+/**
+ * Server Function: Get products for Admin moderation
+ */
+export const getAdminProductsServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: products, error } = await (supabaseAdmin.from("products") as any)
+      .select("*, seller:sellers(business_name, store_name, slug)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !products) return [];
+    return products;
+  });
+
+/**
+ * Server Function: Get orders and sub-orders for Admin operations
+ */
+export const getAdminOrdersServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: orders, error } = await (supabaseAdmin.from("orders") as any)
+      .select("*, sub_orders(*, seller:sellers(business_name, store_name))")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !orders) return [];
+    return orders;
+  });
+
+/**
+ * Server Function: Get return requests for Admin moderation
+ */
+export const getAdminReturnsServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: returns, error } = await (supabaseAdmin.from("returns") as any)
+      .select("*, sub_order:sub_orders(*), seller:sellers(business_name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !returns) return [];
+    return returns;
+  });
+
+/**
+ * Server Function: Get audit logs for Admin compliance
+ */
+export const getAdminAuditLogsServerFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data: logs, error } = await (supabaseAdmin.from("audit_logs") as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !logs) return [];
+    return logs;
+  });
+

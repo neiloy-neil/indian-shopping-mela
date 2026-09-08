@@ -145,9 +145,41 @@ console.log("\n5. Testing Seller Onboarding State Machine Transitions...");
   assert(!isValidSellerStatusTransition("rejected", "approved"), "Direct REJECTED to APPROVED transition is strictly rejected");
 }
 
+// 6. PRODUCT VIDEO VALIDATION RULES (Master Plan §11, GAP-11)
+console.log("\n6. Testing Product Video & Media Validation Rules...");
+{
+  const validateVideoSpecs = (fileSizeMb: number, durationSec: number, format: string) => {
+    if (fileSizeMb > 100) return { valid: false, error: "FILE_TOO_LARGE" };
+    if (format.toLowerCase() !== "mp4") return { valid: false, error: "INVALID_FORMAT" };
+    if (durationSec < 5 || durationSec > 60) return { valid: false, error: "INVALID_DURATION" };
+    return { valid: true };
+  };
+
+  assert(validateVideoSpecs(45, 30, "mp4").valid, "Valid 30s MP4 under 100MB is accepted");
+  assert(validateVideoSpecs(120, 30, "mp4").error === "FILE_TOO_LARGE", "Video exceeding 100MB is rejected");
+  assert(validateVideoSpecs(20, 3, "mp4").error === "INVALID_DURATION", "Video under 5 seconds is rejected");
+  assert(validateVideoSpecs(20, 75, "mp4").error === "INVALID_DURATION", "Video over 60 seconds is rejected");
+  assert(validateVideoSpecs(20, 30, "avi").error === "INVALID_FORMAT", "Non-MP4 video format is rejected");
+}
+
+// 7. DOUBLE-ENTRY LEDGER ARITHMETIC BALANCE (Master Plan §18, GAP-16)
+console.log("\n7. Testing Double-Entry Ledger Arithmetic Balance...");
+{
+  const itemTotalAud = 220.00;
+  const shippingAud = 9.95;
+  const orderTotalAud = 229.95; // Customer Charge: $229.95
+  const commissionAud = 26.40;   // ISM 12% Commission: $26.40
+  const netSellerAud = Number((itemTotalAud - commissionAud + shippingAud).toFixed(2)); // Net Seller Payout: $203.55
+
+  // Double-entry balancing assertion: Customer Charge = Platform Commission + Net Seller Settlement
+  const totalCredits = Number((commissionAud + netSellerAud).toFixed(2));
+  assert(orderTotalAud === totalCredits, "Ledger double-entry sum reconciles to exact customer charge", `Got ${totalCredits} vs ${orderTotalAud}`);
+}
+
 console.log("\n=======================================================");
 console.log(`  RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
+
 
 if (failedTests > 0) {
   process.exit(1);

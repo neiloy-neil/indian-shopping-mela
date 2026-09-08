@@ -29,6 +29,7 @@ import {
   moderateSellerStatusServerFn,
   reconcileAndUnlockEligiblePayoutsServerFn,
   generateSellerPayoutBatchCsvServerFn,
+  executeSellerStripePayoutServerFn,
 } from "@/lib/api/admin-finance";
 import {
   ATTRIBUTE_TYPES,
@@ -576,9 +577,48 @@ function AdminPage() {
                 <Card title="Payout controls">
                   <p className="text-sm text-muted-foreground">{PAYOUT_RULE}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => toast("Manual hold applied (demo)", { description: "Reason required and written to the audit log" })} className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:border-rani hover:text-rani">Apply manual hold</button>
-                    <button onClick={() => toast("Payout retry queued (demo)")} className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:border-rani hover:text-rani">Retry failed payout</button>
-                    <button onClick={() => toast("Batch created (demo)", { description: "BATCH-PO-2026-37" })} className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:border-rani hover:text-rani">Create settlement batch</button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await reconcileAndUnlockEligiblePayoutsServerFn();
+                          toast.success("14-Day Delivery Holds Reconciled", {
+                            description: `${res.unlockedCount} payout(s) unlocked (${formatAUD(res.unlockedAmountAud)})`,
+                          });
+                        } catch (err: any) {
+                          toast.error("Reconciliation failed", { description: err.message });
+                        }
+                      }}
+                      className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide hover:border-rani hover:text-rani"
+                    >
+                      Reconcile 14-day holds
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await generateSellerPayoutBatchCsvServerFn();
+                          if (res.csvContent) {
+                            const blob = new Blob([res.csvContent], { type: "text/csv;charset=utf-8;" });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement("a");
+                            link.setAttribute("href", url);
+                            link.setAttribute("download", `ISM_Payout_${res.batchId}.csv`);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            toast.success(`Settlement Batch ${res.batchId} created`, {
+                              description: `${res.sellerCount} seller(s) totaling ${formatAUD(res.totalPayoutAud)} exported for ABA processing.`,
+                            });
+                          } else {
+                            toast.info("No eligible payouts ready for batch creation.");
+                          }
+                        } catch (err: any) {
+                          toast.error("Batch creation failed", { description: err.message });
+                        }
+                      }}
+                      className="rounded-sm bg-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-primary-foreground hover:bg-primary/90"
+                    >
+                      Create settlement batch
+                    </button>
                   </div>
                 </Card>
                 <Card title="Discount & shipping funding">

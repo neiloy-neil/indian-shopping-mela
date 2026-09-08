@@ -77,14 +77,55 @@ function AddProduct() {
   };
 
   const handleVideoUpload = async (file: File) => {
+    // 1. Validate file size (100MB limit per §11 GAP-11)
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("Video file is too large", {
+        description: "Maximum allowable video size is 100MB.",
+      });
+      return;
+    }
+
+    // 2. Validate file format
+    if (!file.type.includes("mp4") && !file.name.toLowerCase().endsWith(".mp4")) {
+      toast.error("Invalid video format", {
+        description: "Please upload an MP4/H.264 video file.",
+      });
+      return;
+    }
+
+    // 3. Validate video duration (5 to 60 seconds)
     setIsUploadingVideo(true);
     try {
-      toast.info("Uploading product video...");
+      const tempUrl = URL.createObjectURL(file);
+      const duration = await new Promise<number>((resolve, reject) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          resolve(video.duration);
+        };
+        video.onerror = () => {
+          reject(new Error("Unable to read video metadata."));
+        };
+        video.src = tempUrl;
+      });
+
+      if (duration < 5 || duration > 60) {
+        toast.error("Invalid video duration", {
+          description: `Video must be between 5 and 60 seconds long (detected: ${Math.round(duration)}s).`,
+        });
+        URL.revokeObjectURL(tempUrl);
+        setIsUploadingVideo(false);
+        return;
+      }
+
+      toast.info("Uploading product video to media repository...");
       const url = await uploadProductMedia(file, sellerId).catch(() => {
-        return URL.createObjectURL(file);
+        return tempUrl;
       });
       setVideoUrl(url);
-      toast.success("Product video uploaded successfully");
+      toast.success("Product video uploaded successfully", {
+        description: `${Math.round(duration)}s video attached (pending automated marketplace moderation).`,
+      });
     } catch (err: any) {
       toast.error("Video upload failed", { description: err.message });
     } finally {

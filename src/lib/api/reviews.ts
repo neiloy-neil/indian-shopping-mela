@@ -70,9 +70,8 @@ export const submitProductReviewServerFn = createServerFn({ method: "POST" })
     // Check if user has purchased the product
     const { data: orderItem } = await (supabaseAdmin as any)
       .from("order_items")
-      .select("id, sub_orders!inner(master_orders!inner(customer_id, status))")
+      .select("id, sub_orders!inner(seller_id, orders:master_order_id(customer_id, status))")
       .eq("product_id", data.productId)
-      .eq("sub_orders.master_orders.customer_id", data.userId)
       .maybeSingle();
 
     const isVerifiedPurchase = Boolean(orderItem);

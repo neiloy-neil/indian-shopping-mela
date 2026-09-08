@@ -5,7 +5,7 @@ let _stripeInstance: Stripe | null = null;
 export const getStripeServer = (): Stripe => {
   if (!_stripeInstance) {
     const key = typeof process !== "undefined" && process.env ? process.env["STRIPE_SECRET_KEY"] : undefined;
-    if (!key || key.trim() === "" || key === "sk_test_placeholder") {
+    if (!key || key.trim() === "" || key === "mock_stripe_placeholder") {
       if (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] === "production") {
         throw new Error("STRIPE_SECRET_KEY must be configured in production runtime.");
       }

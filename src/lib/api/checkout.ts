@@ -14,7 +14,7 @@ export interface CheckoutCartItem {
   unitPriceAud: number;
   quantity: number;
   weightKg: number;
-  imageUrl?: string;
+  imageUrl?: string | undefined;
 }
 
 export interface SellerPackageGroup {
