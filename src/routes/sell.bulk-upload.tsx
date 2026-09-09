@@ -176,23 +176,11 @@ function BulkUpload() {
   };
 
   const validate = () => {
-    setStage("validating");
-    setProgress(0);
-
-    const t = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(t);
-          return 100;
-        }
-        return p + 25;
-      });
-    }, 120);
-
-    setTimeout(() => {
-      clearInterval(t);
-      setStage("results");
-    }, 600);
+    if (rawParsedRows.length === 0 && validationResult.totalRows === 0) {
+      toast.error("Please upload a CSV or Excel file first.");
+      return;
+    }
+    setStage("results");
   };
 
   const handleDownloadCsvTemplate = () => {
@@ -235,7 +223,7 @@ function BulkUpload() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "ism_import_errors_IMP-2026-0190.csv");
+    link.setAttribute("download", `ism_import_errors_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -258,16 +246,20 @@ function BulkUpload() {
           sellerId,
           rows: rawParsedRows,
           mode: mode === "create" ? "CREATE" : "UPDATE",
+          blankPolicy,
         },
       });
 
       setStage("imported");
-      toast.success(`Batch committed — ${result.inserted} products imported!`, {
-        description:
-          result.failed > 0
-            ? `${result.failed} rows failed validation.`
-            : "Listings are now active in the database.",
-      });
+      toast.success(
+        `Batch ${result.batchId} complete — ${result.inserted + result.updated} products processed!`,
+        {
+          description:
+            result.failed > 0
+              ? `${result.failed} rows failed validation.`
+              : "Listings are now active in the database.",
+        },
+      );
     } catch (err: any) {
       toast.error("Bulk commit failed", { description: err.message });
     } finally {
@@ -557,7 +549,7 @@ function BulkUpload() {
                 <CheckCircle2 className="mt-0.5 shrink-0 text-teal" size={20} />
                 <div>
                   <p className="text-sm font-semibold">
-                    Batch IMP-2026-0190 complete — {totals.ready} products published to catalog!
+                    Batch ingestion complete — {totals.ready} products published to catalog!
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     All valid rows are now live. {totals.errors} error rows were safely skipped
