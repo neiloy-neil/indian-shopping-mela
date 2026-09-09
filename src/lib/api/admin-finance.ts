@@ -358,7 +358,7 @@ export const getAdminUsersServerFn = createServerFn({ method: "GET" })
  * Server Function: Update user role (Customer, Seller, Admin, Super Admin)
  */
 export const updateUserRoleServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string; newRole: "customer" | "seller" | "admin" | "super_admin" }) => data)
+  .validator((data: { userId: string; newRole: "customer" | "seller_owner" | "seller_staff" | "admin_support" | "admin_catalogue" | "admin_finance" | "admin_super" }) => data)
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("profiles") as any)
       .update({

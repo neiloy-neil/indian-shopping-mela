@@ -197,7 +197,7 @@ function AddProduct() {
         department: department.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         subcategory,
         description,
-        status: "PENDING_REVIEW",
+        status: "SUBMITTED",
         price: Number(price) || 199,
         salePrice: compareAt ? Number(compareAt) : undefined,
         stockQuantity: Number(stock) || 10,

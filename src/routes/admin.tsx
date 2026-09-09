@@ -596,7 +596,7 @@ function AdminPage() {
                         <td className="py-2.5 font-medium">{u.full_name || "Customer"}</td>
                         <td>{u.email}</td>
                         <td>
-                          <StatusBadge tone={u.role === "super_admin" ? "bad" : u.role === "admin" ? "warn" : u.role === "seller" ? "info" : "muted"}>
+                          <StatusBadge tone={u.role === "admin_super" ? "bad" : ["admin_support", "admin_catalogue", "admin_finance"].includes(u.role) ? "warn" : u.role === "seller_owner" || u.role === "seller_staff" ? "info" : "muted"}>
                             {u.role}
                           </StatusBadge>
                         </td>
@@ -615,9 +615,12 @@ function AdminPage() {
                             className="h-8 rounded-sm border border-input bg-surface px-2 text-xs font-semibold"
                           >
                             <option value="customer">Customer</option>
-                            <option value="seller">Seller</option>
-                            <option value="admin">Admin</option>
-                            <option value="super_admin">Super Admin (MFA)</option>
+                            <option value="seller_owner">Seller Owner</option>
+                            <option value="seller_staff">Seller Staff</option>
+                            <option value="admin_support">Admin — Support</option>
+                            <option value="admin_catalogue">Admin — Catalogue</option>
+                            <option value="admin_finance">Admin — Finance</option>
+                            <option value="admin_super">Admin — Super (MFA)</option>
                           </select>
                         </td>
                       </tr>

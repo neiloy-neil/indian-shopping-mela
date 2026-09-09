@@ -81,7 +81,7 @@ export async function assertFinanceAdminWithMfa(userId: string, isMfaVerified: b
     .eq("id", userId)
     .maybeSingle();
 
-  if (error || !profile || !["admin", "super_admin", "finance_admin"].includes(profile.role)) {
+  if (error || !profile || !["admin_finance", "admin_super"].includes(profile.role)) {
     throw new AuthorizationError("Administrative finance role required.");
   }
 

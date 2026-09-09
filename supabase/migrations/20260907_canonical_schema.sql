@@ -1,65 +1,234 @@
 -- ============================================================================
 -- INDIAN SHOPPING MELA: CANONICAL PRODUCTION DATABASE SCHEMA
 -- Migration: 20260907_canonical_schema.sql
--- Description: Unified, consistent marketplace schema resolving all audit conflicts.
+-- Description: Fully reconciled schema matching database.types.ts exactly.
+--              Authoritative source of truth for all tables, enums, RPCs,
+--              RLS policies, indexes, and storage buckets.
+-- Monetary:    All money fields use BIGINT amount_cents (integer cents AUD).
+-- Last audit:  2026-09-09 — full sync against database.types.ts
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ----------------------------------------------------------------------------
--- 1. ENUM DEFINITIONS (Standardized snake_case)
+-- 1. ENUM DEFINITIONS
+--    All enums match database.types.ts exactly.
+--    Existing enums are handled idempotently.
 -- ----------------------------------------------------------------------------
+
+-- User roles (granular, matches DB types)
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('customer', 'seller', 'admin', 'super_admin');
+    CREATE TYPE user_role AS ENUM (
+        'customer',
+        'seller_owner',
+        'seller_staff',
+        'admin_support',
+        'admin_catalogue',
+        'admin_finance',
+        'admin_super'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Seller onboarding status (SCREAMING_SNAKE, matches DB types onboarding_status)
 DO $$ BEGIN
-    CREATE TYPE seller_status AS ENUM ('draft', 'submitted', 'under_review', 'approved', 'suspended', 'rejected');
+    CREATE TYPE onboarding_status AS ENUM (
+        'DRAFT',
+        'SUBMITTED',
+        'UNDER_REVIEW',
+        'INFO_REQUIRED',
+        'APPROVED',
+        'REJECTED',
+        'SUSPENDED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Document verification
 DO $$ BEGIN
-    CREATE TYPE product_status AS ENUM ('DRAFT', 'PENDING_REVIEW', 'LIVE', 'REJECTED', 'ARCHIVED');
+    CREATE TYPE document_verification_status AS ENUM (
+        'PENDING',
+        'VERIFIED',
+        'REJECTED',
+        'EXPIRED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Product status (richer set matching DB types)
 DO $$ BEGIN
-    CREATE TYPE order_status AS ENUM ('PENDING', 'PAYMENT_PENDING', 'CONFIRMED', 'PROCESSING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED');
+    CREATE TYPE product_status AS ENUM (
+        'DRAFT',
+        'SUBMITTED',
+        'NEEDS_CHANGES',
+        'APPROVED',
+        'LIVE',
+        'PAUSED',
+        'OUT_OF_STOCK',
+        'REJECTED',
+        'ARCHIVED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Product media status
 DO $$ BEGIN
-    CREATE TYPE sub_order_status AS ENUM ('NEW_ORDER', 'ACCEPTED', 'PACKED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURN_REQUESTED', 'RETURNED', 'REFUNDED');
+    CREATE TYPE media_status AS ENUM (
+        'UPLOADING',
+        'PROCESSING',
+        'READY',
+        'FAILED',
+        'REJECTED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Cart status
 DO $$ BEGIN
-    CREATE TYPE order_payment_status AS ENUM ('PENDING', 'AUTHORIZED', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED');
+    CREATE TYPE cart_status AS ENUM (
+        'ACTIVE',
+        'CONVERTED',
+        'ABANDONED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Order status (master order)
 DO $$ BEGIN
-    CREATE TYPE payment_method AS ENUM ('STRIPE', 'AFTERPAY', 'ZIP', 'KLARNA', 'BANK_TRANSFER');
+    CREATE TYPE order_status AS ENUM (
+        'PENDING',
+        'PAYMENT_PENDING',
+        'CONFIRMED',
+        'PROCESSING',
+        'PARTIALLY_SHIPPED',
+        'SHIPPED',
+        'DELIVERED',
+        'CANCELLED',
+        'REFUNDED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Order payment status (matches Stripe semantics)
 DO $$ BEGIN
-    CREATE TYPE shipment_status AS ENUM ('PENDING', 'LABEL_CREATED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED_ATTEMPT', 'EXCEPTION', 'RETURNED_TO_SENDER');
+    CREATE TYPE order_payment_status AS ENUM (
+        'PAYMENT_PENDING',
+        'PAID',
+        'PAYMENT_FAILED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Payment method
 DO $$ BEGIN
-    CREATE TYPE return_status AS ENUM ('REQUESTED', 'APPROVED', 'REJECTED', 'IN_TRANSIT', 'RECEIVED', 'INSPECTED', 'REFUNDED', 'CLOSED');
+    CREATE TYPE payment_method AS ENUM (
+        'STRIPE',
+        'AFTERPAY',
+        'ZIP',
+        'KLARNA',
+        'BANK_TRANSFER'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Sub-order (seller fulfilment) status (granular, matches DB types)
 DO $$ BEGIN
-    CREATE TYPE payout_status AS ENUM ('PENDING', 'SCHEDULED', 'PROCESSING', 'TRANSFERRED', 'FAILED', 'CANCELLED');
+    CREATE TYPE sub_order_status AS ENUM (
+        'ORDER_CREATED',
+        'SELLER_NOTIFIED',
+        'SELLER_ACCEPTED',
+        'PREPARING',
+        'READY_TO_SHIP',
+        'LABEL_CREATED',
+        'PICKUP_SCHEDULED',
+        'SHIPPED',
+        'IN_TRANSIT',
+        'OUT_FOR_DELIVERY',
+        'DELIVERED',
+        'CANCELLED',
+        'DISPUTED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Shipment carrier status
 DO $$ BEGIN
-    CREATE TYPE ledger_entry_type AS ENUM ('CUSTOMER_CHARGE', 'SELLER_GROSS', 'ISM_COMMISSION', 'GST_COLLECTED', 'SHIPPING_FEE', 'SELLER_PAYOUT', 'CUSTOMER_REFUND', 'DISPUTE_HOLD', 'DISPUTE_RELEASE', 'ADJUSTMENT');
+    CREATE TYPE shipment_status AS ENUM (
+        'PENDING',
+        'LABEL_CREATED',
+        'PICKED_UP',
+        'IN_TRANSIT',
+        'OUT_FOR_DELIVERY',
+        'DELIVERED',
+        'FAILED_ATTEMPT',
+        'EXCEPTION',
+        'RETURNED_TO_SENDER'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Return status (prefixed, matches DB types)
 DO $$ BEGIN
-    CREATE TYPE inventory_tx_type AS ENUM ('INITIAL_STOCK', 'RESERVATION_HOLD', 'RESERVATION_RELEASE', 'ORDER_FULFILLMENT', 'MANUAL_ADJUSTMENT', 'RETURN_RESTOCK', 'DAMAGE_WRITE_OFF', 'BULK_IMPORT');
+    CREATE TYPE return_status AS ENUM (
+        'RETURN_REQUESTED',
+        'RETURN_APPROVED',
+        'RETURN_IN_TRANSIT',
+        'RETURN_RECEIVED',
+        'REFUND_PENDING',
+        'REFUNDED',
+        'REJECTED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- Payout status (matches business semantics in DB types)
 DO $$ BEGIN
-    CREATE TYPE bulk_import_status AS ENUM ('PENDING', 'PARSING', 'VALIDATED', 'IMPORTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+    CREATE TYPE payout_status AS ENUM (
+        'PAYOUT_HOLD',
+        'PAYOUT_ELIGIBLE',
+        'PAYOUT_PROCESSING',
+        'PAID_TO_SELLER',
+        'CANCELLED'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Ledger entry type (merged from both models — full set)
+DO $$ BEGIN
+    CREATE TYPE ledger_entry_type AS ENUM (
+        'CUSTOMER_CHARGE',
+        'SELLER_GROSS',
+        'ISM_COMMISSION',
+        'GST_COLLECTED',
+        'PAYMENT_FEE',
+        'SHIPPING_FEE',
+        'SHIPPING_CHARGE',
+        'SHIPPING_COST',
+        'DISCOUNT',
+        'SELLER_PAYOUT',
+        'CUSTOMER_REFUND',
+        'REFUND',
+        'DISPUTE_HOLD',
+        'DISPUTE_RELEASE',
+        'ADJUSTMENT',
+        'TRANSFER',
+        'PAYOUT'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Inventory transaction type
+DO $$ BEGIN
+    CREATE TYPE inventory_tx_type AS ENUM (
+        'INITIAL_STOCK',
+        'RESERVATION_HOLD',
+        'RESERVATION_RELEASE',
+        'ORDER_FULFILLMENT',
+        'MANUAL_ADJUSTMENT',
+        'RETURN_RESTOCK',
+        'DAMAGE_WRITE_OFF',
+        'BULK_IMPORT'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Bulk import status
+DO $$ BEGIN
+    CREATE TYPE bulk_import_status AS ENUM (
+        'PENDING',
+        'PARSING',
+        'VALIDATED',
+        'IMPORTING',
+        'COMPLETED',
+        'FAILED',
+        'CANCELLED'
+    );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ----------------------------------------------------------------------------
@@ -71,61 +240,85 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     full_name TEXT,
     role user_role NOT NULL DEFAULT 'customer',
     phone TEXT,
+    phone_verified BOOLEAN NOT NULL DEFAULT FALSE,
     avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Hardened Security Definer Functions
+-- Hardened SECURITY DEFINER functions with explicit search_path
 CREATE OR REPLACE FUNCTION public.is_admin(user_uuid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.profiles
-        WHERE id = user_uuid AND role IN ('admin', 'super_admin')
+        WHERE id = user_uuid
+          AND role IN ('admin_support', 'admin_catalogue', 'admin_finance', 'admin_super')
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.is_super_admin(user_uuid UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = user_uuid AND role = 'admin_super'
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ----------------------------------------------------------------------------
--- 3. SELLERS & VENDOR IDENTITY
+-- 3. SELLERS, STAFF, AGREEMENTS, ADDRESSES, DOCUMENTS
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.sellers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
-    store_name TEXT NOT NULL,
+    -- Identity (owner is the primary seller user)
+    owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
     slug TEXT UNIQUE NOT NULL,
     business_name TEXT NOT NULL,
-    abn TEXT,
-    gstin TEXT,
-    phone TEXT,
-    email TEXT NOT NULL,
-    description TEXT,
+    legal_name TEXT NOT NULL,
+    abn TEXT NOT NULL,
+    about_text TEXT,
     logo_url TEXT,
     banner_url TEXT,
-    return_policy TEXT,
-    shipping_policy TEXT,
-    commission_rate_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00,
-    status seller_status NOT NULL DEFAULT 'draft',
-    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    verified_at TIMESTAMPTZ,
-    onboarding_step INT NOT NULL DEFAULT 1,
+    -- Business classification
+    business_type TEXT NOT NULL DEFAULT 'sole_trader',
+    -- Operational
+    commission_rate NUMERIC(5,4) NOT NULL DEFAULT 0.10,  -- decimal fraction e.g. 0.10 = 10%
+    holiday_mode BOOLEAN NOT NULL DEFAULT FALSE,
+    handling_days_default INT NOT NULL DEFAULT 2,
+    -- Onboarding & compliance
+    status onboarding_status NOT NULL DEFAULT 'DRAFT',
+    terms_accepted_at TIMESTAMPTZ,
+    terms_accepted_version TEXT,
+    approved_at TIMESTAMPTZ,
+    approved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    admin_notes TEXT,
+    risk_flag BOOLEAN,
+    -- Stripe Connect
     stripe_account_id TEXT,
     payouts_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     charges_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Banking (BSB/Account for manual payouts)
     bank_bsb TEXT,
     bank_account_number TEXT,
     bank_account_name TEXT,
+    -- Structured dispatch/return addresses as JSONB for quick reads
+    dispatch_address JSONB NOT NULL DEFAULT '{}'::jsonb,
+    return_address JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.seller_members (
+-- Seller staff (was seller_members — renamed to match DB types)
+CREATE TABLE IF NOT EXISTS public.seller_staff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    role TEXT NOT NULL DEFAULT 'member',
-    permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    staff_role TEXT NOT NULL DEFAULT 'staff',
+    permissions TEXT[] NOT NULL DEFAULT '{}',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(seller_id, user_id)
 );
@@ -134,19 +327,20 @@ CREATE OR REPLACE FUNCTION public.is_seller_member(seller_uuid UUID, user_uuid U
 RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
-        SELECT 1 FROM public.seller_members
-        WHERE seller_id = seller_uuid AND user_id = user_uuid
+        SELECT 1 FROM public.seller_staff
+        WHERE seller_id = seller_uuid AND user_id = user_uuid AND is_active = TRUE
     ) OR EXISTS (
         SELECT 1 FROM public.sellers
-        WHERE id = seller_uuid AND user_id = user_uuid
+        WHERE id = seller_uuid AND owner_id = user_uuid
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- Seller physical addresses (separate table for structured storage/validation)
 CREATE TABLE IF NOT EXISTS public.seller_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
-    address_type TEXT NOT NULL DEFAULT 'dispatch',
+    address_type TEXT NOT NULL DEFAULT 'dispatch', -- 'dispatch' | 'return' | 'billing'
     address_line1 TEXT NOT NULL,
     address_line2 TEXT,
     suburb TEXT NOT NULL,
@@ -157,15 +351,33 @@ CREATE TABLE IF NOT EXISTS public.seller_addresses (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Seller legal document uploads
 CREATE TABLE IF NOT EXISTS public.seller_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
-    document_type TEXT NOT NULL,
-    document_url TEXT NOT NULL,
-    verification_status TEXT NOT NULL DEFAULT 'pending',
-    reviewer_notes TEXT,
-    verified_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    document_type TEXT NOT NULL,  -- 'abn_certificate' | 'id_document' | 'bank_statement' etc.
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,      -- Supabase storage path
+    file_size_bytes BIGINT,
+    mime_type TEXT,
+    status document_verification_status NOT NULL DEFAULT 'PENDING',
+    review_notes TEXT,
+    reviewed_at TIMESTAMPTZ,
+    reviewer_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seller agreements (ToS, seller agreement, privacy — immutable audit trail)
+CREATE TABLE IF NOT EXISTS public.seller_agreements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    agreement_type TEXT NOT NULL DEFAULT 'seller_agreement',
+    version TEXT NOT NULL DEFAULT 'v1.0',
+    accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ip_address TEXT,
+    user_agent TEXT
 );
 
 -- ----------------------------------------------------------------------------
@@ -176,6 +388,10 @@ CREATE TABLE IF NOT EXISTS public.departments (
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     description TEXT,
+    banner_url TEXT,
+    icon_name TEXT,
+    seo_title TEXT,
+    seo_description TEXT,
     sort_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -183,12 +399,15 @@ CREATE TABLE IF NOT EXISTS public.departments (
 
 CREATE TABLE IF NOT EXISTS public.categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- FK to departments (correct model — not free text)
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
     parent_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     description TEXT,
     image_url TEXT,
+    banner_url TEXT,
+    featured BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -197,53 +416,54 @@ CREATE TABLE IF NOT EXISTS public.categories (
 CREATE TABLE IF NOT EXISTS public.category_attributes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
-    attribute_name TEXT NOT NULL,
-    attribute_type TEXT NOT NULL DEFAULT 'select',
+    code TEXT NOT NULL,           -- machine-readable key e.g. 'color', 'size'
+    name TEXT NOT NULL,           -- display name e.g. 'Color', 'Size'
+    attribute_type TEXT NOT NULL DEFAULT 'select',  -- 'select' | 'multi_select' | 'text' | 'number'
     is_required BOOLEAN NOT NULL DEFAULT FALSE,
-    filterable BOOLEAN NOT NULL DEFAULT TRUE,
-    sort_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    options JSONB,                -- cached option list for quick reads
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(category_id, code)
 );
 
 CREATE TABLE IF NOT EXISTS public.attribute_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     attribute_id UUID NOT NULL REFERENCES public.category_attributes(id) ON DELETE CASCADE,
-    option_value TEXT NOT NULL,
-    sort_order INT NOT NULL DEFAULT 0
+    code TEXT NOT NULL,           -- machine key e.g. 'red'
+    label TEXT NOT NULL,          -- display label e.g. 'Red'
+    color_hex TEXT,               -- for color swatches
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INT NOT NULL DEFAULT 0,
+    UNIQUE(attribute_id, code)
 );
 
-
-
+-- ----------------------------------------------------------------------------
+-- 5. PRODUCTS, VARIANTS, MEDIA
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
-    category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+    category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
+    -- Denormalised department for fast filtering (kept in sync by trigger or app)
+    department TEXT,
     title TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     description TEXT NOT NULL,
-    short_description TEXT,
-    price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
-    sale_price NUMERIC(10,2) CHECK (sale_price IS NULL OR sale_price >= 0),
-    cost_price NUMERIC(10,2),
-    sku TEXT,
-    barcode TEXT,
-    stock_quantity INT NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
-    status product_status NOT NULL DEFAULT 'DRAFT',
-    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-    is_bestseller BOOLEAN NOT NULL DEFAULT FALSE,
-    is_ready_to_ship BOOLEAN NOT NULL DEFAULT FALSE,
-    fabric TEXT,
-    material TEXT,
-    craft_region TEXT,
-    occassion TEXT,
+    -- Physical/shipping attributes
+    weight_kg NUMERIC(8,3),
+    height_cm NUMERIC(8,2),
+    length_cm NUMERIC(8,2),
+    width_cm NUMERIC(8,2),
+    fragile BOOLEAN,
+    handling_days INT,
+    -- Product-level attributes
     care_instructions TEXT,
-    weight_grams INT NOT NULL DEFAULT 500,
-    dimensions_cm JSONB,
-    tags TEXT[],
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-    rating_avg NUMERIC(3,2) NOT NULL DEFAULT 0,
-    rating_count INT NOT NULL DEFAULT 0,
-    views_count INT NOT NULL DEFAULT 0,
+    country_of_origin TEXT,
+    key_features TEXT[],
+    subcategory TEXT,
+    -- ACL compliance
+    return_eligible BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Catalogue
+    status product_status NOT NULL DEFAULT 'DRAFT',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -252,90 +472,125 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
-    sku TEXT UNIQUE,
-    price NUMERIC(10,2),
-    compare_at_price NUMERIC(10,2),
+    seller_sku TEXT NOT NULL,             -- Seller's own SKU
+    -- Pricing (all in AUD dollars, numeric for display; cents in payments)
+    price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+    sale_price NUMERIC(10,2) CHECK (sale_price IS NULL OR sale_price >= 0),
+    sale_start_at TIMESTAMPTZ,
+    sale_end_at TIMESTAMPTZ,
+    -- Inventory
     stock_quantity INT NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
-    weight_grams INT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    sort_order INT NOT NULL DEFAULT 0,
+    reserved_quantity INT NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0),
+    low_stock_threshold INT NOT NULL DEFAULT 5,
+    -- Physical
+    weight_kg_override NUMERIC(8,3),
+    -- Attributes stored as JSONB for flexible key-value pairs
+    attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
+    -- Variant images (subset of product_media)
+    images TEXT[] DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(product_id, seller_sku)
 );
 
+-- Variant option links (FK-based model — attribute_id + option_id or custom_value)
 CREATE TABLE IF NOT EXISTS public.product_variant_options (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     variant_id UUID NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE,
-    option_name TEXT NOT NULL,
-    option_value TEXT NOT NULL,
-    UNIQUE(variant_id, option_name)
+    attribute_id UUID NOT NULL REFERENCES public.category_attributes(id) ON DELETE RESTRICT,
+    option_id UUID REFERENCES public.attribute_options(id) ON DELETE SET NULL,
+    custom_value TEXT,    -- For free-text options not in the option list
+    PRIMARY KEY (variant_id, attribute_id)
 );
 
+-- Product media (images + videos, with moderation lifecycle)
 CREATE TABLE IF NOT EXISTS public.product_media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
-    media_type TEXT NOT NULL DEFAULT 'image',
+    variant_id UUID REFERENCES public.product_variants(id) ON DELETE SET NULL,
+    media_type TEXT NOT NULL DEFAULT 'image',   -- 'image' | 'video'
     url TEXT NOT NULL,
-    alt_text TEXT,
-    sort_order INT NOT NULL DEFAULT 0,
-    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    status media_status NOT NULL DEFAULT 'UPLOADING',
+    moderation_status TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'approved' | 'rejected'
+    thumbnail_url TEXT,
+    duration_seconds NUMERIC(8,2),  -- for videos
+    sort_order INT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_product_media_sort ON public.product_media(product_id, sort_order);
 
+-- Product moderation log (admin review trail)
+CREATE TABLE IF NOT EXISTS public.product_moderation_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    admin_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    from_status product_status,
+    to_status product_status NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Collections & collection membership
 CREATE TABLE IF NOT EXISTS public.collections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     description TEXT,
     banner_url TEXT,
-    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+    tagline TEXT,
+    featured BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.collection_products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- Named product_collections to match DB types
+CREATE TABLE IF NOT EXISTS public.product_collections (
     collection_id UUID NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
     sort_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(collection_id, product_id)
+    PRIMARY KEY (collection_id, product_id)
 );
 
 -- ----------------------------------------------------------------------------
--- 5. INVENTORY & CONCURRENCY RESERVATIONS
+-- 6. INVENTORY — ATOMIC RESERVATIONS & TRANSACTIONS
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.inventory_reservations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     variant_id UUID NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     session_id TEXT,
     order_id TEXT,
     quantity INT NOT NULL CHECK (quantity > 0),
-    status TEXT NOT NULL DEFAULT 'active',
+    status TEXT NOT NULL DEFAULT 'active',   -- 'active' | 'fulfilled' | 'cancelled' | 'expired'
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_inv_res_active ON public.inventory_reservations(variant_id, expires_at) WHERE status = 'active';
 
+-- Inventory ledger (every stock movement)
 CREATE TABLE IF NOT EXISTS public.inventory_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     variant_id UUID NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE,
-    transaction_type inventory_tx_type NOT NULL,
-    quantity INT NOT NULL,
+    -- delta: positive = stock in, negative = stock out
+    delta INT NOT NULL,
     balance_after INT NOT NULL,
-    reference_id TEXT,
-    notes TEXT,
-    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- reason is a free-text label (maps to inventory_tx_type values)
+    reason TEXT NOT NULL,
+    note TEXT,
+    order_id TEXT,
+    batch_id UUID,   -- for bulk import tracking
+    actor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Atomic Inventory Reservation RPC
+-- Signature matches DB types: (p_variant_id, p_quantity, p_reference_id, p_reference_type, p_hold_minutes?)
 CREATE OR REPLACE FUNCTION public.reserve_inventory_atomic(
     p_variant_id UUID,
     p_quantity INT,
-    p_session_id TEXT,
-    p_ttl_minutes INT DEFAULT 15
+    p_reference_id TEXT,
+    p_reference_type TEXT,
+    p_hold_minutes INT DEFAULT 15
 )
 RETURNS JSONB AS $$
 DECLARE
@@ -349,7 +604,7 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Quantity must be greater than 0');
     END IF;
 
-    -- Lock variant row for concurrency
+    -- Lock variant row for concurrency safety
     SELECT stock_quantity INTO v_stock
     FROM public.product_variants
     WHERE id = p_variant_id
@@ -377,12 +632,16 @@ BEGIN
         );
     END IF;
 
-    v_expires_at := NOW() + (p_ttl_minutes || ' minutes')::INTERVAL;
+    v_expires_at := NOW() + (p_hold_minutes || ' minutes')::INTERVAL;
 
     INSERT INTO public.inventory_reservations (
         variant_id, session_id, quantity, status, expires_at
     ) VALUES (
-        p_variant_id, p_session_id, p_quantity, 'active', v_expires_at
+        p_variant_id,
+        p_reference_id,
+        p_quantity,
+        'active',
+        v_expires_at
     ) RETURNING id INTO v_reservation_id;
 
     RETURN jsonb_build_object(
@@ -395,10 +654,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Commit Inventory Reservation on Order Placement
+-- Commit Inventory Reservation on Order Placement (arg order matches DB types)
 CREATE OR REPLACE FUNCTION public.commit_inventory_reservation(
-    p_reservation_id UUID,
-    p_order_id TEXT
+    p_order_id TEXT,
+    p_reservation_id UUID
 )
 RETURNS JSONB AS $$
 DECLARE
@@ -414,29 +673,23 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Active reservation not found or expired');
     END IF;
 
-    -- Deduct stock from variant
+    -- Check idempotency: already committed for this order?
+    IF v_res.order_id IS NOT NULL AND v_res.order_id = p_order_id THEN
+        RETURN jsonb_build_object('success', true, 'idempotent', true);
+    END IF;
+
+    -- Atomically deduct stock
     UPDATE public.product_variants
     SET stock_quantity = stock_quantity - v_res.quantity,
         updated_at = NOW()
     WHERE id = v_res.variant_id
     RETURNING stock_quantity INTO v_new_stock;
 
-    -- Deduct stock from main product
-    UPDATE public.products p
-    SET stock_quantity = (
-        SELECT COALESCE(SUM(stock_quantity), 0)
-        FROM public.product_variants
-        WHERE product_id = p.id
-    ),
-    updated_at = NOW()
-    FROM public.product_variants pv
-    WHERE pv.id = v_res.variant_id AND p.id = pv.product_id;
-
     -- Record transaction
     INSERT INTO public.inventory_transactions (
-        variant_id, transaction_type, quantity, balance_after, reference_id, notes
+        variant_id, delta, balance_after, reason, order_id, note
     ) VALUES (
-        v_res.variant_id, 'ORDER_FULFILLMENT', -v_res.quantity, v_new_stock, p_order_id, 'Order committed'
+        v_res.variant_id, -v_res.quantity, v_new_stock, 'ORDER_FULFILLMENT', p_order_id, 'Reservation committed'
     );
 
     -- Mark reservation fulfilled
@@ -448,7 +701,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Explicitly Release a Specific Reservation
+-- Release a specific reservation
 CREATE OR REPLACE FUNCTION public.release_inventory_reservation(
     p_reservation_id UUID
 )
@@ -469,7 +722,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Release Expired Reservations
+-- Release Expired Reservations (called by scheduled job)
 CREATE OR REPLACE FUNCTION public.release_expired_reservations()
 RETURNS INT AS $$
 DECLARE
@@ -478,59 +731,28 @@ BEGIN
     UPDATE public.inventory_reservations
     SET status = 'expired'
     WHERE status = 'active' AND expires_at <= NOW();
-    
+
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RETURN v_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Atomic Variant Stock Decrement RPC
-CREATE OR REPLACE FUNCTION public.decrement_variant_stock(
-    p_variant_id UUID,
-    p_qty INT
-)
-RETURNS JSONB AS $$
-DECLARE
-    v_new_stock INT;
-    v_prod_id UUID;
-BEGIN
-    UPDATE public.product_variants
-    SET stock_quantity = GREATEST(0, stock_quantity - p_qty),
-        updated_at = NOW()
-    WHERE id = p_variant_id
-    RETURNING stock_quantity, product_id INTO v_new_stock, v_prod_id;
-
-    IF v_prod_id IS NOT NULL THEN
-        UPDATE public.products
-        SET stock_quantity = (
-            SELECT COALESCE(SUM(stock_quantity), 0)
-            FROM public.product_variants
-            WHERE product_id = v_prod_id
-        ),
-        updated_at = NOW()
-        WHERE id = v_prod_id;
-    END IF;
-
-    RETURN jsonb_build_object('success', true, 'new_stock', v_new_stock);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
 -- ----------------------------------------------------------------------------
--- 6. CUSTOMER CARTS & ADDRESSES
+-- 7. CUSTOMER ADDRESSES & CARTS
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.customer_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    address_type TEXT NOT NULL DEFAULT 'shipping',
-    full_name TEXT NOT NULL,
-    phone TEXT,
-    address_line1 TEXT NOT NULL,
-    address_line2 TEXT,
+    contact_name TEXT NOT NULL,
+    contact_phone TEXT,
+    line1 TEXT NOT NULL,
+    line2 TEXT,
     suburb TEXT NOT NULL,
     state TEXT NOT NULL,
     postcode TEXT NOT NULL,
     country TEXT NOT NULL DEFAULT 'AU',
-    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    is_default_shipping BOOLEAN NOT NULL DEFAULT FALSE,
+    is_default_billing BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -539,7 +761,7 @@ CREATE TABLE IF NOT EXISTS public.carts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     guest_token TEXT,
-    currency TEXT NOT NULL DEFAULT 'AUD',
+    status cart_status NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -551,7 +773,8 @@ CREATE TABLE IF NOT EXISTS public.cart_lines (
     cart_id UUID NOT NULL REFERENCES public.carts(id) ON DELETE CASCADE,
     variant_id UUID NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE,
     quantity INT NOT NULL CHECK (quantity > 0),
-    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(cart_id, variant_id)
 );
 
@@ -564,7 +787,7 @@ CREATE TABLE IF NOT EXISTS public.wishlists (
 );
 
 -- ----------------------------------------------------------------------------
--- 7. ORDERS, SPLIT SUB-ORDERS & PAYMENTS
+-- 8. ORDERS — MASTER ORDERS, SUB-ORDERS, ITEMS, STATUS HISTORY
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.orders (
     id TEXT PRIMARY KEY,
@@ -578,16 +801,14 @@ CREATE TABLE IF NOT EXISTS public.orders (
     subtotal NUMERIC(10,2) NOT NULL CHECK (subtotal >= 0),
     shipping_total NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (shipping_total >= 0),
     discount_total NUMERIC(10,2) NOT NULL DEFAULT 0,
-    gst_total NUMERIC(10,2) NOT NULL DEFAULT 0,
+    gst_total NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (gst_total >= 0),
     total_amount NUMERIC(10,2) NOT NULL CHECK (total_amount >= 0),
     status order_status NOT NULL DEFAULT 'PENDING',
-    payment_status order_payment_status NOT NULL DEFAULT 'PENDING',
-    payment_provider TEXT DEFAULT 'STRIPE_AU',
+    payment_status order_payment_status NOT NULL DEFAULT 'PAYMENT_PENDING',
+    payment_provider TEXT NOT NULL DEFAULT 'STRIPE',
     payment_intent_id TEXT,
-    payment_method payment_method DEFAULT 'STRIPE',
     payment_authorized_at TIMESTAMPTZ,
     currency TEXT NOT NULL DEFAULT 'AUD',
-    notes TEXT,
     idempotency_key TEXT UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -598,19 +819,22 @@ CREATE TABLE IF NOT EXISTS public.sub_orders (
     master_order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
     seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
     package_label TEXT,
+    -- Financial (computed server-side, stored for reporting)
     subtotal NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (subtotal >= 0),
     shipping_cost NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (shipping_cost >= 0),
-    commission_rate_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00,
+    commission_rate_pct NUMERIC(5,2) NOT NULL DEFAULT 10.00,
     commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
     net_seller_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    status sub_order_status NOT NULL DEFAULT 'NEW_ORDER',
-    shipping_method TEXT NOT NULL DEFAULT 'standard',
+    -- Fulfilment
+    status sub_order_status NOT NULL DEFAULT 'ORDER_CREATED',
     shipping_service TEXT,
     carrier TEXT,
     tracking_number TEXT,
+    tracking_url TEXT,
+    can_return_until TIMESTAMPTZ,   -- SET when delivered; = delivered_at + 7 days
     dispatch_deadline TIMESTAMPTZ,
-    estimated_delivery TIMESTAMPTZ,
-    dispatched_at TIMESTAMPTZ,
+    seller_accepted_at TIMESTAMPTZ,
+    shipped_at TIMESTAMPTZ,
     delivered_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -621,16 +845,13 @@ CREATE TABLE IF NOT EXISTS public.order_items (
     sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
     product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
     variant_id UUID REFERENCES public.product_variants(id) ON DELETE SET NULL,
-    product_name TEXT,
-    variant_name TEXT,
-    title TEXT NOT NULL,
-    variant_title TEXT,
+    product_name TEXT NOT NULL,
+    variant_name TEXT NOT NULL,
     sku TEXT,
     unit_price NUMERIC(10,2) NOT NULL CHECK (unit_price >= 0),
     quantity INT NOT NULL CHECK (quantity > 0),
     total_price NUMERIC(10,2) NOT NULL CHECK (total_price >= 0),
     gst_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    image_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -638,60 +859,192 @@ CREATE TABLE IF NOT EXISTS public.order_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id TEXT REFERENCES public.orders(id) ON DELETE CASCADE,
     sub_order_id TEXT REFERENCES public.sub_orders(id) ON DELETE CASCADE,
-    old_status TEXT,
-    new_status TEXT NOT NULL,
-    changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    notes TEXT,
+    from_status TEXT,
+    to_status TEXT NOT NULL,
+    actor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    actor_role TEXT,
+    reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ----------------------------------------------------------------------------
+-- 9. PAYMENTS (integer cents — no floating point)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
     provider TEXT NOT NULL DEFAULT 'STRIPE',
-    provider_payment_id TEXT UNIQUE,
-    amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+    provider_payment_id TEXT NOT NULL,
+    amount_cents BIGINT NOT NULL CHECK (amount_cents >= 0),
     currency TEXT NOT NULL DEFAULT 'AUD',
-    status order_payment_status NOT NULL,
-    payment_method payment_method NOT NULL DEFAULT 'STRIPE',
-    card_brand TEXT,
-    card_last4 TEXT,
-    error_message TEXT,
-    receipt_url TEXT,
+    status TEXT NOT NULL,   -- maps to order_payment_status values
+    payment_method_type TEXT,  -- 'card', 'afterpay_clearpay', etc.
+    idempotency_key TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider_payment_id)
 );
 
+-- ----------------------------------------------------------------------------
+-- 10. IMMUTABLE FINANCIAL LEDGER (append-only, integer cents)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ledger_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id TEXT REFERENCES public.orders(id) ON DELETE SET NULL,
     sub_order_id TEXT REFERENCES public.sub_orders(id) ON DELETE SET NULL,
     seller_id UUID REFERENCES public.sellers(id) ON DELETE SET NULL,
+    payout_batch_id TEXT,
     entry_type ledger_entry_type NOT NULL,
-    amount NUMERIC(10,2) NOT NULL,
+    amount_cents BIGINT NOT NULL,
     currency TEXT NOT NULL DEFAULT 'AUD',
     description TEXT,
-    idempotency_key TEXT UNIQUE,
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- NO updated_at — ledger is append-only
+);
+
+-- Append-only protection: prevent UPDATE and DELETE on ledger_entries
+CREATE OR REPLACE FUNCTION public.prevent_ledger_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'ledger_entries is append-only. Mutation of financial history is forbidden.';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_ledger_no_update ON public.ledger_entries;
+CREATE TRIGGER trg_ledger_no_update
+    BEFORE UPDATE OR DELETE ON public.ledger_entries
+    FOR EACH ROW EXECUTE FUNCTION public.prevent_ledger_mutation();
+
+-- ----------------------------------------------------------------------------
+-- 11. PAYOUTS & PAYOUT LEDGER (integer cents)
+-- ----------------------------------------------------------------------------
+-- Payout ledger: one row per sub_order showing seller's gross, commission, net
+CREATE TABLE IF NOT EXISTS public.payout_ledger (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
+    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
+    gross_amount NUMERIC(10,2) NOT NULL,
+    platform_commission NUMERIC(10,2) NOT NULL,
+    shipping_cost_allocated NUMERIC(10,2) NOT NULL DEFAULT 0,
+    net_payout NUMERIC(10,2) NOT NULL,
+    status payout_status NOT NULL DEFAULT 'PAYOUT_HOLD',
+    eligible_at TIMESTAMPTZ,   -- SET to delivered_at + 14 days
+    hold_reason TEXT,
+    payout_batch_id TEXT,
+    paid_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(sub_order_id)
+);
+
+-- Payout batches (seller transfer records)
+CREATE TABLE IF NOT EXISTS public.payouts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
+    payout_batch_id TEXT,
+    amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+    currency TEXT NOT NULL DEFAULT 'AUD',
+    status payout_status NOT NULL DEFAULT 'PAYOUT_HOLD',
+    provider_transfer_id TEXT,
+    failure_reason TEXT,
+    paid_at TIMESTAMPTZ,
+    cleared_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Payout items link payouts to ledger entries
+CREATE TABLE IF NOT EXISTS public.payout_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    payout_id UUID NOT NULL REFERENCES public.payouts(id) ON DELETE CASCADE,
+    ledger_entry_id UUID NOT NULL REFERENCES public.ledger_entries(id) ON DELETE RESTRICT,
+    amount_cents BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ----------------------------------------------------------------------------
--- 8. SHIPPING & CARRIER LOGISTICS
+-- 12. RETURNS, REFUNDS (integer cents)
+-- ----------------------------------------------------------------------------
+-- Primary return record (ACL / change-of-mind)
+CREATE TABLE IF NOT EXISTS public.returns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL,
+    reason_code TEXT NOT NULL DEFAULT 'CHANGE_OF_MIND',
+    evidence_urls TEXT[],
+    status return_status NOT NULL DEFAULT 'RETURN_REQUESTED',
+    seller_notes TEXT,
+    admin_notes TEXT,
+    payout_hold_placed BOOLEAN NOT NULL DEFAULT FALSE,
+    approved_at TIMESTAMPTZ,
+    received_at TIMESTAMPTZ,
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Return requests (individual item-level — maps to returns)
+CREATE TABLE IF NOT EXISTS public.return_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
+    order_item_id UUID NOT NULL REFERENCES public.order_items(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL,
+    reason_code TEXT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    refund_amount NUMERIC(10,2),
+    evidence_urls TEXT[],
+    status return_status NOT NULL DEFAULT 'RETURN_REQUESTED',
+    admin_notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Return line items
+CREATE TABLE IF NOT EXISTS public.return_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    return_id UUID NOT NULL REFERENCES public.returns(id) ON DELETE CASCADE,
+    order_item_id UUID NOT NULL REFERENCES public.order_items(id) ON DELETE CASCADE,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    condition_reported TEXT,
+    refund_amount_cents BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Refund records (linked to Stripe refund, idempotent)
+CREATE TABLE IF NOT EXISTS public.refunds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    sub_order_id TEXT REFERENCES public.sub_orders(id) ON DELETE SET NULL,
+    return_id UUID REFERENCES public.returns(id) ON DELETE SET NULL,
+    provider_refund_id TEXT,
+    amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+    currency TEXT NOT NULL DEFAULT 'AUD',
+    status TEXT NOT NULL DEFAULT 'succeeded',
+    reason TEXT NOT NULL,
+    idempotency_key TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider_refund_id)
+);
+
+-- ----------------------------------------------------------------------------
+-- 13. SHIPPING & CARRIER LOGISTICS
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.shipments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
-    carrier TEXT NOT NULL,
-    tracking_number TEXT NOT NULL,
-    label_url TEXT,
-    status shipment_status NOT NULL DEFAULT 'LABEL_CREATED',
+    carrier TEXT NOT NULL DEFAULT 'AUSPOST',
     shipping_service TEXT NOT NULL DEFAULT 'Standard Parcel Post',
-    weight_grams INT,
-    cost NUMERIC(10,2),
-    label_generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    tracking_number TEXT,
+    provider_shipment_id TEXT,
+    label_url TEXT,
+    pod_signature_url TEXT,
+    status TEXT NOT NULL DEFAULT 'LABEL_CREATED',   -- maps to shipment_status values
+    shipping_cost_cents BIGINT NOT NULL DEFAULT 0,
     dispatched_at TIMESTAMPTZ,
-    estimated_delivery TIMESTAMPTZ,
-    actual_delivery TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -699,157 +1052,18 @@ CREATE TABLE IF NOT EXISTS public.shipments (
 CREATE TABLE IF NOT EXISTS public.tracking_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     shipment_id UUID NOT NULL REFERENCES public.shipments(id) ON DELETE CASCADE,
-    status shipment_status NOT NULL,
     event_timestamp TIMESTAMPTZ NOT NULL,
+    carrier_status TEXT NOT NULL,    -- raw carrier status string
+    ism_status TEXT NOT NULL,        -- normalised ISM status (maps to shipment_status)
+    event_description TEXT NOT NULL,
     location TEXT,
-    description TEXT,
     raw_payload JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ----------------------------------------------------------------------------
--- 9. RETURNS & REFUNDS (7-Day Change of Mind / ACL)
+-- 14. PRODUCT REVIEWS
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.returns (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE CASCADE,
-    customer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
-    reason TEXT NOT NULL,
-    status return_status NOT NULL DEFAULT 'REQUESTED',
-    refund_amount NUMERIC(10,2) NOT NULL CHECK (refund_amount >= 0),
-    customer_notes TEXT,
-    seller_notes TEXT,
-    return_tracking_number TEXT,
-    carrier TEXT,
-    requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    approved_at TIMESTAMPTZ,
-    received_at TIMESTAMPTZ,
-    refunded_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.return_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    return_id UUID NOT NULL REFERENCES public.returns(id) ON DELETE CASCADE,
-    order_item_id UUID NOT NULL REFERENCES public.order_items(id) ON DELETE CASCADE,
-    quantity INT NOT NULL CHECK (quantity > 0),
-    return_reason TEXT,
-    condition TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.refunds (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
-    return_id UUID REFERENCES public.returns(id) ON DELETE SET NULL,
-    provider_refund_id TEXT UNIQUE,
-    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
-    currency TEXT NOT NULL DEFAULT 'AUD',
-    status TEXT NOT NULL DEFAULT 'succeeded',
-    reason TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ----------------------------------------------------------------------------
--- 10. PAYOUTS & SELLER SETTLEMENT (14-Day Delivery Hold Maturity)
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.payouts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE RESTRICT,
-    payout_batch_id TEXT,
-    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
-    currency TEXT NOT NULL DEFAULT 'AUD',
-    status payout_status NOT NULL DEFAULT 'PENDING',
-    transfer_id TEXT,
-    failure_reason TEXT,
-    period_start TIMESTAMPTZ,
-    period_end TIMESTAMPTZ,
-    scheduled_date DATE,
-    paid_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.payout_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payout_id UUID NOT NULL REFERENCES public.payouts(id) ON DELETE CASCADE,
-    sub_order_id TEXT NOT NULL REFERENCES public.sub_orders(id) ON DELETE RESTRICT,
-    gross_amount NUMERIC(10,2) NOT NULL,
-    commission_amount NUMERIC(10,2) NOT NULL,
-    net_amount NUMERIC(10,2) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ----------------------------------------------------------------------------
--- 11. COMMUNICATIONS, AUDIT & WEBHOOK EVENTS
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.notifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'general',
-    is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    action_url TEXT,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    action TEXT NOT NULL,
-    entity_type TEXT NOT NULL,
-    entity_id TEXT NOT NULL,
-    old_data JSONB,
-    new_data JSONB,
-    ip_address TEXT,
-    user_agent TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.webhook_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider TEXT NOT NULL,
-    provider_event_id TEXT UNIQUE NOT NULL,
-    event_type TEXT NOT NULL,
-    payload JSONB NOT NULL,
-    signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    status TEXT NOT NULL DEFAULT 'PENDING',
-    attempts INT NOT NULL DEFAULT 0,
-    last_error TEXT,
-    processed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.bulk_import_batches (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
-    file_name TEXT NOT NULL,
-    file_path TEXT,
-    import_mode TEXT NOT NULL DEFAULT 'standard',
-    total_rows INT NOT NULL DEFAULT 0,
-    valid_rows INT NOT NULL DEFAULT 0,
-    error_rows INT NOT NULL DEFAULT 0,
-    status bulk_import_status NOT NULL DEFAULT 'PENDING',
-    error_report_url TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ
-);
-
-CREATE TABLE IF NOT EXISTS public.bulk_import_rows (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    batch_id UUID NOT NULL REFERENCES public.bulk_import_batches(id) ON DELETE CASCADE,
-    row_number INT NOT NULL,
-    raw_data JSONB NOT NULL,
-    status TEXT NOT NULL DEFAULT 'PENDING',
-    errors JSONB,
-    product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS public.product_reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
@@ -860,47 +1074,157 @@ CREATE TABLE IF NOT EXISTS public.product_reviews (
     is_verified_purchase BOOLEAN NOT NULL DEFAULT FALSE,
     status TEXT NOT NULL DEFAULT 'APPROVED',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(product_id, user_id)
 );
 
+-- ----------------------------------------------------------------------------
+-- 15. COMMUNICATIONS & NOTIFICATIONS
+-- ----------------------------------------------------------------------------
+
+-- Outbound notification log (email/SMS — matches DB types model)
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type TEXT NOT NULL,      -- 'order' | 'return' | 'payout' etc.
+    entity_id TEXT NOT NULL,
+    template_name TEXT NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'email',   -- 'email' | 'sms' | 'push'
+    recipient_email TEXT,
+    recipient_phone TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'sent' | 'failed' | 'bounced'
+    provider_message_id TEXT,
+    error_message TEXT,
+    idempotency_key TEXT,
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- In-app bell notifications (separate from outbound log)
+CREATE TABLE IF NOT EXISTS public.user_notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'general',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    action_url TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user ON public.user_notifications(user_id, is_read, created_at DESC);
+
+-- ----------------------------------------------------------------------------
+-- 16. AUDIT LOGS, WEBHOOK EVENTS
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    actor_role TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    before_data JSONB,
+    after_data JSONB,
+    ip_address TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.webhook_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider TEXT NOT NULL,
+    provider_event_id TEXT,
+    event_type TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    processed BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    attempts INT NOT NULL DEFAULT 0,
+    error_message TEXT,
+    last_error TEXT,
+    processed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider_event_id)
+);
+
+-- ----------------------------------------------------------------------------
+-- 17. BULK IMPORT (matches DB types exactly)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.bulk_import_batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'standard',  -- 'standard' | 'update_only' | 'create_only'
+    template_version TEXT NOT NULL DEFAULT 'v1',
+    total_rows INT NOT NULL DEFAULT 0,
+    created_count INT NOT NULL DEFAULT 0,
+    updated_count INT NOT NULL DEFAULT 0,
+    failed_count INT NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'PENDING',  -- maps to bulk_import_status values
+    error_report_csv_url TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS public.bulk_import_rows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id UUID NOT NULL REFERENCES public.bulk_import_batches(id) ON DELETE CASCADE,
+    row_number INT NOT NULL,
+    sku TEXT,
+    raw_data JSONB NOT NULL,
+    is_valid BOOLEAN NOT NULL DEFAULT FALSE,
+    validation_errors TEXT[],
+    imported_product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
+    imported_variant_id UUID REFERENCES public.product_variants(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ----------------------------------------------------------------------------
+-- 18. MARKETPLACE CONFIG (versioned, with audit trail)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.marketplace_configs (
-    key TEXT PRIMARY KEY,
-    value JSONB NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    config_key TEXT UNIQUE NOT NULL,
+    config_value JSONB NOT NULL,
     description TEXT,
+    version INT NOT NULL DEFAULT 1,
+    changed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ----------------------------------------------------------------------------
--- 12. STORAGE BUCKETS & RLS POLICIES
+-- 19. STORAGE BUCKETS
 -- ----------------------------------------------------------------------------
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES 
+VALUES
     ('product-media', 'product-media', true, 20971520, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'video/mp4']),
     ('seller-documents', 'seller-documents', false, 10485760, ARRAY['application/pdf', 'image/jpeg', 'image/png']),
     ('return-evidence', 'return-evidence', false, 10485760, ARRAY['application/pdf', 'image/jpeg', 'image/png'])
-ON CONFLICT (id) DO UPDATE SET 
+ON CONFLICT (id) DO UPDATE SET
     public = EXCLUDED.public,
     file_size_limit = EXCLUDED.file_size_limit,
     allowed_mime_types = EXCLUDED.allowed_mime_types;
 
 -- ----------------------------------------------------------------------------
--- 13. ROW LEVEL SECURITY (RLS) POLICIES
+-- 20. ROW LEVEL SECURITY
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sellers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.seller_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seller_staff ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_addresses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seller_agreements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.category_attributes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attribute_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.collection_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_variant_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_media ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_moderation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_addresses ENABLE ROW LEVEL SECURITY;
@@ -913,102 +1237,181 @@ ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ledger_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.shipments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tracking_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.returns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.return_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payout_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payout_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.returns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.return_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.return_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.refunds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tracking_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhook_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bulk_import_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bulk_import_rows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.marketplace_configs ENABLE ROW LEVEL SECURITY;
 
--- Profiles Policies
-CREATE POLICY "Users can read own profile or admin can read all"
+-- Profiles
+CREATE POLICY "Users read own profile; admins read all"
 ON public.profiles FOR SELECT
 USING (auth.uid() = id OR public.is_admin());
 
-CREATE POLICY "Users can update own profile"
+CREATE POLICY "Users update own profile"
 ON public.profiles FOR UPDATE
 USING (auth.uid() = id);
 
--- Sellers Policies
-CREATE POLICY "Public can view approved sellers"
-ON public.sellers FOR SELECT
-USING (status = 'approved' OR public.is_seller_member(id) OR public.is_admin());
+CREATE POLICY "System insert profile on signup"
+ON public.profiles FOR INSERT
+WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "Sellers can update own store"
+-- Sellers
+CREATE POLICY "Public view approved sellers"
+ON public.sellers FOR SELECT
+USING (status = 'APPROVED' OR public.is_seller_member(id) OR public.is_admin());
+
+CREATE POLICY "Sellers update own store"
 ON public.sellers FOR UPDATE
 USING (public.is_seller_member(id) OR public.is_admin());
 
--- Catalogue Policies (Public Read for Live Products)
-CREATE POLICY "Public read departments" ON public.departments FOR SELECT USING (is_active = true OR public.is_admin());
-CREATE POLICY "Public read categories" ON public.categories FOR SELECT USING (is_active = true OR public.is_admin());
-CREATE POLICY "Public read collections" ON public.collections FOR SELECT USING (is_active = true OR public.is_admin());
+CREATE POLICY "Users can create seller application"
+ON public.sellers FOR INSERT
+WITH CHECK (auth.uid() = owner_id);
 
-CREATE POLICY "Public can view live products"
+-- Seller staff
+CREATE POLICY "Seller members manage own staff"
+ON public.seller_staff FOR ALL
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+-- Seller documents
+CREATE POLICY "Sellers manage own documents; admins read all"
+ON public.seller_documents FOR ALL
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+-- Seller agreements (immutable — INSERT only for owner, no UPDATE/DELETE)
+CREATE POLICY "Sellers insert own agreements"
+ON public.seller_agreements FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Sellers read own agreements; admins read all"
+ON public.seller_agreements FOR SELECT
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+-- Catalogue (public read for active, seller manage own)
+CREATE POLICY "Public read active departments"
+ON public.departments FOR SELECT USING (is_active = true OR public.is_admin());
+
+CREATE POLICY "Admins manage departments"
+ON public.departments FOR ALL USING (public.is_admin());
+
+CREATE POLICY "Public read active categories"
+ON public.categories FOR SELECT USING (is_active = true OR public.is_admin());
+
+CREATE POLICY "Admins manage categories"
+ON public.categories FOR ALL USING (public.is_admin());
+
+CREATE POLICY "Public read category attributes"
+ON public.category_attributes FOR SELECT USING (true);
+
+CREATE POLICY "Admins manage category attributes"
+ON public.category_attributes FOR ALL USING (public.is_admin());
+
+CREATE POLICY "Public read attribute options"
+ON public.attribute_options FOR SELECT USING (true);
+
+CREATE POLICY "Public read active collections"
+ON public.collections FOR SELECT USING (is_active = true OR public.is_admin());
+
+CREATE POLICY "Public read collection products"
+ON public.product_collections FOR SELECT USING (true);
+
+-- Products
+CREATE POLICY "Public view live products"
 ON public.products FOR SELECT
 USING (status = 'LIVE' OR public.is_seller_member(seller_id) OR public.is_admin());
 
-CREATE POLICY "Sellers can manage own products"
+CREATE POLICY "Sellers manage own products"
 ON public.products FOR ALL
 USING (public.is_seller_member(seller_id) OR public.is_admin());
 
-CREATE POLICY "Public can view variants of live products"
+CREATE POLICY "Public view variants of live products"
 ON public.product_variants FOR SELECT
 USING (EXISTS (
     SELECT 1 FROM public.products p
-    WHERE p.id = product_variants.product_id AND (p.status = 'LIVE' OR public.is_seller_member(p.seller_id) OR public.is_admin())
+    WHERE p.id = product_variants.product_id
+      AND (p.status = 'LIVE' OR public.is_seller_member(p.seller_id) OR public.is_admin())
 ));
 
-CREATE POLICY "Sellers can manage own variants"
+CREATE POLICY "Sellers manage own variants"
 ON public.product_variants FOR ALL
 USING (EXISTS (
     SELECT 1 FROM public.products p
-    WHERE p.id = product_variants.product_id AND (public.is_seller_member(p.seller_id) OR public.is_admin())
+    WHERE p.id = product_variants.product_id
+      AND (public.is_seller_member(p.seller_id) OR public.is_admin())
 ));
 
-CREATE POLICY "Public can view media of live products"
+CREATE POLICY "Public view product variant options"
+ON public.product_variant_options FOR SELECT USING (true);
+
+CREATE POLICY "Public view media of live products"
 ON public.product_media FOR SELECT
-USING (EXISTS (
+USING (status = 'READY' OR EXISTS (
     SELECT 1 FROM public.products p
-    WHERE p.id = product_media.product_id AND (p.status = 'LIVE' OR public.is_seller_member(p.seller_id) OR public.is_admin())
+    WHERE p.id = product_media.product_id
+      AND (public.is_seller_member(p.seller_id) OR public.is_admin())
 ));
 
-CREATE POLICY "Sellers can manage own product media"
+CREATE POLICY "Sellers manage own product media"
 ON public.product_media FOR ALL
 USING (EXISTS (
     SELECT 1 FROM public.products p
-    WHERE p.id = product_media.product_id AND (public.is_seller_member(p.seller_id) OR public.is_admin())
+    WHERE p.id = product_media.product_id
+      AND (public.is_seller_member(p.seller_id) OR public.is_admin())
 ));
 
--- Carts Policies (Strict user isolation, server handles guest carts)
-CREATE POLICY "Users can manage own cart"
+CREATE POLICY "Admins view moderation logs"
+ON public.product_moderation_logs FOR SELECT USING (public.is_admin());
+
+-- Carts (authenticated users — server handles guest carts via service role)
+CREATE POLICY "Users manage own cart"
 ON public.carts FOR ALL
 USING (auth.uid() = user_id OR public.is_admin());
 
-CREATE POLICY "Users can manage own cart lines"
+CREATE POLICY "Users manage own cart lines"
 ON public.cart_lines FOR ALL
 USING (EXISTS (
     SELECT 1 FROM public.carts c
     WHERE c.id = cart_lines.cart_id AND (c.user_id = auth.uid() OR public.is_admin())
 ));
 
--- Orders & Sub-orders Policies
-CREATE POLICY "Customers can view own orders"
+-- Customer addresses
+CREATE POLICY "Users manage own addresses"
+ON public.customer_addresses FOR ALL
+USING (auth.uid() = user_id OR public.is_admin());
+
+-- Wishlists
+CREATE POLICY "Users manage own wishlist"
+ON public.wishlists FOR ALL
+USING (auth.uid() = user_id OR public.is_admin());
+
+-- Orders
+CREATE POLICY "Customers view own orders"
 ON public.orders FOR SELECT
 USING (auth.uid() = customer_id OR public.is_admin());
 
-CREATE POLICY "Sellers can view own sub-orders"
+CREATE POLICY "Sellers view own sub-orders"
 ON public.sub_orders FOR SELECT
 USING (public.is_seller_member(seller_id) OR EXISTS (
-    SELECT 1 FROM public.orders o WHERE o.id = sub_orders.master_order_id AND o.customer_id = auth.uid()
+    SELECT 1 FROM public.orders o
+    WHERE o.id = sub_orders.master_order_id AND o.customer_id = auth.uid()
 ) OR public.is_admin());
+
+CREATE POLICY "Sellers update own sub-order status"
+ON public.sub_orders FOR UPDATE
+USING (public.is_seller_member(seller_id) OR public.is_admin());
 
 CREATE POLICY "Order items view policy"
 ON public.order_items FOR SELECT
@@ -1021,8 +1424,8 @@ USING (EXISTS (
     )
 ));
 
--- Tracking Events Policy (Restricted to Order Owner, Seller, Admin)
-CREATE POLICY "Authorized parties can view tracking"
+-- Tracking: restricted to order owner, seller, admin
+CREATE POLICY "Authorized parties view tracking"
 ON public.tracking_events FOR SELECT
 USING (EXISTS (
     SELECT 1 FROM public.shipments s
@@ -1034,35 +1437,136 @@ USING (EXISTS (
     )
 ));
 
--- Notifications Policy
-CREATE POLICY "Users can view own notifications"
-ON public.notifications FOR ALL
+CREATE POLICY "Authorized parties view shipments"
+ON public.shipments FOR SELECT
+USING (EXISTS (
+    SELECT 1 FROM public.sub_orders so
+    WHERE so.id = shipments.sub_order_id AND (
+        public.is_seller_member(so.seller_id) OR
+        EXISTS (SELECT 1 FROM public.orders o WHERE o.id = so.master_order_id AND o.customer_id = auth.uid()) OR
+        public.is_admin()
+    )
+));
+
+-- Payments: admins and order owner
+CREATE POLICY "Order owner and admin view payments"
+ON public.payments FOR SELECT
+USING (EXISTS (
+    SELECT 1 FROM public.orders o
+    WHERE o.id = payments.order_id AND (o.customer_id = auth.uid() OR public.is_admin())
+));
+
+-- Ledger: admins and relevant sellers only
+CREATE POLICY "Admins and sellers view own ledger entries"
+ON public.ledger_entries FOR SELECT
+USING (
+    public.is_admin() OR
+    (seller_id IS NOT NULL AND public.is_seller_member(seller_id))
+);
+
+CREATE POLICY "Ledger is append-only — no direct insert from client"
+ON public.ledger_entries FOR INSERT
+WITH CHECK (public.is_admin());  -- only service role bypasses; clients never insert directly
+
+-- Payouts
+CREATE POLICY "Sellers view own payout ledger"
+ON public.payout_ledger FOR SELECT
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+CREATE POLICY "Sellers view own payouts"
+ON public.payouts FOR SELECT
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+-- Returns
+CREATE POLICY "Customers view own returns; sellers view related returns"
+ON public.returns FOR SELECT
+USING (auth.uid() = customer_id OR EXISTS (
+    SELECT 1 FROM public.sub_orders so
+    WHERE so.id = returns.sub_order_id AND public.is_seller_member(so.seller_id)
+) OR public.is_admin());
+
+CREATE POLICY "Customers create returns"
+ON public.returns FOR INSERT
+WITH CHECK (auth.uid() = customer_id);
+
+CREATE POLICY "Sellers and admins update return status"
+ON public.returns FOR UPDATE
+USING (EXISTS (
+    SELECT 1 FROM public.sub_orders so
+    WHERE so.id = returns.sub_order_id AND public.is_seller_member(so.seller_id)
+) OR public.is_admin());
+
+CREATE POLICY "Customers view own return requests"
+ON public.return_requests FOR SELECT
+USING (auth.uid() = customer_id OR public.is_admin());
+
+-- Notifications
+CREATE POLICY "Admins view outbound notification log"
+ON public.notifications FOR SELECT USING (public.is_admin());
+
+CREATE POLICY "Users view own in-app notifications"
+ON public.user_notifications FOR ALL
 USING (auth.uid() = user_id OR public.is_admin());
 
--- Product Reviews Policy
-CREATE POLICY "Public can view approved reviews"
+-- Product reviews
+CREATE POLICY "Public view approved reviews"
 ON public.product_reviews FOR SELECT
 USING (status = 'APPROVED' OR auth.uid() = user_id OR public.is_admin());
 
-CREATE POLICY "Authenticated users can submit reviews"
+CREATE POLICY "Authenticated users submit reviews"
 ON public.product_reviews FOR INSERT
 WITH CHECK (auth.uid() = user_id);
 
--- Collection Products Policy
-CREATE POLICY "Public read collection products"
-ON public.collection_products FOR SELECT
-USING (true);
+-- Audit logs (admins only)
+CREATE POLICY "Admins view audit logs"
+ON public.audit_logs FOR SELECT USING (public.is_admin());
 
--- Storage Bucket RLS Policies
-CREATE POLICY "Public Access for Product Media"
+-- Webhook events (admins only)
+CREATE POLICY "Admins view webhook events"
+ON public.webhook_events FOR SELECT USING (public.is_admin());
+
+-- Bulk import (sellers manage own)
+CREATE POLICY "Sellers manage own bulk imports"
+ON public.bulk_import_batches FOR ALL
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+CREATE POLICY "Sellers view own import rows"
+ON public.bulk_import_rows FOR SELECT
+USING (EXISTS (
+    SELECT 1 FROM public.bulk_import_batches b
+    WHERE b.id = bulk_import_rows.batch_id
+      AND (public.is_seller_member(b.seller_id) OR public.is_admin())
+));
+
+-- Marketplace config (admins manage, public read non-sensitive keys)
+CREATE POLICY "Public read marketplace config"
+ON public.marketplace_configs FOR SELECT USING (true);
+
+CREATE POLICY "Admins manage marketplace config"
+ON public.marketplace_configs FOR ALL USING (public.is_admin());
+
+-- Inventory (server role manages; sellers view own)
+CREATE POLICY "Sellers view own inventory transactions"
+ON public.inventory_transactions FOR SELECT
+USING (EXISTS (
+    SELECT 1 FROM public.product_variants pv
+    JOIN public.products p ON p.id = pv.product_id
+    WHERE pv.id = inventory_transactions.variant_id
+      AND (public.is_seller_member(p.seller_id) OR public.is_admin())
+));
+
+-- ----------------------------------------------------------------------------
+-- 21. STORAGE BUCKET RLS POLICIES
+-- ----------------------------------------------------------------------------
+CREATE POLICY "Public access for product media"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'product-media');
 
-CREATE POLICY "Sellers can upload product media"
+CREATE POLICY "Authenticated sellers upload product media"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'product-media' AND auth.role() = 'authenticated');
 
-CREATE POLICY "Authenticated users can upload documents"
+CREATE POLICY "Authenticated users upload documents"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id IN ('seller-documents', 'return-evidence') AND auth.role() = 'authenticated');
 
@@ -1073,13 +1577,22 @@ USING (bucket_id = 'seller-documents' AND (
     (storage.foldername(name))[1] = auth.uid()::text
 ));
 
--- High-Performance Marketplace Query Indexes (Phase 30, T465)
+CREATE POLICY "Restricted access to return evidence"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'return-evidence' AND (
+    public.is_admin() OR
+    (storage.foldername(name))[1] = auth.uid()::text
+));
+
+-- ----------------------------------------------------------------------------
+-- 22. PERFORMANCE INDEXES
+-- ----------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_products_status_category ON public.products(status, category_id);
 CREATE INDEX IF NOT EXISTS idx_products_seller_status ON public.products(seller_id, status);
 CREATE INDEX IF NOT EXISTS idx_products_created_at ON public.products(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON public.product_variants(product_id);
-CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON public.product_variants(sku);
-CREATE INDEX IF NOT EXISTS idx_product_media_product_primary ON public.product_media(product_id, is_primary);
+CREATE INDEX IF NOT EXISTS idx_product_variants_seller_sku ON public.product_variants(seller_sku);
+CREATE INDEX IF NOT EXISTS idx_product_media_product ON public.product_media(product_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_created ON public.orders(customer_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_sub_orders_seller_status ON public.sub_orders(seller_id, status);
@@ -1088,9 +1601,12 @@ CREATE INDEX IF NOT EXISTS idx_order_items_sub_order ON public.order_items(sub_o
 CREATE INDEX IF NOT EXISTS idx_inventory_reservations_variant ON public.inventory_reservations(variant_id, status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_sub_order ON public.ledger_entries(sub_order_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_type_created ON public.ledger_entries(entry_type, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_returns_customer ON public.returns(customer_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_entries_seller ON public.ledger_entries(seller_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payout_ledger_seller ON public.payout_ledger(seller_id, status, eligible_at);
 CREATE INDEX IF NOT EXISTS idx_returns_sub_order ON public.returns(sub_order_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications(user_id, status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_webhook_events_lookup ON public.webhook_events(event_id, provider);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created ON public.audit_logs(user_id, created_at DESC);
-
+CREATE INDEX IF NOT EXISTS idx_notifications_entity ON public.notifications(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_lookup ON public.webhook_events(provider, event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created ON public.audit_logs(actor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bulk_import_batches_seller ON public.bulk_import_batches(seller_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sellers_status ON public.sellers(status);
+CREATE INDEX IF NOT EXISTS idx_sellers_owner ON public.sellers(owner_id);

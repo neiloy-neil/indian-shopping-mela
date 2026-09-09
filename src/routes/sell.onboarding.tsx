@@ -115,7 +115,7 @@ function OnboardingPage() {
           country: "Australia",
         },
         termsAcceptedVersion: "V1_2026",
-        status: "draft",
+        status: "DRAFT",
       });
       toast.success("Draft saved successfully", { description: "You can resume your onboarding anytime." });
     } catch (err: any) {
@@ -149,7 +149,7 @@ function OnboardingPage() {
           country: "Australia",
         },
         termsAcceptedVersion: "V1_2026",
-        status: "submitted",
+        status: "SUBMITTED",
       });
       setStatus("SUBMITTED");
       setStep(STEPS.length - 1);

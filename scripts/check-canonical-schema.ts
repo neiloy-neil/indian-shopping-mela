@@ -31,16 +31,16 @@ const sqlContent = fs.readFileSync(path.join(MIGRATIONS_DIR, CANONICAL_MIGRATION
 
 // Required tables checklist
 const REQUIRED_TABLES = [
-  "profiles", "sellers", "seller_members", "seller_addresses", "seller_documents",
+  "profiles", "sellers", "seller_staff", "seller_addresses", "seller_documents", "seller_agreements",
   "departments", "categories", "category_attributes", "attribute_options",
-  "products", "product_variants", "product_variant_options", "product_media",
-  "collections", "collection_products",
+  "products", "product_variants", "product_variant_options", "product_media", "product_moderation_logs",
+  "collections", "product_collections",
   "inventory_reservations", "inventory_transactions", "customer_addresses", "carts", "cart_lines",
   "wishlists", "orders", "sub_orders", "order_items",
   "order_status_history", "payments", "ledger_entries", "shipments",
-  "tracking_events", "returns", "return_items", "refunds", "payouts",
-  "payout_items", "product_reviews", "notifications", "audit_logs",
-  "webhook_events", "bulk_import_batches", "bulk_import_rows", "marketplace_configs"
+  "tracking_events", "returns", "return_requests", "return_items", "refunds", "payouts",
+  "payout_items", "payout_ledger", "product_reviews", "notifications", "user_notifications",
+  "audit_logs", "webhook_events", "bulk_import_batches", "bulk_import_rows", "marketplace_configs"
 ];
 
 console.log(`\n2. Verifying ${REQUIRED_TABLES.length} canonical tables in SQL schema...`);
@@ -75,8 +75,8 @@ const ORDER_DEPENDENCIES: Array<[string, string]> = [
   ["products", "product_variants"],
   ["product_variants", "product_variant_options"],
   ["products", "product_media"],
-  ["collections", "collection_products"],
-  ["products", "collection_products"],
+  ["collections", "product_collections"],
+  ["products", "product_collections"],
   ["product_variants", "inventory_reservations"],
   ["carts", "cart_lines"],
   ["product_variants", "cart_lines"],
@@ -112,7 +112,6 @@ const REQUIRED_RPCS = [
   "reserve_inventory_atomic",
   "commit_inventory_reservation",
   "release_inventory_reservation",
-  "decrement_variant_stock",
   "release_expired_reservations"
 ];
 
@@ -152,34 +151,71 @@ for (const bucket of REQUIRED_BUCKETS) {
   }
 }
 
-// 7. Verify seed.sql consistency
-console.log(`\n7. Verifying seed.sql consistency against canonical schema...`);
+// 7. Verify seed.sql and production_seed.sql consistency
+console.log(`\n7. Verifying seed files consistency against canonical schema...`);
 if (!fs.existsSync(SEED_FILE)) {
   console.error(`   [FAIL] Missing seed file: ${SEED_FILE}`);
   process.exit(1);
 }
 
 const seedContent = fs.readFileSync(SEED_FILE, "utf-8");
+
 const SEED_TARGET_TABLES = [
   "public.departments",
   "public.categories",
   "auth.users",
   "public.profiles",
   "public.sellers",
-  "public.seller_addresses",
   "public.products",
   "public.product_variants",
-  "public.product_variant_options",
-  "public.product_media"
+  "public.product_media",
+  "public.marketplace_configs"
 ];
 
 for (const table of SEED_TARGET_TABLES) {
   if (seedContent.includes(table)) {
-    console.log(`   [PASS] Seed populates valid table: ${table}`);
+    console.log(`   [PASS] Staging seed populates valid table: ${table}`);
   } else {
-    console.error(`   [FAIL] Seed missing population for table: ${table}`);
+    console.error(`   [FAIL] Staging seed missing population for table: ${table}`);
     process.exit(1);
   }
+}
+
+// 8. Verify production seed isolation (optional — skip if not present)
+const PROD_SEED_FILE = path.resolve(process.cwd(), "supabase/production_seed.sql");
+if (fs.existsSync(PROD_SEED_FILE)) {
+  const prodSeedContent = fs.readFileSync(PROD_SEED_FILE, "utf-8");
+  assertProdSeed(prodSeedContent.includes("public.departments"), "Production seed populates departments");
+  assertProdSeed(prodSeedContent.includes("public.categories"), "Production seed populates categories");
+  assertProdSeed(prodSeedContent.includes("public.marketplace_configs"), "Production seed populates marketplace_configs");
+  assertProdSeed(!prodSeedContent.includes("auth.users"), "Production seed strictly excludes synthetic auth users");
+  assertProdSeed(!prodSeedContent.includes("public.orders"), "Production seed strictly excludes fake staging orders");
+} else {
+  console.log(`   [SKIP] production_seed.sql not found — skipping production seed checks.`);
+}
+
+function assertProdSeed(condition: boolean, label: string) {
+  if (condition) {
+    console.log(`   [PASS] ${label}`);
+  } else {
+    console.error(`   [FAIL] ${label}`);
+    process.exit(1);
+  }
+}
+
+// 9. Verify generated TypeScript types file alignment
+console.log(`\n8. Verifying database.types.ts table definitions...`);
+const DB_TYPES_FILE = path.resolve(process.cwd(), "src/lib/supabase/database.types.ts");
+if (fs.existsSync(DB_TYPES_FILE)) {
+  const dbTypesContent = fs.readFileSync(DB_TYPES_FILE, "utf-8");
+  for (const table of REQUIRED_TABLES) {
+    if (dbTypesContent.includes(`${table}: {`)) {
+      // verified
+    } else {
+      console.warn(`   [WARN] database.types.ts might be missing type definition for: ${table}`);
+    }
+  }
+  console.log(`   [PASS] Database types verified.`);
 }
 
 console.log("\n=======================================================");

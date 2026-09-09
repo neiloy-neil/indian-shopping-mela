@@ -95,7 +95,7 @@ export const submitProductForReviewServerFn = createServerFn({ method: "POST" })
 
     return saveProductTransactional({
       ...data,
-      status: "PENDING_REVIEW",
+      status: "SUBMITTED",
     });
   });
 
@@ -148,7 +148,7 @@ export const cloneProductServerFn = createServerFn({ method: "POST" })
       sellerId: data.sellerId,
       title: newTitle,
       categoryId: original.category_id,
-      department: original.department,
+      department: original.department ?? undefined,
       subcategory: original.subcategory ?? undefined,
       description: original.description,
       price: primaryVariant?.price ?? 99,

@@ -17,8 +17,11 @@ export interface SellerMemberRow {
 
 export interface SaveSellerOnboardingInput {
   userId?: string | undefined;
-  storeName: string;
+  /** @deprecated Use legalName instead — maps to the canonical sellers.legal_name column */
+  storeName?: string | undefined;
+  legalName?: string | undefined;
   businessName: string;
+  businessType?: string | undefined;
   abn: string;
   phone?: string | undefined;
   email?: string | undefined;
@@ -26,6 +29,7 @@ export interface SaveSellerOnboardingInput {
   slug: string;
   dispatchAddress: Address;
   returnAddress: Address;
+  termsAcceptedVersion?: string | undefined;
   status?: SellerStatus | undefined;
 }
 
@@ -63,13 +67,13 @@ export function validateAustralianAbn(abn: string): { valid: boolean; formatted:
  * Valid Seller Onboarding & Moderation State Machine Transitions
  */
 export const ALLOWED_SELLER_TRANSITIONS: Record<SellerStatus, SellerStatus[]> = {
-  draft: ["draft", "submitted"],
-  submitted: ["submitted", "under_review", "draft"],
-  under_review: ["under_review", "approved", "rejected", "info_required"],
-  info_required: ["info_required", "submitted", "draft", "under_review"],
-  approved: ["approved", "suspended"],
-  rejected: ["rejected", "under_review", "draft"],
-  suspended: ["suspended", "approved"],
+  DRAFT: ["DRAFT", "SUBMITTED"],
+  SUBMITTED: ["SUBMITTED", "UNDER_REVIEW", "DRAFT"],
+  UNDER_REVIEW: ["UNDER_REVIEW", "APPROVED", "REJECTED", "INFO_REQUIRED"],
+  INFO_REQUIRED: ["INFO_REQUIRED", "SUBMITTED", "DRAFT", "UNDER_REVIEW"],
+  APPROVED: ["APPROVED", "SUSPENDED"],
+  REJECTED: ["REJECTED", "UNDER_REVIEW", "DRAFT"],
+  SUSPENDED: ["SUSPENDED", "APPROVED"],
 };
 
 export function isValidSellerStatusTransition(from: SellerStatus, to: SellerStatus): boolean {
@@ -90,7 +94,7 @@ export const adminReviewSellerApplicationServerFn = createServerFn({ method: "PO
   .handler(async ({ data }) => {
     const { data: seller, error: fetchErr } = await (supabaseAdmin as any)
       .from("sellers")
-      .select("id, status, user_id")
+      .select("id, status, owner_id")
       .eq("id", data.sellerId)
       .single();
 
@@ -147,7 +151,7 @@ export const saveSellerOnboardingServerFn = createServerFn({ method: "POST" })
 
 export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboardingInput): Promise<SellerRow> {
   const cleanSlug = payload.slug.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-  const targetStatus: SellerStatus = payload.status === "submitted" ? "submitted" : "draft";
+  const targetStatus: SellerStatus = payload.status === "SUBMITTED" ? "SUBMITTED" : "DRAFT";
 
   // Check existing status to prevent self-approving or invalid jumps
   const { data: existingSeller } = await (supabaseAdmin as any)
@@ -168,16 +172,15 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
     .from("sellers")
     .upsert(
       {
-        user_id: payload.userId ?? "00000000-0000-0000-0000-000000000001",
-        store_name: payload.storeName || payload.businessName,
+        owner_id: payload.userId ?? "00000000-0000-0000-0000-000000000001",
+        legal_name: payload.legalName || payload.businessName,
         business_name: payload.businessName,
         slug: cleanSlug,
         abn: payload.abn,
-        phone: payload.phone ?? null,
-        email: payload.email ?? "seller@indianshoppingmela.com.au",
-        description: payload.description ?? null,
+        about_text: payload.description ?? null,
         status: targetStatus,
-        onboarding_step: targetStatus === "submitted" ? 4 : 2,
+        dispatch_address: payload.dispatchAddress ?? {},
+        return_address: payload.returnAddress ?? {},
         updated_at: new Date().toISOString(),
       },
       { onConflict: "slug" }
@@ -191,45 +194,30 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
 
   // 2. Ensure seller owner membership is registered
   if (payload.userId) {
-    await (supabaseAdmin as any).from("seller_members").upsert(
+    await (supabaseAdmin as any).from("seller_staff").upsert(
       {
         seller_id: seller.id,
         user_id: payload.userId,
-        role: "owner",
+        staff_role: "owner",
         permissions: ["all"],
+        is_active: true,
       },
       { onConflict: "seller_id,user_id" }
     );
   }
 
-  // 3. Insert or update default dispatch address
+  // 3. Update dispatch_address JSONB in sellers row
   if (payload.dispatchAddress) {
-    await (supabaseAdmin as any).from("seller_addresses").upsert({
-      seller_id: seller.id,
-      address_type: "dispatch",
-      address_line1: payload.dispatchAddress.line1,
-      address_line2: payload.dispatchAddress.line2 ?? null,
-      suburb: payload.dispatchAddress.suburb,
-      state: payload.dispatchAddress.state,
-      postcode: payload.dispatchAddress.postcode,
-      country: payload.dispatchAddress.country ?? "AU",
-      is_default: true,
-    });
+    await (supabaseAdmin as any).from("sellers").update({
+      dispatch_address: payload.dispatchAddress,
+    }).eq("id", seller.id);
   }
 
-  // 4. Insert or update return address
+  // 4. Update return_address JSONB in sellers row
   if (payload.returnAddress) {
-    await (supabaseAdmin as any).from("seller_addresses").upsert({
-      seller_id: seller.id,
-      address_type: "return",
-      address_line1: payload.returnAddress.line1,
-      address_line2: payload.returnAddress.line2 ?? null,
-      suburb: payload.returnAddress.suburb,
-      state: payload.returnAddress.state,
-      postcode: payload.returnAddress.postcode,
-      country: payload.returnAddress.country ?? "AU",
-      is_default: false,
-    });
+    await (supabaseAdmin as any).from("sellers").update({
+      return_address: payload.returnAddress,
+    }).eq("id", seller.id);
   }
 
   return seller as unknown as SellerRow;

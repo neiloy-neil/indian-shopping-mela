@@ -172,26 +172,27 @@ export async function requireUser(userId?: string): Promise<AuthSessionUser> {
  */
 export async function requireSellerMember(sellerId: string, userId: string): Promise<{ sellerId: string; role: string }> {
   const user = await requireUser(userId);
-  if (user.role === "admin" || user.role === "super_admin") {
+  if (["admin_support", "admin_catalogue", "admin_finance", "admin_super"].includes(user.role)) {
     return { sellerId, role: "admin_override" };
   }
 
   const { data: member, error } = await (supabase as any)
-    .from("seller_members")
-    .select("role, permissions")
+    .from("seller_staff")
+    .select("staff_role, permissions")
     .eq("seller_id", sellerId)
     .eq("user_id", userId)
+    .eq("is_active", true)
     .maybeSingle();
 
   if (member) {
-    return { sellerId, role: member.role };
+    return { sellerId, role: member.staff_role };
   }
 
   // Check direct owner
   const { data: seller } = await (supabase.from("sellers") as any)
-    .select("id, user_id")
+    .select("id, owner_id")
     .eq("id", sellerId)
-    .eq("user_id", userId)
+    .eq("owner_id", userId)
     .maybeSingle();
 
   if (!seller) {
@@ -211,10 +212,11 @@ export async function requireSellerPermission(sellerId: string, userId: string, 
   }
 
   const { data: member } = await (supabase as any)
-    .from("seller_members")
+    .from("seller_staff")
     .select("permissions")
     .eq("seller_id", sellerId)
     .eq("user_id", userId)
+    .eq("is_active", true)
     .maybeSingle();
 
   const permissions: string[] = member?.permissions ?? [];
@@ -230,7 +232,7 @@ export async function requireSellerPermission(sellerId: string, userId: string, 
  */
 export async function requireAdminRole(userId: string): Promise<AuthSessionUser> {
   const user = await requireUser(userId);
-  if (user.role !== "admin" && user.role !== "super_admin") {
+  if (!["admin_support", "admin_catalogue", "admin_finance", "admin_super"].includes(user.role)) {
     throw new Error("FORBIDDEN: Platform administrative privileges required.");
   }
   return user;
@@ -241,7 +243,7 @@ export async function requireAdminRole(userId: string): Promise<AuthSessionUser>
  */
 export async function requireFinanceAdmin(userId: string, aalLevel: string = "aal1"): Promise<AuthSessionUser> {
   const admin = await requireAdminRole(userId);
-  if (admin.role !== "super_admin") {
+  if (admin.role !== "admin_super" && admin.role !== "admin_finance") {
     throw new Error("FORBIDDEN: Super Admin role required for financial ledger, payouts, and settlement actions.");
   }
 
