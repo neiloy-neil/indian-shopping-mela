@@ -280,10 +280,27 @@ function BulkStockPage() {
 
           {validated && (
             <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Metric label="Rows read" value={String(uploadedUpdates.length)} />
+              <Metric
+                label="Rows read"
+                value={String(uploadedUpdates.length + batchErrors.length)}
+              />
               <Metric label="Ready" value={String(uploadedUpdates.length)} tone="teal" />
-              <Metric label="Warnings" value="0" tone="marigold" note="stock within limits" />
-              <Metric label="Errors" value="0" tone="teal" note="all SKUs valid format" />
+              <Metric
+                label="Warnings"
+                value="0"
+                tone="marigold"
+                note="stock within limits"
+              />
+              <Metric
+                label="Errors"
+                value={String(batchErrors.length)}
+                tone={batchErrors.length > 0 ? "rani" : "teal"}
+                note={
+                  batchErrors.length > 0
+                    ? `${batchErrors.length} row(s) failed check`
+                    : "all SKUs valid format"
+                }
+              />
             </div>
           )}
 
