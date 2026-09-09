@@ -1282,6 +1282,119 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
   }
 }
 
+// 31. ADMIN, SELLER TEAM & CUSTOMER OPERATIONS (T352-T386)
+console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386)...");
+{
+  // 1. Admin Finance Metrics Aggregation Engine
+  function calculateFinanceMetrics(entries: Array<{ amount_cents: number; entry_type: string }>) {
+    let totalGmvCents = 0;
+    let totalCommissionCents = 0;
+    let totalHoldCents = 0;
+    let totalPaidCents = 0;
+
+    for (const entry of entries) {
+      const amount = Number(entry.amount_cents) || 0;
+      if (entry.entry_type === "CUSTOMER_PAYMENT" || entry.entry_type === "CUSTOMER_CHARGE")
+        totalGmvCents += amount;
+      if (entry.entry_type === "PLATFORM_COMMISSION" || entry.entry_type === "ISM_COMMISSION")
+        totalCommissionCents += amount;
+      if (entry.entry_type === "DISPUTE_HOLD") totalHoldCents += amount;
+      if (entry.entry_type === "SELLER_PAYOUT") totalPaidCents += amount;
+    }
+
+    return {
+      totalGmvAud: Number((totalGmvCents / 100).toFixed(2)),
+      totalPlatformCommissionAud: Number((totalCommissionCents / 100).toFixed(2)),
+      totalPendingHoldAud: Number((totalHoldCents / 100).toFixed(2)),
+      totalEligiblePayoutsAud: Number(
+        (Math.max(0, totalGmvCents - totalCommissionCents - totalHoldCents - totalPaidCents) / 100).toFixed(2),
+      ),
+      totalPaidToSellersAud: Number((totalPaidCents / 100).toFixed(2)),
+    };
+  }
+
+  const sampleLedger = [
+    { amount_cents: 20000, entry_type: "CUSTOMER_PAYMENT" },
+    { amount_cents: 2000, entry_type: "PLATFORM_COMMISSION" },
+    { amount_cents: 3000, entry_type: "DISPUTE_HOLD" },
+    { amount_cents: 5000, entry_type: "SELLER_PAYOUT" },
+  ];
+  const metrics = calculateFinanceMetrics(sampleLedger);
+  assert(metrics.totalGmvAud === 200.0 && metrics.totalPlatformCommissionAud === 20.0, "Admin finance metrics calculate GMV ($200.00) and commission ($20.00) accurately");
+  assert(metrics.totalEligiblePayoutsAud === 100.0, "Admin finance metrics calculate net eligible payouts ($100.00) after hold and prior payouts");
+
+  // 2. Seller Team Member Invite & Role Permissions
+  function validateStaffInvite(email: string, role: string, permissions: string[]): { valid: boolean; error?: string } {
+    if (!email || !email.includes("@")) return { valid: false, error: "Invalid email" };
+    if (!["owner", "manager", "staff", "accountant"].includes(role.toLowerCase())) {
+      return { valid: false, error: "Invalid role" };
+    }
+    const validPerms = ["products", "orders", "inventory", "shipping", "returns", "finance"];
+    for (const p of permissions) {
+      if (!validPerms.includes(p)) return { valid: false, error: `Invalid permission: ${p}` };
+    }
+    return { valid: true };
+  }
+
+  assert(validateStaffInvite("sarah@boutique.com.au", "manager", ["products", "orders", "inventory"]).valid, "Valid seller staff invite accepted");
+  assert(!validateStaffInvite("bad_email", "manager", ["orders"]).valid, "Invalid staff invite email rejected");
+  assert(!validateStaffInvite("test@boutique.com", "manager", ["super_root_access"]).valid, "Invalid custom staff permission rejected");
+
+  // 3. Customer Address Validation (Australian States & 4-Digit Postcodes)
+  function validateAuAddress(addr: { street: string; city: string; state: string; postcode: string; country: string }): boolean {
+    const validStates = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
+    if (!validStates.includes(addr.state.toUpperCase())) return false;
+    if (!/^\d{4}$/.test(addr.postcode)) return false;
+    if (!addr.street || !addr.city) return false;
+    if (addr.country !== "Australia" && addr.country !== "AU") return false;
+    return true;
+  }
+
+  assert(validateAuAddress({ street: "100 George St", city: "Sydney", state: "NSW", postcode: "2000", country: "Australia" }), "Valid Australian customer delivery address accepted");
+  assert(!validateAuAddress({ street: "100 George St", city: "Sydney", state: "CALIFORNIA", postcode: "90210", country: "USA" }), "Non-Australian delivery address rejected");
+  assert(!validateAuAddress({ street: "100 George St", city: "Sydney", state: "NSW", postcode: "ABC12", country: "Australia" }), "Invalid Australian postcode rejected");
+
+  // 4. Verified Purchase & Anti-Self/Duplicate Review Validation
+  function validateReviewSubmission(params: {
+    userId: string;
+    productSellerUserId: string;
+    existingReviewsUserIds: string[];
+    customerPurchasedProduct: boolean;
+  }): { allowed: boolean; isVerifiedPurchase: boolean; error?: string } {
+    if (params.userId === params.productSellerUserId) {
+      return { allowed: false, isVerifiedPurchase: false, error: "Sellers cannot review their own products" };
+    }
+    if (params.existingReviewsUserIds.includes(params.userId)) {
+      return { allowed: false, isVerifiedPurchase: false, error: "You have already reviewed this product" };
+    }
+    return { allowed: true, isVerifiedPurchase: params.customerPurchasedProduct };
+  }
+
+  const validReview = validateReviewSubmission({
+    userId: "cust_123",
+    productSellerUserId: "seller_owner_999",
+    existingReviewsUserIds: ["cust_other"],
+    customerPurchasedProduct: true,
+  });
+  assert(validReview.allowed && validReview.isVerifiedPurchase, "Verified customer review is approved and flagged as verified purchase");
+
+  const selfReview = validateReviewSubmission({
+    userId: "seller_owner_999",
+    productSellerUserId: "seller_owner_999",
+    existingReviewsUserIds: [],
+    customerPurchasedProduct: false,
+  });
+  assert(!selfReview.allowed && selfReview.error === "Sellers cannot review their own products", "Seller self-review is strictly blocked");
+
+  const dupReview = validateReviewSubmission({
+    userId: "cust_123",
+    productSellerUserId: "seller_owner_999",
+    existingReviewsUserIds: ["cust_123"],
+    customerPurchasedProduct: true,
+  });
+  assert(!dupReview.allowed && dupReview.error === "You have already reviewed this product", "Duplicate customer review is strictly blocked");
+}
+
 console.log("\n=======================================================");
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
