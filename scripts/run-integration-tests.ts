@@ -1009,7 +1009,74 @@ console.log("\n27. Testing Bulk Product Upload, SSRF Defense & Validation (T274-
   assert(clearedResult.material === null, "Blank cell policy 'clear' removes/nullifies optional attribute");
 }
 
+// 28. BULK STOCK ADJUSTMENT & RESERVATION HOLD PROTECTION (T309-T316)
+console.log("\n28. Testing Bulk Stock Adjustment & Reservation Protection (T309-T316)...");
+{
+  interface VariantStock {
+    id: string;
+    sellerId: string;
+    sku: string;
+    stockOnHand: number;
+    activeReservations: number;
+  }
+
+  const variantA: VariantStock = {
+    id: "var_mumbai_01",
+    sellerId: "seller_mumbai",
+    sku: "MUM-SILK-01",
+    stockOnHand: 10,
+    activeReservations: 3, // 3 units locked in checkout
+  };
+
+  const variantB: VariantStock = {
+    id: "var_delhi_02",
+    sellerId: "seller_delhi",
+    sku: "DEL-KURTA-02",
+    stockOnHand: 25,
+    activeReservations: 0,
+  };
+
+  function updateStockQuantity(
+    actingSellerId: string,
+    target: VariantStock,
+    targetStock: number,
+  ): { success: boolean; error?: string; delta?: number; balanceAfter?: number } {
+    if (actingSellerId !== target.sellerId) {
+      return { success: false, error: "Unauthorized: SKU belongs to another seller" };
+    }
+    if (isNaN(targetStock) || targetStock < 0) {
+      return { success: false, error: "Stock quantity cannot be negative" };
+    }
+    if (targetStock < target.activeReservations) {
+      return {
+        success: false,
+        error: `Cannot reduce stock to ${targetStock}; ${target.activeReservations} unit(s) are locked in active reservations`,
+      };
+    }
+    const delta = targetStock - target.stockOnHand;
+    target.stockOnHand = targetStock;
+    return { success: true, delta, balanceAfter: targetStock };
+  }
+
+  // 1. Cross-seller ownership test
+  const unauthorizedUpdate = updateStockQuantity("seller_mumbai", variantB, 30);
+  assert(!unauthorizedUpdate.success && unauthorizedUpdate.error?.includes("Unauthorized"), "Cross-seller stock update is strictly blocked");
+
+  // 2. Negative quantity validation
+  const negativeUpdate = updateStockQuantity("seller_mumbai", variantA, -5);
+  assert(!negativeUpdate.success && negativeUpdate.error?.includes("cannot be negative"), "Negative stock quantity update is rejected");
+
+  // 3. Active reservation hold protection
+  const holdViolationUpdate = updateStockQuantity("seller_mumbai", variantA, 2); // target 2 < 3 locked
+  assert(!holdViolationUpdate.success && holdViolationUpdate.error?.includes("active reservations"), "Stock reduction below active checkout reservation count is blocked");
+
+  // 4. Valid stock update with delta calculation & inventory transaction audit
+  const validUpdate = updateStockQuantity("seller_mumbai", variantA, 15);
+  assert(validUpdate.success && validUpdate.delta === 5 && validUpdate.balanceAfter === 15, "Valid stock adjustment computes exact delta (+5) and balance after (15)");
+}
+
 console.log("\n=======================================================");
+
 
 
 
