@@ -1,17 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import type { LedgerEntryType } from "@/lib/supabase/types";
 
-export type CanonicalLedgerEntryType =
-  | "CUSTOMER_PAYMENT"
-  | "SELLER_CREDIT"
-  | "PLATFORM_COMMISSION"
-  | "SHIPPING_FEE"
-  | "GST_REMITTANCE"
-  | "REFUND_CUSTOMER"
-  | "REFUND_COMMISSION_ADJUSTMENT"
-  | "SELLER_DEBIT"
-  | "SELLER_PAYOUT"
-  | "DISPUTE_HOLD";
+export type CanonicalLedgerEntryType = LedgerEntryType;
 
 export interface LedgerEntryInput {
   orderId?: string | undefined;
@@ -116,27 +107,19 @@ export async function reconcileOrderLedger(orderId: string): Promise<OrderReconc
 
   for (const row of rows) {
     const amount = Number(row.amount_cents) || 0;
-    switch (row.entry_type as CanonicalLedgerEntryType) {
-      case "CUSTOMER_PAYMENT":
-        totalCustomerPaymentCents += amount;
-        break;
-      case "SELLER_CREDIT":
-        totalSellerCreditsCents += amount;
-        break;
-      case "PLATFORM_COMMISSION":
-        totalCommissionCents += amount;
-        break;
-      case "GST_REMITTANCE":
-        totalGstCents += amount;
-        break;
-      case "SHIPPING_FEE":
-        totalShippingCents += amount;
-        break;
-      case "REFUND_CUSTOMER":
-        totalRefundsCents += amount;
-        break;
-      default:
-        break;
+    const type = row.entry_type;
+    if (type === "CUSTOMER_CHARGE" || type === "CUSTOMER_PAYMENT") {
+      totalCustomerPaymentCents += amount;
+    } else if (type === "SELLER_GROSS" || type === "SELLER_CREDIT") {
+      totalSellerCreditsCents += amount;
+    } else if (type === "ISM_COMMISSION" || type === "PLATFORM_COMMISSION") {
+      totalCommissionCents += amount;
+    } else if (type === "GST_COLLECTED" || type === "GST_REMITTANCE") {
+      totalGstCents += amount;
+    } else if (type === "SHIPPING_FEE" || type === "SHIPPING_CHARGE" || type === "SHIPPING_COST") {
+      totalShippingCents += amount;
+    } else if (type === "CUSTOMER_REFUND" || type === "REFUND_CUSTOMER" || type === "REFUND") {
+      totalRefundsCents += amount;
     }
   }
 
@@ -204,9 +187,9 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
 
   for (const row of rows) {
     const amount = Number(row.amount_cents) || 0;
-    const entryType = row.entry_type as CanonicalLedgerEntryType;
+    const entryType = row.entry_type;
 
-    if (entryType === "SELLER_CREDIT") {
+    if (entryType === "SELLER_GROSS" || entryType === "SELLER_CREDIT") {
       totalEarnedGrossCents += amount;
       const subOrder = row.sub_orders;
 
@@ -222,7 +205,7 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
       } else {
         pendingBalanceCents += amount;
       }
-    } else if (entryType === "SELLER_PAYOUT" || entryType === "SELLER_DEBIT") {
+    } else if (entryType === "SELLER_PAYOUT" || entryType === "PAYOUT" || entryType === "SELLER_DEBIT") {
       totalPaidOutCents += amount;
       availableBalanceCents = Math.max(0, availableBalanceCents - amount);
     } else if (entryType === "DISPUTE_HOLD") {

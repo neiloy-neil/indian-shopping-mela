@@ -598,10 +598,10 @@ console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T1
   const gstCents = Math.round(totalCustomerPaidCents / 11); // 2354 cents ($23.54)
 
   const ledgerEntries = [
-    { entry_type: "CUSTOMER_PAYMENT", amount_cents: totalCustomerPaidCents },
-    { entry_type: "SELLER_CREDIT", amount_cents: netSellerCreditCents },
-    { entry_type: "PLATFORM_COMMISSION", amount_cents: commissionCents },
-    { entry_type: "GST_REMITTANCE", amount_cents: gstCents },
+    { entry_type: "CUSTOMER_CHARGE", amount_cents: totalCustomerPaidCents },
+    { entry_type: "SELLER_GROSS", amount_cents: netSellerCreditCents },
+    { entry_type: "ISM_COMMISSION", amount_cents: commissionCents },
+    { entry_type: "GST_COLLECTED", amount_cents: gstCents },
   ];
 
   const totalCredits = netSellerCreditCents + commissionCents;
@@ -609,7 +609,7 @@ console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T1
 
   assert(
     isBalanced,
-    "Order double-entry ledger balances exactly (Customer Payment = Seller Credit + Commission)",
+    "Order double-entry ledger balances exactly (Customer Charge = Seller Gross + Commission)",
   );
   assert(
     totalCustomerPaidCents === 25895,
@@ -844,7 +844,14 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
     sellerId: string;
     customerId: string;
     reason: string;
-    status: "REQUESTED" | "APPROVED" | "IN_TRANSIT" | "RECEIVED" | "REFUNDED" | "REJECTED";
+    status:
+      | "RETURN_REQUESTED"
+      | "RETURN_APPROVED"
+      | "RETURN_IN_TRANSIT"
+      | "RETURN_RECEIVED"
+      | "REFUND_PENDING"
+      | "REFUNDED"
+      | "REJECTED";
     refundAmount: number;
     returnTrackingNumber?: string;
     items: { orderItemId: string; quantity: number; returnReason: string; condition: string }[];
@@ -857,7 +864,7 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
     sellerId: "seller_mumbai",
     customerId: "cust_alice",
     reason: "CHANGED_MIND",
-    status: "REQUESTED",
+    status: "RETURN_REQUESTED",
     refundAmount: 149.0,
     items: [
       {
@@ -870,7 +877,7 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
   };
 
   const disputeHoldCents = Math.round(returnRecord.refundAmount * 100);
-  assert(returnRecord.status === "REQUESTED", "Return record initialized in REQUESTED state");
+  assert(returnRecord.status === "RETURN_REQUESTED", "Return record initialized in RETURN_REQUESTED state");
   assert(
     returnRecord.items.length === 1 && returnRecord.items[0]!.condition === "PENDING_INSPECTION",
     "Canonical return_items created with PENDING_INSPECTION condition",
@@ -881,18 +888,18 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
   );
 
   // 2. Return Approval & Return Label Generation
-  returnRecord.status = "APPROVED";
+  returnRecord.status = "RETURN_APPROVED";
   returnRecord.returnTrackingNumber = "RET-AP-94827104";
   assert(
-    returnRecord.status === "APPROVED" && !!returnRecord.returnTrackingNumber,
+    returnRecord.status === "RETURN_APPROVED" && !!returnRecord.returnTrackingNumber,
     "Return approved with Australia Post return tracking number",
   );
 
   // 3. Return Receipt & Condition Inspection
-  returnRecord.status = "RECEIVED";
+  returnRecord.status = "RETURN_RECEIVED";
   returnRecord.items[0]!.condition = "PERFECT";
   assert(
-    returnRecord.status === "RECEIVED" && returnRecord.items[0]!.condition === "PERFECT",
+    returnRecord.status === "RETURN_RECEIVED" && returnRecord.items[0]!.condition === "PERFECT",
     "Return package received and item marked PERFECT condition",
   );
 

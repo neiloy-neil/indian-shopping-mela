@@ -1300,7 +1300,7 @@ console.log("\n16. Testing Immutable Marketplace Ledger & Financial Reconciliati
     {
       id: "leg_1",
       order_id: "ord_1005",
-      entry_type: "CUSTOMER_PAYMENT",
+      entry_type: "CUSTOMER_CHARGE",
       amount_cents: 22995,
       currency: "AUD",
     },
@@ -1309,7 +1309,7 @@ console.log("\n16. Testing Immutable Marketplace Ledger & Financial Reconciliati
       order_id: "ord_1005",
       sub_order_id: "sub_1005_A",
       seller_id: "sel_royal",
-      entry_type: "SELLER_CREDIT",
+      entry_type: "SELLER_GROSS",
       amount_cents: 20355,
       currency: "AUD",
     },
@@ -1318,14 +1318,14 @@ console.log("\n16. Testing Immutable Marketplace Ledger & Financial Reconciliati
       order_id: "ord_1005",
       sub_order_id: "sub_1005_A",
       seller_id: "sel_royal",
-      entry_type: "PLATFORM_COMMISSION",
+      entry_type: "ISM_COMMISSION",
       amount_cents: 2640,
       currency: "AUD",
     },
     {
       id: "leg_4",
       order_id: "ord_1005",
-      entry_type: "GST_REMITTANCE",
+      entry_type: "GST_COLLECTED",
       amount_cents: 2090,
       currency: "AUD",
     },
@@ -1334,12 +1334,12 @@ console.log("\n16. Testing Immutable Marketplace Ledger & Financial Reconciliati
   // 1. Order Double-Entry Balance Assertion
   const orderEntries = ledgerRecords.filter((r) => r.order_id === "ord_1005");
   const customerCharge =
-    orderEntries.find((r) => r.entry_type === "CUSTOMER_PAYMENT")?.amount_cents ?? 0;
+    orderEntries.find((r) => r.entry_type === "CUSTOMER_CHARGE" || r.entry_type === "CUSTOMER_PAYMENT")?.amount_cents ?? 0;
   const sellerCredits = orderEntries
-    .filter((r) => r.entry_type === "SELLER_CREDIT")
+    .filter((r) => r.entry_type === "SELLER_GROSS" || r.entry_type === "SELLER_CREDIT")
     .reduce((s, r) => s + r.amount_cents, 0);
   const platformCommission = orderEntries
-    .filter((r) => r.entry_type === "PLATFORM_COMMISSION")
+    .filter((r) => r.entry_type === "ISM_COMMISSION" || r.entry_type === "PLATFORM_COMMISSION")
     .reduce((s, r) => s + r.amount_cents, 0);
 
   const balanced = customerCharge === sellerCredits + platformCommission;
@@ -1363,7 +1363,7 @@ console.log("\n16. Testing Immutable Marketplace Ledger & Financial Reconciliati
     order_id: "ord_1006",
     sub_order_id: "sub_1006_B",
     seller_id: "sel_royal",
-    entry_type: "SELLER_CREDIT",
+    entry_type: "SELLER_GROSS",
     amount_cents: 15000, // $150.00
     currency: "AUD",
   });
@@ -1375,7 +1375,7 @@ console.log("\n16. Testing Immutable Marketplace Ledger & Financial Reconciliati
   let pendingCents = 0;
 
   for (const entry of ledgerRecords.filter(
-    (r) => r.seller_id === "sel_royal" && r.entry_type === "SELLER_CREDIT",
+    (r) => r.seller_id === "sel_royal" && (r.entry_type === "SELLER_GROSS" || r.entry_type === "SELLER_CREDIT"),
   )) {
     const sub = subOrders.get(entry.sub_order_id!);
     if (sub?.delivered_at) {

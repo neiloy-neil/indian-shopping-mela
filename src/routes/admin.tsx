@@ -614,14 +614,18 @@ function AdminPage() {
                         <td>
                           <StatusBadge
                             tone={
-                              r.status === "APPROVED" || r.status === "REFUNDED" ? "ok" : "warn"
+                              r.status === "RETURN_APPROVED" ||
+                              r.status === "APPROVED" ||
+                              r.status === "REFUNDED"
+                                ? "ok"
+                                : "warn"
                             }
                           >
                             {r.status}
                           </StatusBadge>
                         </td>
                         <td className="text-right space-x-2">
-                          {r.status === "REQUESTED" && (
+                          {(r.status === "RETURN_REQUESTED" || r.status === "REQUESTED") && (
                             <button
                               onClick={() => handleModerateReturn(r.id, "APPROVE")}
                               className="rounded-sm bg-teal px-2.5 py-1 text-[11px] font-bold uppercase text-teal-foreground"
@@ -629,7 +633,7 @@ function AdminPage() {
                               Approve
                             </button>
                           )}
-                          {r.status === "APPROVED" && (
+                          {(r.status === "RETURN_APPROVED" || r.status === "APPROVED") && (
                             <button
                               onClick={() => handleModerateReturn(r.id, "REFUND")}
                               className="rounded-sm bg-primary px-2.5 py-1 text-[11px] font-bold uppercase text-primary-foreground"

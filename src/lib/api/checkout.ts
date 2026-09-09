@@ -411,7 +411,7 @@ export async function createCheckoutOrderTransactional(
       gst_total: gstTotal,
       total_amount: totalAmount,
       status: "PENDING",
-      payment_status: "PENDING",
+      payment_status: "PAYMENT_PENDING",
       payment_provider: "STRIPE",
       payment_intent_id: paymentIntentId,
       currency: "AUD",
@@ -438,7 +438,7 @@ export async function createCheckoutOrderTransactional(
         package_label: `Package ${idx + 1} of ${summary.packages.length} (${pkg.sellerBusinessName})`,
         shipping_cost: pkg.shippingCostAud,
         shipping_service: pkg.shippingService,
-        status: "NEW_ORDER",
+        status: "ORDER_CREATED",
       });
 
       if (subErr) {
@@ -473,7 +473,7 @@ export async function createCheckoutOrderTransactional(
         order_id: masterOrderId,
         sub_order_id: subOrderId,
         seller_id: pkg.sellerId,
-        entry_type: "SELLER_CREDIT",
+        entry_type: "SELLER_GROSS",
         amount_cents: Math.round(netSellerAmount * 100),
         currency: "AUD",
         description: `Pending gross credit for sub-order ${subOrderId} (held 14 days post-delivery)`,
@@ -487,7 +487,7 @@ export async function createCheckoutOrderTransactional(
       provider_payment_id: paymentIntentId,
       amount_cents: totalAmountCents,
       currency: "AUD",
-      status: "PENDING",
+      status: "PAYMENT_PENDING",
       idempotency_key: idempotencyKey,
     });
 

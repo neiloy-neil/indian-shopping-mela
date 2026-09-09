@@ -135,7 +135,7 @@ export async function getSellerSubOrders(
         customerState: address?.state ?? "NSW",
         itemsCount: Math.max(1, itemsCount),
         totalAud,
-        status: so.status ?? "NEW_ORDER",
+        status: so.status ?? "ORDER_CREATED",
         dispatchDeadline: deadline.toLocaleDateString("en-AU", {
           weekday: "short",
           hour: "numeric",
@@ -155,13 +155,13 @@ export async function getSellerSubOrders(
 }
 
 /**
- * Server Function: Update Sub-Order Lifecycle Status (NEW_ORDER -> PROCESSING -> READY_TO_SHIP -> SHIPPED).
+ * Server Function: Update Sub-Order Lifecycle Status (ORDER_CREATED -> PREPARING -> READY_TO_SHIP -> SHIPPED).
  */
 export const updateSellerSubOrderStatusServerFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
       subOrderId: string;
-      newStatus: "PROCESSING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+      newStatus: "PREPARING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "DISPUTED";
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -170,7 +170,7 @@ export const updateSellerSubOrderStatusServerFn = createServerFn({ method: "POST
 
 export async function updateSellerSubOrderStatus(
   subOrderId: string,
-  newStatus: "PROCESSING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED",
+  newStatus: "PREPARING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "DISPUTED",
 ): Promise<void> {
   const updatePayload: Record<string, any> = {
     status: newStatus,
@@ -285,7 +285,7 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
       await restockVariantInventory({
         variantId: item.variant_id,
         quantity: item.quantity || 1,
-        reason: "CANCELLED_ORDER",
+        reason: "RETURN_RESTOCK",
         referenceId: subOrderId,
         actorId,
         note: `Restocked via cancellation (${reasonCode}) by ${actorRole}`,
@@ -337,7 +337,7 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
     order_id: subOrder.master_order_id,
     sub_order_id: subOrderId,
     seller_id: subOrder.seller_id,
-    entry_type: "REFUND_CUSTOMER",
+    entry_type: "CUSTOMER_REFUND",
     amount_cents: refundAmountCents,
     currency: "AUD",
     description: `Compensating customer refund for cancelled package ${subOrderId} (${reasonCode})`,

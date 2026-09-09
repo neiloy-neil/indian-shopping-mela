@@ -14,7 +14,7 @@ export const acceptSubOrderServerFn = createServerFn({ method: "POST" })
 export async function acceptSubOrder(subOrderId: string, sellerId: string): Promise<boolean> {
   const { error } = await (supabaseAdmin.from("sub_orders") as any)
     .update({
-      status: "PROCESSING",
+      status: "PREPARING",
       updated_at: new Date().toISOString(),
     })
     .eq("id", subOrderId)

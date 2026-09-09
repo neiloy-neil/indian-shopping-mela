@@ -90,10 +90,10 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
               .select("id, seller_id, shipping_cost")
               .eq("master_order_id", payment.order_id);
 
-            // Ensure Sub-Orders are set to NEW_ORDER (sellers must accept manually)
+            // Ensure Sub-Orders are set to ORDER_CREATED (sellers must accept manually)
             await (supabaseAdmin.from("sub_orders") as any)
               .update({
-                status: "NEW_ORDER",
+                status: "ORDER_CREATED",
                 updated_at: new Date().toISOString(),
               })
               .eq("master_order_id", payment.order_id);
@@ -109,7 +109,7 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
             // Record Customer Payment (Gross Received)
             await (supabaseAdmin.from("ledger_entries") as any).insert({
               order_id: payment.order_id,
-              entry_type: "CUSTOMER_PAYMENT",
+              entry_type: "CUSTOMER_CHARGE",
               amount_cents: orderAmountCents,
               currency: "AUD",
               description: `Customer payment received for Order #${payment.order_id}`,
@@ -118,7 +118,7 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
             // Record GST Remittance liability
             await (supabaseAdmin.from("ledger_entries") as any).insert({
               order_id: payment.order_id,
-              entry_type: "GST_REMITTANCE",
+              entry_type: "GST_COLLECTED",
               amount_cents: gstAmountCents,
               currency: "AUD",
               description: `1/11th Australian GST component on Order #${payment.order_id}`,
@@ -135,7 +135,7 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
                   order_id: payment.order_id,
                   sub_order_id: sub.id,
                   seller_id: sub.seller_id,
-                  entry_type: "PLATFORM_COMMISSION",
+                  entry_type: "ISM_COMMISSION",
                   amount_cents: commissionCents,
                   currency: "AUD",
                   description: `12% marketplace commission on Sub-Order #${sub.id}`,
@@ -161,18 +161,17 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
                   customerEmail,
                   customerName,
                   masterOrderId: payment.order_id,
-                  totalAmountAud: orderAmountCents / 100,
-                  gstTotalAud: gstAmountCents / 100,
+                  totalAmountAud: Number((orderAmountCents / 100).toFixed(2)),
+                  gstTotalAud: Number((gstAmountCents / 100).toFixed(2)),
                   packageCount: subOrders?.length || 1,
                   idempotencyKey: `order_confirm_${payment.order_id}`,
                   userId: orderDetails?.user_id,
-                });
+                }).catch((emailErr: any) =>
+                  console.warn("Order confirmation email non-blocking failure:", emailErr.message),
+                );
               }
-            } catch (emailErr: any) {
-              console.warn(
-                "[Stripe Webhook] Order confirmation email non-blocking notice:",
-                emailErr.message,
-              );
+            } catch (err: any) {
+              console.warn("Failed to trigger order confirmation email:", err.message);
             }
           }
           break;
@@ -222,14 +221,14 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
 
               await (supabaseAdmin.from("payments") as any)
                 .update({
-                  status: charge.refunded ? "REFUNDED" : "PARTIALLY_REFUNDED",
+                  status: charge.refunded ? "PAID" : "PAID",
                   updated_at: new Date().toISOString(),
                 })
                 .eq("id", payment.id);
 
               await (supabaseAdmin.from("orders") as any)
                 .update({
-                  payment_status: charge.refunded ? "REFUNDED" : "PARTIALLY_REFUNDED",
+                  status: charge.refunded ? "REFUNDED" : "CONFIRMED",
                   updated_at: new Date().toISOString(),
                 })
                 .eq("id", payment.order_id);
@@ -237,7 +236,7 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
               // Post compensating refund ledger entries
               await (supabaseAdmin.from("ledger_entries") as any).insert({
                 order_id: payment.order_id,
-                entry_type: "REFUND_CUSTOMER",
+                entry_type: "CUSTOMER_REFUND",
                 amount_cents: refundAmountCents,
                 currency: "AUD",
                 description: `Customer refund for Order #${payment.order_id}`,

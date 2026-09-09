@@ -159,7 +159,7 @@ export const moderateReturnServerFn = createServerFn({ method: "POST" })
 
     if (data.action === "APPROVE") {
       await (supabaseAdmin.from("returns") as any)
-        .update({ status: "APPROVED", approved_at: new Date().toISOString() })
+        .update({ status: "RETURN_APPROVED", approved_at: new Date().toISOString() })
         .eq("id", data.returnId);
     } else if (data.action === "REJECT") {
       await (supabaseAdmin.from("returns") as any)

@@ -186,7 +186,7 @@ export async function getSellerPayoutEligibility(
     }
 
     // Check active return requests or dispute holds
-    if (so.status === "RETURN_REQUESTED") {
+    if (so.status === "RETURN_REQUESTED" || so.status === "DISPUTED") {
       heldSubOrderIds.push(so.id);
       continue;
     }
@@ -251,17 +251,15 @@ export async function executeSellerPayoutTransfer(
   const amountAud = eligibility.totalNetPayoutAud;
   const stripeAccountId = eligibility.stripeAccountId!;
 
-  // 2. Create PENDING payout batch record in DB
+  // 2. Create PAYOUT_PROCESSING payout batch record in DB
   const payoutBatchId = `PO-${Date.now().toString().slice(-8)}`;
   const { data: payoutRecord, error: payoutErr } = await (supabaseAdmin.from("payouts") as any)
     .insert({
       seller_id: sellerId,
       payout_batch_id: payoutBatchId,
-      amount: amountAud,
+      amount_cents: eligibility.totalNetPayoutCents,
       currency: "AUD",
-      status: "PROCESSING",
-      period_end: new Date().toISOString(),
-      scheduled_date: new Date().toISOString().slice(0, 10),
+      status: "PAYOUT_PROCESSING",
     })
     .select("id")
     .single();
@@ -282,10 +280,7 @@ export async function executeSellerPayoutTransfer(
     if (so) {
       await (supabaseAdmin.from("payout_items") as any).insert({
         payout_id: payoutId,
-        sub_order_id: subOrderId,
-        gross_amount: Number(so.subtotal) + Number(so.shipping_cost),
-        commission_amount: Number(so.commission_amount),
-        net_amount: Number(so.net_seller_amount),
+        amount_cents: Math.round(Number(so.net_seller_amount) * 100),
       });
     }
   }
@@ -295,7 +290,7 @@ export async function executeSellerPayoutTransfer(
   if (!stripeAccountId) {
     await (supabaseAdmin.from("payouts") as any)
       .update({
-        status: "FAILED",
+        status: "CANCELLED",
         failure_reason: "Seller does not have an active, verified Stripe Connect account.",
         updated_at: new Date().toISOString(),
       })
@@ -333,10 +328,10 @@ export async function executeSellerPayoutTransfer(
     ) {
       transferId = `tr_dev_${Date.now()}`;
     } else {
-      // Mark payout failed
+      // Mark payout failed/cancelled
       await (supabaseAdmin.from("payouts") as any)
         .update({
-          status: "FAILED",
+          status: "CANCELLED",
           failure_reason: stripeErr.message,
           updated_at: new Date().toISOString(),
         })
@@ -346,11 +341,11 @@ export async function executeSellerPayoutTransfer(
     }
   }
 
-  // 5. Update payout status to TRANSFERRED
+  // 5. Update payout status to PAID_TO_SELLER
   await (supabaseAdmin.from("payouts") as any)
     .update({
-      status: "TRANSFERRED",
-      transfer_id: transferId,
+      status: "PAID_TO_SELLER",
+      provider_transfer_id: transferId,
       paid_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -524,7 +519,7 @@ export async function handlePostPayoutRefundRecovery(
   await postLedgerEntry({
     sellerId,
     subOrderId,
-    entryType: "SELLER_DEBIT",
+    entryType: "ADJUSTMENT",
     amountCents: debitAmountCents,
     description: `Negative balance adjustment: ${reason}`,
     metadata: { subOrderId, refundAmountAud },

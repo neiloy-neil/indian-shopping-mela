@@ -188,7 +188,7 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
       customer_id: payload.customerId,
       seller_id: subOrder.seller_id,
       reason: payload.reason || payload.reasonCode,
-      status: "REQUESTED",
+      status: "RETURN_REQUESTED",
       refund_amount: refundAmount,
       customer_notes: payload.customerNotes ?? null,
       carrier: "Australia Post",
@@ -211,10 +211,10 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     condition: "PENDING_INSPECTION",
   });
 
-  // 7. Update sub-order state to RETURN_REQUESTED
+  // 7. Update sub-order state to DISPUTED
   await (supabaseAdmin.from("sub_orders") as any)
     .update({
-      status: "RETURN_REQUESTED",
+      status: "DISPUTED",
       updated_at: new Date().toISOString(),
     })
     .eq("id", payload.subOrderId);
@@ -262,7 +262,7 @@ export async function approveReturn(
 
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
-      status: "APPROVED",
+      status: "RETURN_APPROVED",
       seller_notes: adminNotes ?? null,
       return_tracking_number: returnTrackingNumber,
       carrier: "Australia Post",
@@ -336,7 +336,7 @@ export async function markReturnInTransit(
 ): Promise<{ success: boolean }> {
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
-      status: "IN_TRANSIT",
+      status: "RETURN_IN_TRANSIT",
       return_tracking_number: trackingNumber,
       updated_at: new Date().toISOString(),
     })
@@ -359,7 +359,7 @@ export async function markReturnReceived(
 ): Promise<{ success: boolean }> {
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
-      status: "RECEIVED",
+      status: "RETURN_RECEIVED",
       received_at: new Date().toISOString(),
       seller_notes: notes ?? `Condition: ${condition}`,
       updated_at: new Date().toISOString(),
@@ -461,9 +461,10 @@ export async function executeReturnRefund(
   const { data: refundRecord, error: refundDbErr } = await (supabaseAdmin.from("refunds") as any)
     .insert({
       order_id: masterOrderId,
+      sub_order_id: ret.sub_order_id,
       return_id: returnId,
       provider_refund_id: stripeRefundId,
-      amount: refundAmount,
+      amount_cents: refundAmountCents,
       currency: "AUD",
       status: "succeeded",
       reason: `Customer return refund for Return #${returnId}`,
@@ -480,7 +481,7 @@ export async function executeReturnRefund(
     orderId: masterOrderId,
     subOrderId: ret.sub_order_id,
     sellerId: ret.seller_id,
-    entryType: "REFUND_CUSTOMER",
+    entryType: "CUSTOMER_REFUND",
     amountCents: refundAmountCents,
     description: `Refund to customer for returned items (Return #${returnId})`,
     metadata: { returnId, refundId: refundRecord?.id ?? stripeRefundId },
@@ -515,10 +516,10 @@ export async function executeReturnRefund(
     })
     .eq("id", returnId);
 
-  // 7. Update sub-order to REFUNDED
+  // 7. Update sub-order to CANCELLED
   await (supabaseAdmin.from("sub_orders") as any)
     .update({
-      status: "REFUNDED",
+      status: "CANCELLED",
       updated_at: new Date().toISOString(),
     })
     .eq("id", ret.sub_order_id);
