@@ -936,7 +936,7 @@ console.log(
   interface MockSubOrder {
     id: string;
     sellerId: string;
-    status: "NEW_ORDER" | "PROCESSING" | "PACKED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+    status: "ORDER_CREATED" | "PREPARING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED";
     createdAt: Date;
     dispatchDeadline: Date;
     trackingNumber?: string;
@@ -948,7 +948,7 @@ console.log(
   const subOrderSellerA: MockSubOrder = {
     id: "so_sydney_01",
     sellerId: "seller_sydney",
-    status: "NEW_ORDER",
+    status: "ORDER_CREATED",
     createdAt: orderCreatedAt,
     dispatchDeadline: new Date(orderCreatedAt.getTime() + 48 * 60 * 60 * 1000), // 48h SLA
   };
@@ -956,7 +956,7 @@ console.log(
   const subOrderSellerB: MockSubOrder = {
     id: "so_melbourne_02",
     sellerId: "seller_melbourne",
-    status: "NEW_ORDER",
+    status: "ORDER_CREATED",
     createdAt: new Date("2026-09-09T08:00:00Z"), // 2 hours ago
     dispatchDeadline: new Date(new Date("2026-09-09T08:00:00Z").getTime() + 48 * 60 * 60 * 1000),
   };
@@ -964,19 +964,19 @@ console.log(
   const subOrderSellerC: MockSubOrder = {
     id: "so_brisbane_03",
     sellerId: "seller_brisbane",
-    status: "NEW_ORDER",
+    status: "ORDER_CREATED",
     createdAt: new Date("2026-09-09T08:00:00Z"),
     dispatchDeadline: new Date(new Date("2026-09-09T08:00:00Z").getTime() + 48 * 60 * 60 * 1000),
   };
 
-  // 1. Seller A transitions: NEW_ORDER -> PROCESSING -> PACKED -> SHIPPED
-  subOrderSellerA.status = "PROCESSING";
+  // 1. Seller A transitions: ORDER_CREATED -> PREPARING -> READY_TO_SHIP -> SHIPPED
+  subOrderSellerA.status = "PREPARING";
   assert(
-    subOrderSellerA.status === "PROCESSING",
-    "Seller A successfully accepts sub-order into PROCESSING state",
+    subOrderSellerA.status === "PREPARING",
+    "Seller A successfully accepts sub-order into PREPARING state",
   );
-  subOrderSellerA.status = "PACKED";
-  assert(subOrderSellerA.status === "PACKED", "Seller A marks sub-order PACKED");
+  subOrderSellerA.status = "READY_TO_SHIP";
+  assert(subOrderSellerA.status === "READY_TO_SHIP", "Seller A marks sub-order READY_TO_SHIP");
   subOrderSellerA.status = "SHIPPED";
   subOrderSellerA.trackingNumber = "AP-AU-99182736";
   assert(
@@ -1003,12 +1003,12 @@ console.log(
   // 4. SLA Deadline & Late Seller Alert detection
   function isSlaBreached(so: MockSubOrder, currentTime: Date): boolean {
     return (
-      (so.status === "NEW_ORDER" || so.status === "PROCESSING") &&
+      (so.status === "ORDER_CREATED" || so.status === "PREPARING") &&
       currentTime.getTime() > so.dispatchDeadline.getTime()
     );
   }
 
-  const sellerAOverdue = isSlaBreached({ ...subOrderSellerA, status: "PROCESSING" }, now);
+  const sellerAOverdue = isSlaBreached({ ...subOrderSellerA, status: "PREPARING" }, now);
   const sellerCOverdue = isSlaBreached(subOrderSellerC, now);
 
   assert(sellerAOverdue, "SLA breach detected for sub-order exceeding 48h dispatch deadline");
