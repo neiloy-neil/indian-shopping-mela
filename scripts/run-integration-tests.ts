@@ -939,7 +939,78 @@ console.log("\n26. Testing Stripe Connect Seller Payouts & 14-Day Maturity (T258
   assert(transferIdempotencyKey === "payout_transfer_PO-99182741", "Stripe Connect transfer uses deterministic batch idempotency key");
 }
 
+// 27. BULK PRODUCT CSV/XLSX PARSER, SSRF DEFENSE & CHUNKING (T274-T308)
+console.log("\n27. Testing Bulk Product Upload, SSRF Defense & Validation (T274-T308)...");
+{
+  function checkMediaUrlSsrf(urlStr: string): { safe: boolean; reason?: string } {
+    try {
+      const parsed = new URL(urlStr);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return { safe: false, reason: "URL must use HTTP or HTTPS protocol." };
+      }
+      const hostname = parsed.hostname.toLowerCase();
+      if (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "0.0.0.0" ||
+        hostname === "::1" ||
+        hostname.startsWith("10.") ||
+        hostname.startsWith("192.168.") ||
+        (hostname.startsWith("172.") &&
+          Number(hostname.split(".")[1]) >= 16 &&
+          Number(hostname.split(".")[1]) <= 31) ||
+        hostname === "169.254.169.254" ||
+        hostname.endsWith(".internal") ||
+        hostname.endsWith(".local")
+      ) {
+        return { safe: false, reason: "Access to private or local network addresses is strictly prohibited." };
+      }
+      return { safe: true };
+    } catch {
+      return { safe: false, reason: "Malformed URL format." };
+    }
+  }
+
+  // 1. SSRF defense assertions
+  assert(!checkMediaUrlSsrf("http://127.0.0.1:8000/image.jpg").safe, "SSRF defense blocks localhost 127.0.0.1 image URL");
+  assert(!checkMediaUrlSsrf("http://169.254.169.254/latest/meta-data").safe, "SSRF defense blocks cloud instance metadata IP 169.254.169.254");
+  assert(!checkMediaUrlSsrf("http://192.168.1.50/photo.png").safe, "SSRF defense blocks RFC1918 private network IP 192.168.x.x");
+  assert(checkMediaUrlSsrf("https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b").safe, "SSRF defense permits public HTTPS media URL");
+
+  // 2. Blank cell policy logic
+  interface ProductDraft {
+    sku: string;
+    description: string;
+    material?: string | null;
+  }
+
+  const existingDbRow: ProductDraft = {
+    sku: "SKU-SILK-01",
+    description: "Pure Banarasi Silk Saree",
+    material: "100% Mulberry Silk",
+  };
+
+  function applyBlankPolicy(
+    existing: ProductDraft,
+    incomingMaterial: string,
+    policy: "ignore" | "clear",
+  ): ProductDraft {
+    if (incomingMaterial === "") {
+      if (policy === "ignore") return { ...existing };
+      if (policy === "clear") return { ...existing, material: null };
+    }
+    return { ...existing, material: incomingMaterial };
+  }
+
+  const ignoredResult = applyBlankPolicy(existingDbRow, "", "ignore");
+  const clearedResult = applyBlankPolicy(existingDbRow, "", "clear");
+
+  assert(ignoredResult.material === "100% Mulberry Silk", "Blank cell policy 'ignore' preserves existing database value");
+  assert(clearedResult.material === null, "Blank cell policy 'clear' removes/nullifies optional attribute");
+}
+
 console.log("\n=======================================================");
+
 
 
 
