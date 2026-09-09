@@ -30,8 +30,17 @@ jobs:
       - name: Canonical Database Schema Verification
         run: npm run check:schema
 
+      - name: SQL Enum Consistency Check
+        run: npm run check:enums
+
       - name: Production Fallback & Mock Leakage Audit
         run: npm run check:fallbacks
+
+      - name: Typed Database Boundaries Audit
+        run: npm run check:types
+
+      - name: Production Environment Validation Audit
+        run: npm run check:env
 
       - name: Strict Type Check (TypeScript)
         run: npx tsc --noEmit
@@ -41,6 +50,9 @@ jobs:
 
       - name: Run Dedicated Integration Suite
         run: npm run test:integration
+
+      - name: Run Staging UAT Scenario Suite
+        run: npm run test:uat
 
       - name: Validate Production Client & SSR Build
         run: npm run build
