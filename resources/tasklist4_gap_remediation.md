@@ -1,27 +1,28 @@
 # Indian Shopping Mela — Master Gap Remediation Runbook V4
+
 **Comprehensive Audit & Remediation Plan against Developer Architecture Master Plan V1 & Tasklist 3**
 
 **Audit Date:** September 2026  
 **Document Source:** `resources/Indian_Shopping_Mela_Developer_Architecture_Master_Plan_V1.pdf`  
 **Baseline Runbook:** `resources/tasklist3.md`  
-**Repository State:** Lovable-connected full-stack TanStack Start application on Supabase & Stripe AU  
+**Repository State:** Lovable-connected full-stack TanStack Start application on Supabase & Stripe AU
 
 ---
 
 ## Executive Summary of Audit Findings
 
-| Domain Area | Master Plan Spec (PDF) | Current Codebase State | Status | Primary Remediation Target |
-|---|---|---|---|---|
-| **1. Database Schema & Migration** | Unified canonical schema, 41 tables, atomic RPCs, strict RLS | `20260907_canonical_schema.sql` active with 41 tables, legacy isolated. `check-canonical-schema.ts` passes 100%. | **PASS** | Apply and verify on live Supabase staging instance. |
-| **2. Cart & Guest Persistence** | DB-backed carts (`carts`, `cart_lines`) with guest session token, merge on auth | Client React context (`ism-store.tsx`) uses LocalStorage. Server cart functions exist in `api/cart.ts` but are not wired into UI components. | **GAP** | Wire `useIsm()` store to call `getCartServerFn`, `addToCartServerFn`, `mergeGuestCartServerFn`. |
-| **3. Checkout & Zero-Trust Stripe** | Zero-trust server calculation, Stripe Payment Element (`@stripe/react-stripe-js`), atomic stock hold | `routes/checkout.tsx` uses custom card inputs and calls checkout with client-supplied values. | **GAP** | Mount Stripe Payment Element, pass only `{ variantId, qty, addressId }`, call server calculations. |
-| **4. Bulk Product Upload & Stock** | Real CSV & XLSX parsing, 1,000+ rows, preview, validation, chunked DB commit, batch history | `routes/sell.bulk-upload.tsx` and `sell.bulk-stock.tsx` use static fixtures for preview/history; `handleCommitImport` lacks DB mutation. | **GAP** | Integrate `sheetjs`/`xlsx` for real Excel/CSV binary parsing; wire `commitBulkImportChunkServerFn` and live stock updates. |
-| **5. Product Video Pipeline** | MP4/H.264 upload (5-60s, max 100MB), moderation status (`pending`, `approved`, `rejected`), muted player | Direct Supabase storage upload exists in `sell.add-product.tsx` but lacks duration/size validation and moderation workflow. | **GAP** | Add video file duration validator, store video metadata in `product_media`, wire admin video moderation tab. |
-| **6. Multi-Seller Fulfilment** | Seller sub-orders, AusPost/Sendle shipping labels, tracking webhook updates, dispatch deadlines | Scaffolding in `api/fulfilment.ts` and `api/shipping.ts`; `routes/sell.index.tsx` contains static fallback metrics and mock orders. | **GAP** | Wire `routes/sell.index.tsx` sub-order queries and live label downloads to real database tables. |
-| **7. Returns & Statutory Rights** | 7-day change of mind, statutory defect exemption, partial item returns, photo evidence, payout hold | `api/returns.ts` contains core logic; `routes/returns.new.tsx` requires live order-item selection and evidence upload to `return-evidence`. | **GAP** | Connect return form to real user order items and attach evidence URLs to `return_requests`. |
-| **8. Double-Entry Payouts** | 14-day delivery hold, Stripe Connect transfers, ledger immutability, failed retry, payout statements | Calculations and test assertions pass; `routes/admin.tsx` and `api/admin-finance.ts` need live Stripe Connect Transfer execution. | **GAP** | Wire `stripe.transfers.create` in `reconcileAndUnlockEligiblePayoutsServerFn` with `payouts` records. |
-| **9. Admin Console Live Wiring** | Live GMV, sellers, products, categories, orders, returns, finance, audit log, config | `routes/admin.tsx` renders static constants from `lib/ism-ops.ts` across all 18 tabs. | **GAP** | Connect each admin section (Sellers, Products, Orders, Returns, Finance) to live TanStack server queries. |
-| **10. Reviews & Trust** | Verified purchase check, 1-5 star ratings, moderation queue, separate seller/product ratings | `api/reviews.ts` and schema exist; `routes/product.$id.tsx` needs review submission form and verified review list. | **GAP** | Wire `<ProductReviews />` component to `getProductReviewsServerFn` and `submitProductReviewServerFn`. |
+| Domain Area                         | Master Plan Spec (PDF)                                                                                   | Current Codebase State                                                                                                                       | Status   | Primary Remediation Target                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **1. Database Schema & Migration**  | Unified canonical schema, 41 tables, atomic RPCs, strict RLS                                             | `20260907_canonical_schema.sql` active with 41 tables, legacy isolated. `check-canonical-schema.ts` passes 100%.                             | **PASS** | Apply and verify on live Supabase staging instance.                                                                        |
+| **2. Cart & Guest Persistence**     | DB-backed carts (`carts`, `cart_lines`) with guest session token, merge on auth                          | Client React context (`ism-store.tsx`) uses LocalStorage. Server cart functions exist in `api/cart.ts` but are not wired into UI components. | **GAP**  | Wire `useIsm()` store to call `getCartServerFn`, `addToCartServerFn`, `mergeGuestCartServerFn`.                            |
+| **3. Checkout & Zero-Trust Stripe** | Zero-trust server calculation, Stripe Payment Element (`@stripe/react-stripe-js`), atomic stock hold     | `routes/checkout.tsx` uses custom card inputs and calls checkout with client-supplied values.                                                | **GAP**  | Mount Stripe Payment Element, pass only `{ variantId, qty, addressId }`, call server calculations.                         |
+| **4. Bulk Product Upload & Stock**  | Real CSV & XLSX parsing, 1,000+ rows, preview, validation, chunked DB commit, batch history              | `routes/sell.bulk-upload.tsx` and `sell.bulk-stock.tsx` use static fixtures for preview/history; `handleCommitImport` lacks DB mutation.     | **GAP**  | Integrate `sheetjs`/`xlsx` for real Excel/CSV binary parsing; wire `commitBulkImportChunkServerFn` and live stock updates. |
+| **5. Product Video Pipeline**       | MP4/H.264 upload (5-60s, max 100MB), moderation status (`pending`, `approved`, `rejected`), muted player | Direct Supabase storage upload exists in `sell.add-product.tsx` but lacks duration/size validation and moderation workflow.                  | **GAP**  | Add video file duration validator, store video metadata in `product_media`, wire admin video moderation tab.               |
+| **6. Multi-Seller Fulfilment**      | Seller sub-orders, AusPost/Sendle shipping labels, tracking webhook updates, dispatch deadlines          | Scaffolding in `api/fulfilment.ts` and `api/shipping.ts`; `routes/sell.index.tsx` contains static fallback metrics and mock orders.          | **GAP**  | Wire `routes/sell.index.tsx` sub-order queries and live label downloads to real database tables.                           |
+| **7. Returns & Statutory Rights**   | 7-day change of mind, statutory defect exemption, partial item returns, photo evidence, payout hold      | `api/returns.ts` contains core logic; `routes/returns.new.tsx` requires live order-item selection and evidence upload to `return-evidence`.  | **GAP**  | Connect return form to real user order items and attach evidence URLs to `return_requests`.                                |
+| **8. Double-Entry Payouts**         | 14-day delivery hold, Stripe Connect transfers, ledger immutability, failed retry, payout statements     | Calculations and test assertions pass; `routes/admin.tsx` and `api/admin-finance.ts` need live Stripe Connect Transfer execution.            | **GAP**  | Wire `stripe.transfers.create` in `reconcileAndUnlockEligiblePayoutsServerFn` with `payouts` records.                      |
+| **9. Admin Console Live Wiring**    | Live GMV, sellers, products, categories, orders, returns, finance, audit log, config                     | `routes/admin.tsx` renders static constants from `lib/ism-ops.ts` across all 18 tabs.                                                        | **GAP**  | Connect each admin section (Sellers, Products, Orders, Returns, Finance) to live TanStack server queries.                  |
+| **10. Reviews & Trust**             | Verified purchase check, 1-5 star ratings, moderation queue, separate seller/product ratings             | `api/reviews.ts` and schema exist; `routes/product.$id.tsx` needs review submission form and verified review list.                           | **GAP**  | Wire `<ProductReviews />` component to `getProductReviewsServerFn` and `submitProductReviewServerFn`.                      |
 
 ---
 
@@ -60,6 +61,7 @@ STATUS LEGEND:
 
 - [ ] **GAP-04: Guest Session Token Management**
   - Generate a secure UUID `guest_token` in cookies/localStorage on first visit.
+
 ## Phase 1 — Database Schema Canonicalization & Atomic RPCs
 
 - [x] **GAP-01: Canonical Schema Migration (`20260907_canonical_schema.sql`)**
@@ -200,6 +202,7 @@ STATUS LEGEND:
 # Verification Plan for Remediated Tasks
 
 ### 1. Automated Test Suite
+
 - Run `npm test` after each phase:
   - Canonical Schema integrity (41 tables, 3 RPCs, 3 buckets)
   - 10% Australian GST & 12% commission arithmetic
@@ -209,5 +212,6 @@ STATUS LEGEND:
   - Seller onboarding state machine
 
 ### 2. Strict Type Safety & Clean Build
+
 - Run `npx tsc --noEmit` (Must pass with 0 errors).
 - Run `npm run build` (Must compile Nitro SSR and client bundles cleanly with zero secret leakage).

@@ -48,13 +48,15 @@ export async function executeBackgroundJob(
     errorCount: number;
     errors?: string[] | undefined;
     details?: any;
-  }>
+  }>,
 ): Promise<BackgroundJobRunResult> {
   const correlationId = generateCorrelationId(`job_${jobName}`);
 
   // Prevent duplicate concurrent execution of the same job
   if (activeJobLocks.has(jobName)) {
-    console.warn(`[Background Jobs] ${jobName} is already actively running. Skipping duplicate execution.`);
+    console.warn(
+      `[Background Jobs] ${jobName} is already actively running. Skipping duplicate execution.`,
+    );
     return {
       jobName,
       success: true,
@@ -73,19 +75,21 @@ export async function executeBackgroundJob(
     const durationMs = Date.now() - startTime;
 
     // Log execution to audit_logs
-    await (supabaseAdmin.from("audit_logs") as any).insert({
-      action: `JOB_RUN_${jobName.toUpperCase()}`,
-      entity_type: "SYSTEM_JOB",
-      entity_id: correlationId,
-      new_data: {
-        jobName,
-        correlationId,
-        processedCount: result.processedCount,
-        errorCount: result.errorCount,
-        durationMs,
-        status: result.errorCount === 0 ? "SUCCESS" : "PARTIAL_FAILURE",
-      },
-    }).catch(() => null);
+    await (supabaseAdmin.from("audit_logs") as any)
+      .insert({
+        action: `JOB_RUN_${jobName.toUpperCase()}`,
+        entity_type: "SYSTEM_JOB",
+        entity_id: correlationId,
+        new_data: {
+          jobName,
+          correlationId,
+          processedCount: result.processedCount,
+          errorCount: result.errorCount,
+          durationMs,
+          status: result.errorCount === 0 ? "SUCCESS" : "PARTIAL_FAILURE",
+        },
+      })
+      .catch(() => null);
 
     return {
       jobName,
@@ -97,14 +101,19 @@ export async function executeBackgroundJob(
       details: result.details,
     };
   } catch (err: any) {
-    console.error(`[Background Jobs] Critical failure in ${jobName} [${correlationId}]:`, err.message);
+    console.error(
+      `[Background Jobs] Critical failure in ${jobName} [${correlationId}]:`,
+      err.message,
+    );
 
-    await (supabaseAdmin.from("audit_logs") as any).insert({
-      action: `JOB_FAILED_${jobName.toUpperCase()}`,
-      entity_type: "SYSTEM_JOB",
-      entity_id: correlationId,
-      new_data: { jobName, correlationId, error: err.message },
-    }).catch(() => null);
+    await (supabaseAdmin.from("audit_logs") as any)
+      .insert({
+        action: `JOB_FAILED_${jobName.toUpperCase()}`,
+        entity_type: "SYSTEM_JOB",
+        entity_id: correlationId,
+        new_data: { jobName, correlationId, error: err.message },
+      })
+      .catch(() => null);
 
     return {
       jobName,
@@ -126,11 +135,15 @@ export async function executeBackgroundJob(
 export async function runReservationExpiryJob(): Promise<BackgroundJobRunResult> {
   return executeBackgroundJob("reservation_expiry", async (correlationId) => {
     // Call database RPC release_expired_reservations
-    const { data: expiredCount, error } = await (supabaseAdmin as any).rpc("release_expired_reservations");
+    const { data: expiredCount, error } = await (supabaseAdmin as any).rpc(
+      "release_expired_reservations",
+    );
 
     if (error) {
       // Fallback direct SQL update if RPC unavailable
-      const { data: updated, error: updateErr } = await (supabaseAdmin.from("inventory_reservations") as any)
+      const { data: updated, error: updateErr } = await (
+        supabaseAdmin.from("inventory_reservations") as any
+      )
         .update({ status: "expired" })
         .eq("status", "active")
         .lte("expires_at", new Date().toISOString())
@@ -164,7 +177,12 @@ export async function runPayoutEligibilityJob(): Promise<BackgroundJobRunResult>
       .lte("delivered_at", fourteenDaysAgo);
 
     if (error || !maturedSubOrders) {
-      return { processedCount: 0, errorCount: error ? 1 : 0, errors: error ? [error.message] : [], details: { error: error?.message } };
+      return {
+        processedCount: 0,
+        errorCount: error ? 1 : 0,
+        errors: error ? [error.message] : [],
+        details: { error: error?.message },
+      };
     }
 
     let processedCount = 0;
@@ -270,7 +288,10 @@ export async function runBulkImportWorkerJob(batchId?: string): Promise<Backgrou
     if (batchId) {
       query = query.eq("id", batchId);
     } else {
-      query = query.in("status", ["PENDING", "PARSING"]).order("created_at", { ascending: true }).limit(1);
+      query = query
+        .in("status", ["PENDING", "PARSING"])
+        .order("created_at", { ascending: true })
+        .limit(1);
     }
 
     const { data: batches, error } = await query;
@@ -356,7 +377,17 @@ export async function runProviderRetryJob(): Promise<BackgroundJobRunResult> {
  * Server Functions for Job Management & Dead-Letter Visibility
  */
 export const runSystemJobServerFn = createServerFn({ method: "POST" })
-  .validator((data: { jobName: "reservation_expiry" | "payout_eligibility" | "notification_retry" | "bulk_import" | "provider_retry"; batchId?: string | undefined }) => data)
+  .validator(
+    (data: {
+      jobName:
+        | "reservation_expiry"
+        | "payout_eligibility"
+        | "notification_retry"
+        | "bulk_import"
+        | "provider_retry";
+      batchId?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     switch (data.jobName) {
       case "reservation_expiry":
@@ -374,25 +405,24 @@ export const runSystemJobServerFn = createServerFn({ method: "POST" })
     }
   });
 
-export const getDeadLetterQueueServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: webhookDeadLetters } = await (supabaseAdmin.from("webhook_events") as any)
-      .select("*")
-      .eq("status", "DEAD_LETTER")
-      .order("created_at", { ascending: false })
-      .limit(50);
+export const getDeadLetterQueueServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: webhookDeadLetters } = await (supabaseAdmin.from("webhook_events") as any)
+    .select("*")
+    .eq("status", "DEAD_LETTER")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
-    const { data: notifDeadLetters } = await (supabaseAdmin.from("notifications") as any)
-      .select("*")
-      .eq("type", "DEAD_LETTER")
-      .order("created_at", { ascending: false })
-      .limit(50);
+  const { data: notifDeadLetters } = await (supabaseAdmin.from("notifications") as any)
+    .select("*")
+    .eq("type", "DEAD_LETTER")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
-    return {
-      webhookDeadLetters: webhookDeadLetters || [],
-      notificationDeadLetters: notifDeadLetters || [],
-    };
-  });
+  return {
+    webhookDeadLetters: webhookDeadLetters || [],
+    notificationDeadLetters: notifDeadLetters || [],
+  };
+});
 
 export const retryDeadLetterItemServerFn = createServerFn({ method: "POST" })
   .validator((data: { itemType: "webhook" | "notification"; itemId: string }) => data)

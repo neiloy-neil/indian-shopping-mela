@@ -62,7 +62,7 @@ The following are **not** production-ready despite previous checkmarks:
 Verified frontend cleanup already present:
 
 - [x] **V2-T000A — Ordinary return copy uses the 7-day rule**  
-  Audit found no remaining customer-facing “30-day returns” policy conflict; remaining “30 days” strings are analytics windows.
+      Audit found no remaining customer-facing “30-day returns” policy conflict; remaining “30 days” strings are analytics windows.
 - [x] **V2-T000B — Product image limit standardized to 12 in seller listing UI/config**
 - [x] **V2-T000C — Existing frontend route set and visual design preserved**
 
@@ -917,20 +917,20 @@ No public go-live until all applicable tasks below are `[x]`.
 
 # OWNER DECISION LOG
 
-| Decision | Value | Status |
-|---|---|---|
-| App hosting | Vercel | Confirmed architecture |
-| DB/Auth | Supabase (ap-southeast-2 Sydney) | Confirmed architecture |
-| Payment provider | Stripe AU | Confirmed architecture |
-| Seller payout model | Stripe Connect (Express/Custom) | **LOCKED (2026-09-07)** — Stripe handles KYC/bank storage; ISM manages 14-day delivery hold & triggers transfers. |
-| Launch payment methods | Cards + Apple Pay / Google Pay + Afterpay / Klarna | **LOCKED (2026-09-07)** — Enabled via Stripe Payment Element. |
-| Shipping provider | Australia Post (PAC/eParcel) primary + Sendle secondary | **LOCKED (2026-09-07)** — Unified under IShippingProvider adapter. |
-| Video provider | Supabase Storage (product-media bucket) direct upload | **LOCKED (2026-09-07)** — Direct MP4 upload with HTML5 video player. |
-| Transactional email | Brevo (Sendinblue) API | **LOCKED (2026-09-07)** — Order, Dispatch, Return, Payout emails. |
-| Ordinary return window | 7 days | Confirmed by Master Plan/frontend |
-| Seller payout delay | 14 days after confirmed delivery, subject to holds | Confirmed by Master Plan |
-| Product image limit | 12 | Frontend/config currently aligned |
-| Production legal entity/ABN | Indian Shopping Mela Pty Ltd / ABN 12 345 678 901 | Config placeholder ready for owner registration update |
+| Decision                    | Value                                                   | Status                                                                                                            |
+| --------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| App hosting                 | Vercel                                                  | Confirmed architecture                                                                                            |
+| DB/Auth                     | Supabase (ap-southeast-2 Sydney)                        | Confirmed architecture                                                                                            |
+| Payment provider            | Stripe AU                                               | Confirmed architecture                                                                                            |
+| Seller payout model         | Stripe Connect (Express/Custom)                         | **LOCKED (2026-09-07)** — Stripe handles KYC/bank storage; ISM manages 14-day delivery hold & triggers transfers. |
+| Launch payment methods      | Cards + Apple Pay / Google Pay + Afterpay / Klarna      | **LOCKED (2026-09-07)** — Enabled via Stripe Payment Element.                                                     |
+| Shipping provider           | Australia Post (PAC/eParcel) primary + Sendle secondary | **LOCKED (2026-09-07)** — Unified under IShippingProvider adapter.                                                |
+| Video provider              | Supabase Storage (product-media bucket) direct upload   | **LOCKED (2026-09-07)** — Direct MP4 upload with HTML5 video player.                                              |
+| Transactional email         | Brevo (Sendinblue) API                                  | **LOCKED (2026-09-07)** — Order, Dispatch, Return, Payout emails.                                                 |
+| Ordinary return window      | 7 days                                                  | Confirmed by Master Plan/frontend                                                                                 |
+| Seller payout delay         | 14 days after confirmed delivery, subject to holds      | Confirmed by Master Plan                                                                                          |
+| Product image limit         | 12                                                      | Frontend/config currently aligned                                                                                 |
+| Production legal entity/ABN | Indian Shopping Mela Pty Ltd / ABN 12 345 678 901       | Config placeholder ready for owner registration update                                                            |
 
 ---
 
@@ -944,45 +944,39 @@ No public go-live until all applicable tasks below are `[x]`.
 
 # PROGRESS LOG
 
-| Date | Task | Status | Result / Blocker | Commit/Artifact |
-|---|---|---|---|---|
-| 2026-09-07 | V2-T001 | `[x]` | Consolidated canonical migration `20260907_canonical_schema.sql` created with unified TEXT order IDs, snake_case enums, storage buckets, atomic inventory RPCs, and RLS. | `supabase/migrations/20260907_canonical_schema.sql` |
-| 2026-09-07 | V2-T017 | `[x]` | Server execution boundary established: privileged Stripe and Supabase service-role calls isolated in `createServerFn`. | `src/lib/api/checkout.ts` |
-| 2026-09-07 | V2-T018 | `[x]` | Created TanStack Start server functions `prepareCheckoutSummaryServerFn` & `createCheckoutOrderServerFn`. | `src/lib/api/checkout.ts` |
-| 2026-09-07 | V2-T019 | `[x]` | `supabaseAdmin` service role strictly isolated to server boundaries. | `src/lib/supabase/server.ts` |
-| 2026-09-07 | V2-T020 | `[x]` | Stripe secret key client isolated inside server boundary. | `src/lib/api/checkout.ts` |
-| 2026-09-07 | V2-T022 | `[x]` | Live health check route created at `/api/health` checking database connectivity and system status. | `src/routes/api.health.ts` |
-| 2026-09-07 | V2-T023 | `[x]` | Supabase SSR cookie adapter implemented using `@supabase/ssr`. | `src/lib/supabase/server.ts` |
-| 2026-09-07 | V2-T024 | `[x]` | Browser Supabase client typed against canonical domain and generated database types. | `src/lib/supabase/client.ts` |
-| 2026-09-07 | V2-T025 | `[x]` | Removed mock `signedIn` React state authority from `ism-store.tsx`; auth is 100% driven by Supabase Auth sessions via `useAuth()`. | `src/lib/ism-store.tsx`, `src/components/ism/Header.tsx` |
-| 2026-09-07 | V2-T026 | `[x]` | Verified live sign-in flow with email/password against Supabase Auth. | `src/routes/signin.tsx` |
-| 2026-09-07 | V2-T027 | `[x]` | Customer & Seller sign-up with email confirmation and profile provisioning. | `src/lib/api/auth.ts`, `src/routes/signin.tsx` |
-| 2026-09-07 | V2-T028 | `[x]` | Password reset request with recovery email redirect. | `src/lib/api/auth.ts` |
-| 2026-09-07 | V2-T029 | `[x]` | Sign-out and session cache invalidation. | `src/lib/api/auth.ts`, `src/hooks/use-auth.ts` |
-| 2026-09-07 | V2-T030 | `[x]` | Protected `/account` with authenticated session guard prompt. | `src/routes/account.tsx` |
-| 2026-09-07 | V2-T036 | `[x]` | Refactored seller onboarding to canonical schema (`sellers`, `seller_addresses`, `seller_documents`). | `src/lib/api/sellers.ts` |
-| 2026-09-07 | V2-T037 | `[x]` | Server-mediated seller onboarding mutations via `saveSellerOnboardingServerFn`. | `src/lib/api/sellers.ts` |
-| 2026-09-07 | V2-T039 | `[x]` | Persisted real dispatch & return addresses in `seller_addresses`. | `src/lib/api/sellers.ts` |
-| 2026-09-07 | V2-T050 | `[x]` | Homepage connected to live `Route.useLoaderData()` feed from `getHomepageFeed()`. | `src/routes/index.tsx` |
-| 2026-09-07 | V2-T060 | `[x]` | Removed demo toasts and wired `Save Draft` & `Submit Product` directly to backend in `/sell/add-product`. | `src/routes/sell.add-product.tsx` |
-| 2026-09-07 | V2-T061 | `[x]` | Standardized canonical storage bucket to `product-media` (supporting 12 images + MP4 product videos). | `src/lib/api/products.ts`, `src/routes/sell.add-product.tsx` |
-| 2026-09-07 | V2-T067 | `[x]` | Implemented database-backed cart operations and guest token strategy with `getCartServerFn`, `addToCartServerFn`, and `mergeGuestCartServerFn`. | `src/lib/api/cart.ts` |
-| 2026-09-07 | V2-T078 | `[x]` | Eliminated mock fallback in `handlePlaceOrder` to strictly enforce fail-closed error handling in checkout. | `src/routes/checkout.tsx` |
-| 2026-09-07 | V2-T085 | `[x]` | Real Stripe webhook handler created with signature verification, idempotency checking against `webhook_events`, and payment state transitions. | `src/routes/api.webhooks.stripe.ts` |
-| 2026-09-07 | V2-T094 | `[x]` | Wired seller order acceptance, shipping label creation, and delivery tracking to live database operations via `createServerFn`. | `src/lib/api/fulfilment.ts`, `src/routes/sell.index.tsx` |
-| 2026-09-07 | V2-T105 | `[x]` | Customer order tracking connected to `getOrderTrackingDetailsServerFn` with live multi-seller package timeline and pre-dispatch cancellation. | `src/lib/api/orders.ts`, `src/routes/orders.$id.tsx` |
-| 2026-09-07 | V2-T116 | `[x]` | Customer return requests connected to `createCustomerReturnRequestServerFn` with 7-day delivery hold checks, evidence attachments, and ledger holds. | `src/lib/api/returns.ts`, `src/routes/returns.new.tsx` |
-| 2026-09-07 | V2-T118 | `[x]` | Stripe Connect seller account creation, hosted onboarding links, and capability sync server functions implemented. | `src/lib/api/stripe-connect.ts` |
-| 2026-09-07 | V2-T141 | `[x]` | Customer account profile updating and saved address management wired to `updateCustomerProfileServerFn` and `saveCustomerAddressServerFn`. | `src/lib/api/account.ts`, `src/routes/account.tsx` |
-| 2026-09-07 | V2-T156 | `[x]` | Bulk product CSV/XLSX validation and chunked transactional ingestion wired to `validateBulkRowsServerFn` and `commitBulkImportChunkServerFn`. | `src/lib/api/bulk-upload.ts`, `src/routes/sell.bulk-upload.tsx` |
-| 2026-09-07 | V2-T184 | `[x]` | Transactional email notification endpoints wired to Brevo API via `sendOrderConfirmationEmailServerFn` and `sendPackageDispatchedEmailServerFn`. | `src/lib/api/notifications.ts` |
-| 2026-09-07 | V2-T191 | `[x]` | Admin console moderation and 14-day hold payout maturation connected to live server functions. | `src/lib/api/admin-finance.ts`, `src/routes/admin.tsx` |
-| 2026-09-07 | V2-T201 | `[x]` | Seller team staff invitation, granular permission matrix updates, and access revocation wired to `inviteSellerStaffServerFn` and `updateSellerStaffPermissionsServerFn`. | `src/lib/api/sellers.ts`, `src/routes/sell.team.tsx` |
-| 2026-09-07 | V2-T208 | `[x]` | Verified purchase product reviews and rating submissions implemented with `getProductReviewsServerFn` and `submitProductReviewServerFn`. | `src/lib/api/reviews.ts` |
-| 2026-09-07 | V2-T232 | `[x]` | Automated production test suite configured and passing (`npm test`): 14/14 tests covering 10% GST, 12% commission, 7-day return boundary, 14-day delivery hold payout maturation, and bulk row validation. | `scripts/run-production-tests.ts`, `package.json` |
-
-
-
-
-
-
+| Date       | Task    | Status | Result / Blocker                                                                                                                                                                                           | Commit/Artifact                                                 |
+| ---------- | ------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 2026-09-07 | V2-T001 | `[x]`  | Consolidated canonical migration `20260907_canonical_schema.sql` created with unified TEXT order IDs, snake_case enums, storage buckets, atomic inventory RPCs, and RLS.                                   | `supabase/migrations/20260907_canonical_schema.sql`             |
+| 2026-09-07 | V2-T017 | `[x]`  | Server execution boundary established: privileged Stripe and Supabase service-role calls isolated in `createServerFn`.                                                                                     | `src/lib/api/checkout.ts`                                       |
+| 2026-09-07 | V2-T018 | `[x]`  | Created TanStack Start server functions `prepareCheckoutSummaryServerFn` & `createCheckoutOrderServerFn`.                                                                                                  | `src/lib/api/checkout.ts`                                       |
+| 2026-09-07 | V2-T019 | `[x]`  | `supabaseAdmin` service role strictly isolated to server boundaries.                                                                                                                                       | `src/lib/supabase/server.ts`                                    |
+| 2026-09-07 | V2-T020 | `[x]`  | Stripe secret key client isolated inside server boundary.                                                                                                                                                  | `src/lib/api/checkout.ts`                                       |
+| 2026-09-07 | V2-T022 | `[x]`  | Live health check route created at `/api/health` checking database connectivity and system status.                                                                                                         | `src/routes/api.health.ts`                                      |
+| 2026-09-07 | V2-T023 | `[x]`  | Supabase SSR cookie adapter implemented using `@supabase/ssr`.                                                                                                                                             | `src/lib/supabase/server.ts`                                    |
+| 2026-09-07 | V2-T024 | `[x]`  | Browser Supabase client typed against canonical domain and generated database types.                                                                                                                       | `src/lib/supabase/client.ts`                                    |
+| 2026-09-07 | V2-T025 | `[x]`  | Removed mock `signedIn` React state authority from `ism-store.tsx`; auth is 100% driven by Supabase Auth sessions via `useAuth()`.                                                                         | `src/lib/ism-store.tsx`, `src/components/ism/Header.tsx`        |
+| 2026-09-07 | V2-T026 | `[x]`  | Verified live sign-in flow with email/password against Supabase Auth.                                                                                                                                      | `src/routes/signin.tsx`                                         |
+| 2026-09-07 | V2-T027 | `[x]`  | Customer & Seller sign-up with email confirmation and profile provisioning.                                                                                                                                | `src/lib/api/auth.ts`, `src/routes/signin.tsx`                  |
+| 2026-09-07 | V2-T028 | `[x]`  | Password reset request with recovery email redirect.                                                                                                                                                       | `src/lib/api/auth.ts`                                           |
+| 2026-09-07 | V2-T029 | `[x]`  | Sign-out and session cache invalidation.                                                                                                                                                                   | `src/lib/api/auth.ts`, `src/hooks/use-auth.ts`                  |
+| 2026-09-07 | V2-T030 | `[x]`  | Protected `/account` with authenticated session guard prompt.                                                                                                                                              | `src/routes/account.tsx`                                        |
+| 2026-09-07 | V2-T036 | `[x]`  | Refactored seller onboarding to canonical schema (`sellers`, `seller_addresses`, `seller_documents`).                                                                                                      | `src/lib/api/sellers.ts`                                        |
+| 2026-09-07 | V2-T037 | `[x]`  | Server-mediated seller onboarding mutations via `saveSellerOnboardingServerFn`.                                                                                                                            | `src/lib/api/sellers.ts`                                        |
+| 2026-09-07 | V2-T039 | `[x]`  | Persisted real dispatch & return addresses in `seller_addresses`.                                                                                                                                          | `src/lib/api/sellers.ts`                                        |
+| 2026-09-07 | V2-T050 | `[x]`  | Homepage connected to live `Route.useLoaderData()` feed from `getHomepageFeed()`.                                                                                                                          | `src/routes/index.tsx`                                          |
+| 2026-09-07 | V2-T060 | `[x]`  | Removed demo toasts and wired `Save Draft` & `Submit Product` directly to backend in `/sell/add-product`.                                                                                                  | `src/routes/sell.add-product.tsx`                               |
+| 2026-09-07 | V2-T061 | `[x]`  | Standardized canonical storage bucket to `product-media` (supporting 12 images + MP4 product videos).                                                                                                      | `src/lib/api/products.ts`, `src/routes/sell.add-product.tsx`    |
+| 2026-09-07 | V2-T067 | `[x]`  | Implemented database-backed cart operations and guest token strategy with `getCartServerFn`, `addToCartServerFn`, and `mergeGuestCartServerFn`.                                                            | `src/lib/api/cart.ts`                                           |
+| 2026-09-07 | V2-T078 | `[x]`  | Eliminated mock fallback in `handlePlaceOrder` to strictly enforce fail-closed error handling in checkout.                                                                                                 | `src/routes/checkout.tsx`                                       |
+| 2026-09-07 | V2-T085 | `[x]`  | Real Stripe webhook handler created with signature verification, idempotency checking against `webhook_events`, and payment state transitions.                                                             | `src/routes/api.webhooks.stripe.ts`                             |
+| 2026-09-07 | V2-T094 | `[x]`  | Wired seller order acceptance, shipping label creation, and delivery tracking to live database operations via `createServerFn`.                                                                            | `src/lib/api/fulfilment.ts`, `src/routes/sell.index.tsx`        |
+| 2026-09-07 | V2-T105 | `[x]`  | Customer order tracking connected to `getOrderTrackingDetailsServerFn` with live multi-seller package timeline and pre-dispatch cancellation.                                                              | `src/lib/api/orders.ts`, `src/routes/orders.$id.tsx`            |
+| 2026-09-07 | V2-T116 | `[x]`  | Customer return requests connected to `createCustomerReturnRequestServerFn` with 7-day delivery hold checks, evidence attachments, and ledger holds.                                                       | `src/lib/api/returns.ts`, `src/routes/returns.new.tsx`          |
+| 2026-09-07 | V2-T118 | `[x]`  | Stripe Connect seller account creation, hosted onboarding links, and capability sync server functions implemented.                                                                                         | `src/lib/api/stripe-connect.ts`                                 |
+| 2026-09-07 | V2-T141 | `[x]`  | Customer account profile updating and saved address management wired to `updateCustomerProfileServerFn` and `saveCustomerAddressServerFn`.                                                                 | `src/lib/api/account.ts`, `src/routes/account.tsx`              |
+| 2026-09-07 | V2-T156 | `[x]`  | Bulk product CSV/XLSX validation and chunked transactional ingestion wired to `validateBulkRowsServerFn` and `commitBulkImportChunkServerFn`.                                                              | `src/lib/api/bulk-upload.ts`, `src/routes/sell.bulk-upload.tsx` |
+| 2026-09-07 | V2-T184 | `[x]`  | Transactional email notification endpoints wired to Brevo API via `sendOrderConfirmationEmailServerFn` and `sendPackageDispatchedEmailServerFn`.                                                           | `src/lib/api/notifications.ts`                                  |
+| 2026-09-07 | V2-T191 | `[x]`  | Admin console moderation and 14-day hold payout maturation connected to live server functions.                                                                                                             | `src/lib/api/admin-finance.ts`, `src/routes/admin.tsx`          |
+| 2026-09-07 | V2-T201 | `[x]`  | Seller team staff invitation, granular permission matrix updates, and access revocation wired to `inviteSellerStaffServerFn` and `updateSellerStaffPermissionsServerFn`.                                   | `src/lib/api/sellers.ts`, `src/routes/sell.team.tsx`            |
+| 2026-09-07 | V2-T208 | `[x]`  | Verified purchase product reviews and rating submissions implemented with `getProductReviewsServerFn` and `submitProductReviewServerFn`.                                                                   | `src/lib/api/reviews.ts`                                        |
+| 2026-09-07 | V2-T232 | `[x]`  | Automated production test suite configured and passing (`npm test`): 14/14 tests covering 10% GST, 12% commission, 7-day return boundary, 14-day delivery hold payout maturation, and bulk row validation. | `scripts/run-production-tests.ts`, `package.json`               |

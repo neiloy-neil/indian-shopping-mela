@@ -50,11 +50,12 @@ export const DEFAULT_MARKETPLACE_SETTINGS: MarketplaceSettings = {
 /**
  * Server Function: Get Authoritative Marketplace Configuration & Limits (T503)
  */
-export const getMarketplaceSettingsServerFn = createServerFn({ method: "GET" })
-  .handler(async (): Promise<MarketplaceSettings> => {
+export const getMarketplaceSettingsServerFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<MarketplaceSettings> => {
     try {
-      const { data, error } = await (supabaseAdmin.from("marketplace_configs") as any)
-        .select("key, value");
+      const { data, error } = await (supabaseAdmin.from("marketplace_configs") as any).select(
+        "key, value",
+      );
 
       if (error || !data || data.length === 0) {
         return DEFAULT_MARKETPLACE_SETTINGS;
@@ -63,30 +64,45 @@ export const getMarketplaceSettingsServerFn = createServerFn({ method: "GET" })
       const map = new Map(data.map((row: any) => [row.key, row.value]));
 
       return {
-        returnWindowDays: Number(map.get("return_window_days") ?? DEFAULT_MARKETPLACE_SETTINGS.returnWindowDays),
-        payoutDelayDays: Number(map.get("payout_delay_days") ?? DEFAULT_MARKETPLACE_SETTINGS.payoutDelayDays),
-        defaultCommissionRatePct: Number(map.get("default_commission_rate_pct") ?? DEFAULT_MARKETPLACE_SETTINGS.defaultCommissionRatePct),
-        sellerDispatchSlaHours: Number(map.get("seller_dispatch_sla_hours") ?? DEFAULT_MARKETPLACE_SETTINGS.sellerDispatchSlaHours),
+        returnWindowDays: Number(
+          map.get("return_window_days") ?? DEFAULT_MARKETPLACE_SETTINGS.returnWindowDays,
+        ),
+        payoutDelayDays: Number(
+          map.get("payout_delay_days") ?? DEFAULT_MARKETPLACE_SETTINGS.payoutDelayDays,
+        ),
+        defaultCommissionRatePct: Number(
+          map.get("default_commission_rate_pct") ??
+            DEFAULT_MARKETPLACE_SETTINGS.defaultCommissionRatePct,
+        ),
+        sellerDispatchSlaHours: Number(
+          map.get("seller_dispatch_sla_hours") ??
+            DEFAULT_MARKETPLACE_SETTINGS.sellerDispatchSlaHours,
+        ),
         mediaLimits: (map.get("media_limits") as any) ?? DEFAULT_MARKETPLACE_SETTINGS.mediaLimits,
-        importLimits: (map.get("import_limits") as any) ?? DEFAULT_MARKETPLACE_SETTINGS.importLimits,
-        policyVersions: (map.get("policy_versions") as any) ?? DEFAULT_MARKETPLACE_SETTINGS.policyVersions,
+        importLimits:
+          (map.get("import_limits") as any) ?? DEFAULT_MARKETPLACE_SETTINGS.importLimits,
+        policyVersions:
+          (map.get("policy_versions") as any) ?? DEFAULT_MARKETPLACE_SETTINGS.policyVersions,
       };
     } catch {
       return DEFAULT_MARKETPLACE_SETTINGS;
     }
-  });
+  },
+);
 
 /**
  * Server Function: Record user/seller acceptance of legal terms & policy versions (T502)
  */
 export const recordAcceptedPolicyAgreementServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    userId: string;
-    sellerId?: string | undefined;
-    agreementType: "TERMS" | "PRIVACY" | "SELLER_AGREEMENT" | "RETURNS";
-    version: string;
-    ipAddress?: string | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      userId: string;
+      sellerId?: string | undefined;
+      agreementType: "TERMS" | "PRIVACY" | "SELLER_AGREEMENT" | "RETURNS";
+      version: string;
+      ipAddress?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { userId, sellerId, agreementType, version, ipAddress } = data;
 

@@ -3,11 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Lock, ShieldCheck, UserPlus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, SellerShell } from "@/components/ism/SellerShell";
-import {
-  SELLER_PERMISSIONS,
-  type SellerPermission,
-  type StaffMember,
-} from "@/lib/ism-ops";
+import { SELLER_PERMISSIONS, type SellerPermission, type StaffMember } from "@/lib/ism-ops";
 
 import {
   getSellerTeamMembersServerFn,
@@ -39,7 +35,17 @@ const DEFAULT_MEMBERS: StaffMember[] = [
     name: "Aarav Patel",
     email: "aarav@mumbaiboutique.com.au",
     role: "Owner",
-    permissions: ["products", "orders", "inventory", "shipping", "returns", "promotions", "reports", "store", "finance"],
+    permissions: [
+      "products",
+      "orders",
+      "inventory",
+      "shipping",
+      "returns",
+      "promotions",
+      "reports",
+      "store",
+      "finance",
+    ],
     mfa: true,
     status: "Active",
   },
@@ -66,8 +72,14 @@ function TeamPage() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
-  const [inviteRole, setInviteRole] = useState<"Owner" | "Manager" | "Dispatch" | "Finance">("Manager");
-  const [invitePerms, setInvitePerms] = useState<SellerPermission[]>(["products", "orders", "shipping"]);
+  const [inviteRole, setInviteRole] = useState<"Owner" | "Manager" | "Dispatch" | "Finance">(
+    "Manager",
+  );
+  const [invitePerms, setInvitePerms] = useState<SellerPermission[]>([
+    "products",
+    "orders",
+    "shipping",
+  ]);
   const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
@@ -78,7 +90,9 @@ function TeamPage() {
             name: m.profiles?.full_name || m.user_id || "Team Member",
             email: m.profiles?.email || `staff_${m.id.slice(0, 6)}@store.com`,
             role: (m.role as "Owner" | "Manager" | "Dispatch" | "Finance") || "Manager",
-            permissions: (Array.isArray(m.permissions) ? m.permissions : ["products", "orders"]) as SellerPermission[],
+            permissions: (Array.isArray(m.permissions)
+              ? m.permissions
+              : ["products", "orders"]) as SellerPermission[],
             mfa: m.role === "Owner",
             status: "Active",
           }));
@@ -98,9 +112,7 @@ function TeamPage() {
 
     setStaff((prev) =>
       prev.map((m) =>
-        m.email !== email || m.role === "Owner"
-          ? m
-          : { ...m, permissions: nextPermissions },
+        m.email !== email || m.role === "Owner" ? m : { ...m, permissions: nextPermissions },
       ),
     );
 
@@ -199,7 +211,8 @@ function TeamPage() {
             <Lock size={18} className="mt-0.5 shrink-0 text-primary" />
             <p>
               Every screen in the Seller Centre is scoped to this store only. Orders, customers,
-              inventory, finance and reports for other sellers are never accessible to this account or its staff.
+              inventory, finance and reports for other sellers are never accessible to this account
+              or its staff.
             </p>
           </div>
         </Card>
@@ -233,7 +246,9 @@ function TeamPage() {
                   <label className="text-xs font-semibold">Role</label>
                   <select
                     value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as "Owner" | "Manager" | "Dispatch" | "Finance")}
+                    onChange={(e) =>
+                      setInviteRole(e.target.value as "Owner" | "Manager" | "Dispatch" | "Finance")
+                    }
                     className="mt-1 h-9 w-full rounded-sm border border-input bg-surface px-2 text-sm"
                   >
                     <option value="Manager">Manager</option>
@@ -247,7 +262,10 @@ function TeamPage() {
                 <label className="text-xs font-semibold">Assigned Permissions</label>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {SELLER_PERMISSIONS.map((p) => (
-                    <label key={p.id} className="flex items-center gap-2 rounded-sm border border-border p-2 text-xs">
+                    <label
+                      key={p.id}
+                      className="flex items-center gap-2 rounded-sm border border-border p-2 text-xs"
+                    >
                       <input
                         type="checkbox"
                         checked={invitePerms.includes(p.id)}
@@ -305,7 +323,15 @@ function TeamPage() {
                       )}
                     </td>
                     <td>
-                      <Badge tone={m.status === "Active" ? "teal" : m.status === "Invited" ? "primary" : "rani"}>
+                      <Badge
+                        tone={
+                          m.status === "Active"
+                            ? "teal"
+                            : m.status === "Invited"
+                              ? "primary"
+                              : "rani"
+                        }
+                      >
                         {m.status}
                       </Badge>
                     </td>
@@ -318,7 +344,9 @@ function TeamPage() {
                           <Trash2 size={13} /> Revoke
                         </button>
                       ) : (
-                        <span className="text-xs text-muted-foreground font-semibold">Fixed Owner</span>
+                        <span className="text-xs text-muted-foreground font-semibold">
+                          Fixed Owner
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -337,7 +365,9 @@ function TeamPage() {
                   {staff.map((m) => (
                     <th key={m.email} className="pb-2 text-center">
                       {m.name.split(" ")[0]}
-                      <span className="block font-normal normal-case text-muted-foreground/70">{m.role}</span>
+                      <span className="block font-normal normal-case text-muted-foreground/70">
+                        {m.role}
+                      </span>
                     </th>
                   ))}
                 </tr>
@@ -367,8 +397,8 @@ function TeamPage() {
             </table>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Owner access is fixed and cannot be reduced. Finance permission is required to view payout
-            details, which stay masked for all other roles.
+            Owner access is fixed and cannot be reduced. Finance permission is required to view
+            payout details, which stay masked for all other roles.
           </p>
         </Card>
       </div>

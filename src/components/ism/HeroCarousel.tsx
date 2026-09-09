@@ -117,7 +117,10 @@ export function HeroCarousel() {
 
   useEffect(() => {
     if (paused) return;
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
       return;
     const t = window.setInterval(() => setIndex((i) => (i + 1) % SLIDES.length), 5500);
     return () => window.clearInterval(t);
@@ -136,7 +139,8 @@ export function HeroCarousel() {
       onTouchEnd={(e) => {
         const start = touchX.current;
         const end = e.changedTouches[0]?.clientX ?? null;
-        if (start !== null && end !== null && Math.abs(end - start) > 40) go(index + (end < start ? 1 : -1));
+        if (start !== null && end !== null && Math.abs(end - start) > 40)
+          go(index + (end < start ? 1 : -1));
         touchX.current = null;
       }}
       aria-roledescription="carousel"

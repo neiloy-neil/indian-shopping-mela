@@ -8,7 +8,7 @@ import type { Database } from "./types";
  * - Financial ledger settlement & payouts
  * - Transactional inventory reservations
  * - Bulk product ingestion batch commits
- * 
+ *
  * WARNING: NEVER import or bundle this module into browser-facing React components!
  */
 

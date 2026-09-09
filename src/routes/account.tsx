@@ -54,10 +54,14 @@ export const Route = createFileRoute("/account")({
       { title: "My Account — Indian Shopping Mela" },
       {
         name: "description",
-        content: "Track ISM orders package by package, manage returns, wishlist, addresses and reviews.",
+        content:
+          "Track ISM orders package by package, manage returns, wishlist, addresses and reviews.",
       },
       { property: "og:title", content: "My Account — Indian Shopping Mela" },
-      { property: "og:description", content: "Your orders, tracking, returns and saved items in one place." },
+      {
+        property: "og:description",
+        content: "Your orders, tracking, returns and saved items in one place.",
+      },
     ],
   }),
   component: AccountPage,
@@ -102,7 +106,8 @@ function AccountPage() {
             <User className="mx-auto size-12 text-muted-foreground" />
             <h2 className="mt-4 text-xl font-bold">Sign In Required</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Please sign in to view your orders, live package tracking, returns, and saved wishlist items.
+              Please sign in to view your orders, live package tracking, returns, and saved wishlist
+              items.
             </p>
             <Link
               to="/signin"
@@ -217,8 +222,20 @@ function AccountPage() {
   );
 }
 
-function Overview({ orders, wishCount, returnsCount }: { orders: CustomerOrderSummaryDto[]; wishCount: number; returnsCount: number }) {
-  const activePackages = orders.reduce((sum, o) => sum + o.packages.filter((p) => p.status !== "DELIVERED" && p.status !== "CANCELLED").length, 0);
+function Overview({
+  orders,
+  wishCount,
+  returnsCount,
+}: {
+  orders: CustomerOrderSummaryDto[];
+  wishCount: number;
+  returnsCount: number;
+}) {
+  const activePackages = orders.reduce(
+    (sum, o) =>
+      sum + o.packages.filter((p) => p.status !== "DELIVERED" && p.status !== "CANCELLED").length,
+    0,
+  );
 
   return (
     <div className="space-y-4">
@@ -233,13 +250,20 @@ function Overview({ orders, wishCount, returnsCount }: { orders: CustomerOrderSu
         <Panel title={`Latest Order — #${orders[0]!.orderNumber}`}>
           <div className="space-y-3">
             {orders[0]!.packages.map((pkg, idx) => (
-              <PackageItemCard key={pkg.subOrderId} pkg={pkg} index={idx + 1} total={orders[0]!.packages.length} />
+              <PackageItemCard
+                key={pkg.subOrderId}
+                pkg={pkg}
+                index={idx + 1}
+                total={orders[0]!.packages.length}
+              />
             ))}
           </div>
         </Panel>
       ) : (
         <Panel title="Recent Orders">
-          <p className="text-sm text-muted-foreground">No orders placed yet. Explore our curated Indian catalogue!</p>
+          <p className="text-sm text-muted-foreground">
+            No orders placed yet. Explore our curated Indian catalogue!
+          </p>
         </Panel>
       )}
     </div>
@@ -262,14 +286,23 @@ function Orders({ orders }: { orders: CustomerOrderSummaryDto[] }) {
           key={o.id}
           title={`Order #${o.orderNumber} · Total ${formatAUD(o.totalAmountAud)}`}
           action={
-            <Link to="/orders/$id" params={{ id: o.id }} className="text-[11px] font-bold uppercase tracking-wide text-rani">
+            <Link
+              to="/orders/$id"
+              params={{ id: o.id }}
+              className="text-[11px] font-bold uppercase tracking-wide text-rani"
+            >
               View Order Details
             </Link>
           }
         >
           <div className="space-y-3">
             {o.packages.map((p, idx) => (
-              <PackageItemCard key={p.subOrderId} pkg={p} index={idx + 1} total={o.packages.length} />
+              <PackageItemCard
+                key={p.subOrderId}
+                pkg={p}
+                index={idx + 1}
+                total={o.packages.length}
+              />
             ))}
           </div>
         </Panel>
@@ -279,17 +312,26 @@ function Orders({ orders }: { orders: CustomerOrderSummaryDto[] }) {
 }
 
 function Track({ orders }: { orders: CustomerOrderSummaryDto[] }) {
-  const allPackages = orders.flatMap((o) => o.packages.map((p) => ({ ...p, orderId: o.id, orderNumber: o.orderNumber })));
+  const allPackages = orders.flatMap((o) =>
+    o.packages.map((p) => ({ ...p, orderId: o.id, orderNumber: o.orderNumber })),
+  );
 
   return (
     <Panel title="Multi-Seller Package Tracking">
       <p className="mb-4 text-xs text-muted-foreground">
-        Orders with items from different sellers ship independently with live Australia Post / Sendle tracking.
+        Orders with items from different sellers ship independently with live Australia Post /
+        Sendle tracking.
       </p>
       {allPackages.length > 0 ? (
         <div className="space-y-4">
           {allPackages.map((p, idx) => (
-            <PackageItemCard key={p.subOrderId} pkg={p} index={idx + 1} total={allPackages.length} showTimeline />
+            <PackageItemCard
+              key={p.subOrderId}
+              pkg={p}
+              index={idx + 1}
+              total={allPackages.length}
+              showTimeline
+            />
           ))}
         </div>
       ) : (
@@ -318,7 +360,11 @@ function PackageItemCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold">
           Package {index} of {total} ·{" "}
-          <Link to="/seller/$slug" params={{ slug: pkg.sellerSlug }} className="text-primary hover:text-rani">
+          <Link
+            to="/seller/$slug"
+            params={{ slug: pkg.sellerSlug }}
+            className="text-primary hover:text-rani"
+          >
             {pkg.sellerName}
           </Link>
         </p>
@@ -331,7 +377,11 @@ function PackageItemCard({
         {pkg.items.map((item) => (
           <div key={item.id} className="flex gap-3 text-sm">
             {item.imageUrl && (
-              <img src={item.imageUrl} alt={item.title} className="size-14 shrink-0 rounded-sm object-cover border border-border" />
+              <img
+                src={item.imageUrl}
+                alt={item.title}
+                className="size-14 shrink-0 rounded-sm object-cover border border-border"
+              />
             )}
             <div>
               <p className="font-medium">{item.title}</p>
@@ -345,7 +395,8 @@ function PackageItemCard({
 
       {pkg.trackingNumber && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Carrier: {pkg.carrier || "Australia Post"} · Tracking: <span className="font-mono">{pkg.trackingNumber}</span>
+          Carrier: {pkg.carrier || "Australia Post"} · Tracking:{" "}
+          <span className="font-mono">{pkg.trackingNumber}</span>
         </p>
       )}
 
@@ -356,8 +407,16 @@ function PackageItemCard({
               const done = isDelivered || (isShipped && i <= 2) || i === 0;
               return (
                 <li key={step} className="flex items-center gap-2 text-xs">
-                  {done ? <CheckCircle2 size={14} className="text-teal" /> : <Circle size={14} className="text-border" />}
-                  <span className={done ? "font-semibold text-foreground" : "text-muted-foreground"}>{step}</span>
+                  {done ? (
+                    <CheckCircle2 size={14} className="text-teal" />
+                  ) : (
+                    <Circle size={14} className="text-border" />
+                  )}
+                  <span
+                    className={done ? "font-semibold text-foreground" : "text-muted-foreground"}
+                  >
+                    {step}
+                  </span>
                 </li>
               );
             })}
@@ -395,17 +454,22 @@ function Returns({ returnsList }: { returnsList: any[] }) {
             <div key={ret.id} className="rounded-md border border-border p-4">
               <div className="flex justify-between items-center">
                 <p className="font-semibold">Return #{ret.id.slice(0, 8)}</p>
-                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase">{ret.status}</span>
+                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase">
+                  {ret.status}
+                </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">Reason: {ret.reason}</p>
-              <p className="text-xs text-muted-foreground">Refund Amount: {formatAUD(Number(ret.refund_amount))}</p>
+              <p className="text-xs text-muted-foreground">
+                Refund Amount: {formatAUD(Number(ret.refund_amount))}
+              </p>
             </div>
           ))
         ) : (
           <p className="text-sm text-muted-foreground">No active return requests.</p>
         )}
         <p className="text-xs text-muted-foreground mt-4">
-          Change of mind returns are accepted within 7 days of confirmed delivery. Statutory ACL warranty claims for damaged or faulty goods are supported outside this window.
+          Change of mind returns are accepted within 7 days of confirmed delivery. Statutory ACL
+          warranty claims for damaged or faulty goods are supported outside this window.
         </p>
       </div>
     </Panel>
@@ -475,36 +539,102 @@ function Addresses({
     >
       <div className="space-y-4">
         {isAdding && (
-          <form onSubmit={handleSave} className="rounded-md border border-border p-4 space-y-3 bg-muted/20">
+          <form
+            onSubmit={handleSave}
+            className="rounded-md border border-border p-4 space-y-3 bg-muted/20"
+          >
             <h3 className="text-xs font-bold uppercase">Add New Australian Delivery Address</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Full Name" required className="h-9 px-3 border rounded-sm text-sm" />
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone Number" required className="h-9 px-3 border rounded-sm text-sm" />
-              <input value={line1} onChange={(e) => setLine1(e.target.value)} placeholder="Street Address" required className="h-9 px-3 border rounded-sm text-sm sm:col-span-2" />
-              <input value={suburb} onChange={(e) => setSuburb(e.target.value)} placeholder="Suburb" required className="h-9 px-3 border rounded-sm text-sm" />
+              <input
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                placeholder="Full Name"
+                required
+                className="h-9 px-3 border rounded-sm text-sm"
+              />
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone Number"
+                required
+                className="h-9 px-3 border rounded-sm text-sm"
+              />
+              <input
+                value={line1}
+                onChange={(e) => setLine1(e.target.value)}
+                placeholder="Street Address"
+                required
+                className="h-9 px-3 border rounded-sm text-sm sm:col-span-2"
+              />
+              <input
+                value={suburb}
+                onChange={(e) => setSuburb(e.target.value)}
+                placeholder="Suburb"
+                required
+                className="h-9 px-3 border rounded-sm text-sm"
+              />
               <div className="grid grid-cols-2 gap-2">
-                <select value={state} onChange={(e) => setState(e.target.value)} className="h-9 px-2 border rounded-sm text-sm">
-                  <option value="NSW">NSW</option><option value="VIC">VIC</option><option value="QLD">QLD</option><option value="WA">WA</option><option value="SA">SA</option><option value="TAS">TAS</option><option value="ACT">ACT</option><option value="NT">NT</option>
+                <select
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className="h-9 px-2 border rounded-sm text-sm"
+                >
+                  <option value="NSW">NSW</option>
+                  <option value="VIC">VIC</option>
+                  <option value="QLD">QLD</option>
+                  <option value="WA">WA</option>
+                  <option value="SA">SA</option>
+                  <option value="TAS">TAS</option>
+                  <option value="ACT">ACT</option>
+                  <option value="NT">NT</option>
                 </select>
-                <input value={postcode} onChange={(e) => setPostcode(e.target.value)} placeholder="Postcode" required className="h-9 px-3 border rounded-sm text-sm" />
+                <input
+                  value={postcode}
+                  onChange={(e) => setPostcode(e.target.value)}
+                  placeholder="Postcode"
+                  required
+                  className="h-9 px-3 border rounded-sm text-sm"
+                />
               </div>
             </div>
             <div className="flex gap-2">
-              <button type="submit" className="bg-primary text-primary-foreground px-4 py-1.5 text-xs font-bold uppercase rounded-sm">Save</button>
-              <button type="button" onClick={() => setIsAdding(false)} className="border px-4 py-1.5 text-xs font-bold uppercase rounded-sm">Cancel</button>
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground px-4 py-1.5 text-xs font-bold uppercase rounded-sm"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAdding(false)}
+                className="border px-4 py-1.5 text-xs font-bold uppercase rounded-sm"
+              >
+                Cancel
+              </button>
             </div>
           </form>
         )}
 
         <div className="grid gap-3 md:grid-cols-2">
           {addresses.map((a) => (
-            <div key={a.id} className="rounded-md border border-border p-4 text-sm flex justify-between items-start">
+            <div
+              key={a.id}
+              className="rounded-md border border-border p-4 text-sm flex justify-between items-start"
+            >
               <div>
-                <p className="font-semibold">{a.tag} {a.isDefault && "(Default)"}</p>
-                <p className="mt-1 text-muted-foreground">{a.recipientName} · {a.address.line1}, {a.address.suburb} {a.address.state} {a.address.postcode}</p>
+                <p className="font-semibold">
+                  {a.tag} {a.isDefault && "(Default)"}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  {a.recipientName} · {a.address.line1}, {a.address.suburb} {a.address.state}{" "}
+                  {a.address.postcode}
+                </p>
                 <p className="text-xs text-muted-foreground">{a.phone}</p>
               </div>
-              <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-rani p-1">
+              <button
+                onClick={() => handleDelete(a.id)}
+                className="text-muted-foreground hover:text-rani p-1"
+              >
                 <Trash2 size={15} />
               </button>
             </div>
@@ -523,17 +653,27 @@ function Reviews({ orders }: { orders: CustomerOrderSummaryDto[] }) {
           You can write verified reviews for products you have purchased and received.
         </p>
         {orders.length > 0 ? (
-          orders.flatMap((o) => o.packages.flatMap((p) => p.items)).slice(0, 3).map((item) => (
-            <div key={item.id} className="rounded-md border border-border p-4 flex justify-between items-center">
-              <div>
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-xs text-muted-foreground">Verified Purchase · Delivered</p>
+          orders
+            .flatMap((o) => o.packages.flatMap((p) => p.items))
+            .slice(0, 3)
+            .map((item) => (
+              <div
+                key={item.id}
+                className="rounded-md border border-border p-4 flex justify-between items-center"
+              >
+                <div>
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">Verified Purchase · Delivered</p>
+                </div>
+                <Link
+                  to="/product/$id"
+                  params={{ id: item.id }}
+                  className="text-xs font-bold uppercase text-rani hover:underline"
+                >
+                  Write Review
+                </Link>
               </div>
-              <Link to="/product/$id" params={{ id: item.id }} className="text-xs font-bold uppercase text-rani hover:underline">
-                Write Review
-              </Link>
-            </div>
-          ))
+            ))
         ) : (
           <p className="text-sm text-muted-foreground">No purchase reviews yet.</p>
         )}
@@ -570,23 +710,48 @@ function Profile() {
     <Panel title="Profile & Preferences">
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Full name</label>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm" />
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Full name
+          </label>
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+          />
         </div>
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Email</label>
-          <input defaultValue={user?.email ?? "customer@example.com.au"} disabled className="mt-1 h-10 w-full rounded-sm border border-input bg-muted/40 px-3 text-sm text-muted-foreground" />
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Email
+          </label>
+          <input
+            defaultValue={user?.email ?? "customer@example.com.au"}
+            disabled
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-muted/40 px-3 text-sm text-muted-foreground"
+          />
         </div>
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Mobile</label>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm" />
+          <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Mobile
+          </label>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm"
+          />
         </div>
       </div>
       <div className="mt-4 flex gap-3">
-        <button onClick={handleSaveProfile} disabled={isSaving} className="rounded-sm bg-rani px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:opacity-90">
+        <button
+          onClick={handleSaveProfile}
+          disabled={isSaving}
+          className="rounded-sm bg-rani px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:opacity-90"
+        >
           {isSaving ? "Saving..." : "Save changes"}
         </button>
-        <button onClick={() => signOut()} className="rounded-sm border border-border px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:border-rani hover:text-rani">
+        <button
+          onClick={() => signOut()}
+          className="rounded-sm border border-border px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:border-rani hover:text-rani"
+        >
           Sign out
         </button>
       </div>

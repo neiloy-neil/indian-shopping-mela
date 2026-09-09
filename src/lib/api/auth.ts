@@ -48,7 +48,7 @@ export async function signUp(
   email: string,
   password: string,
   fullName: string,
-  phone?: string
+  phone?: string,
 ): Promise<{ user: AuthSessionUser | null; requiresEmailVerification: boolean }> {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -101,7 +101,8 @@ export async function signOut(): Promise<void> {
  * Send password reset email.
  */
 export async function resetPassword(email: string): Promise<void> {
-  const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}/signin?reset=true` : undefined;
+  const redirectUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/signin?reset=true` : undefined;
   const options = redirectUrl ? { redirectTo: redirectUrl } : {};
   const { error } = await supabase.auth.resetPasswordForEmail(email, options);
 
@@ -170,7 +171,10 @@ export async function requireUser(userId?: string): Promise<AuthSessionUser> {
 /**
  * Server authorization helper: Verify user is an owner or member of a specific seller.
  */
-export async function requireSellerMember(sellerId: string, userId: string): Promise<{ sellerId: string; role: string }> {
+export async function requireSellerMember(
+  sellerId: string,
+  userId: string,
+): Promise<{ sellerId: string; role: string }> {
   const user = await requireUser(userId);
   if (["admin_support", "admin_catalogue", "admin_finance", "admin_super"].includes(user.role)) {
     return { sellerId, role: "admin_override" };
@@ -196,7 +200,9 @@ export async function requireSellerMember(sellerId: string, userId: string): Pro
     .maybeSingle();
 
   if (!seller) {
-    throw new Error("FORBIDDEN: You do not have permission to access or manage this seller account.");
+    throw new Error(
+      "FORBIDDEN: You do not have permission to access or manage this seller account.",
+    );
   }
 
   return { sellerId, role: "owner" };
@@ -205,7 +211,11 @@ export async function requireSellerMember(sellerId: string, userId: string): Pro
 /**
  * Server authorization helper: Verify specific seller permission (e.g. 'products:write', 'orders:fulfill').
  */
-export async function requireSellerPermission(sellerId: string, userId: string, requiredPermission: string): Promise<boolean> {
+export async function requireSellerPermission(
+  sellerId: string,
+  userId: string,
+  requiredPermission: string,
+): Promise<boolean> {
   const membership = await requireSellerMember(sellerId, userId);
   if (membership.role === "owner" || membership.role === "admin_override") {
     return true;
@@ -241,15 +251,22 @@ export async function requireAdminRole(userId: string): Promise<AuthSessionUser>
 /**
  * Server authorization helper: Require Super Admin / Finance Admin with MFA/AAL verification.
  */
-export async function requireFinanceAdmin(userId: string, aalLevel: string = "aal1"): Promise<AuthSessionUser> {
+export async function requireFinanceAdmin(
+  userId: string,
+  aalLevel: string = "aal1",
+): Promise<AuthSessionUser> {
   const admin = await requireAdminRole(userId);
   if (admin.role !== "admin_super" && admin.role !== "admin_finance") {
-    throw new Error("FORBIDDEN: Super Admin role required for financial ledger, payouts, and settlement actions.");
+    throw new Error(
+      "FORBIDDEN: Super Admin role required for financial ledger, payouts, and settlement actions.",
+    );
   }
 
   // For high-risk financial actions, enforce MFA / AAL2 if configured
   if (process.env["NODE_ENV"] === "production" && aalLevel !== "aal2") {
-    console.warn(`Financial action initiated by ${admin.email} with standard auth level ${aalLevel}. High-risk actions require MFA verification.`);
+    console.warn(
+      `Financial action initiated by ${admin.email} with standard auth level ${aalLevel}. High-risk actions require MFA verification.`,
+    );
   }
 
   return admin;

@@ -17,7 +17,11 @@ export function SectionHead({
     <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 sm:flex sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <h2 className="section-title text-foreground">{title}</h2>
-        {subtitle && <p className="mt-1 text-[12px] leading-snug text-muted-foreground sm:text-sm">{subtitle}</p>}
+        {subtitle && (
+          <p className="mt-1 text-[12px] leading-snug text-muted-foreground sm:text-sm">
+            {subtitle}
+          </p>
+        )}
       </div>
       {action}
     </div>

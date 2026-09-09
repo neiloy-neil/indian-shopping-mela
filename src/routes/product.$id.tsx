@@ -23,7 +23,11 @@ import { IMAGES, PRODUCTS, formatAUD, sellerBySlug } from "@/lib/ism-data";
 import { getProductDetailPageData } from "@/lib/api/catalogue";
 import { useIsm } from "@/lib/ism-store";
 import { useAuth } from "@/hooks/use-auth";
-import { getProductReviewsServerFn, submitProductReviewServerFn, type ProductReviewDto } from "@/lib/api/reviews";
+import {
+  getProductReviewsServerFn,
+  submitProductReviewServerFn,
+  type ProductReviewDto,
+} from "@/lib/api/reviews";
 
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ params }) => {
@@ -33,7 +37,12 @@ export const Route = createFileRoute("/product/$id")({
   },
   head: ({ loaderData }) => {
     if (!loaderData || !loaderData.product) {
-      return { meta: [{ title: "Product unavailable — Indian Shopping Mela" }, { name: "robots", content: "noindex" }] };
+      return {
+        meta: [
+          { title: "Product unavailable — Indian Shopping Mela" },
+          { name: "robots", content: "noindex" },
+        ],
+      };
     }
     const p = loaderData.product;
     const s = loaderData.seller ?? sellerBySlug(p.seller);
@@ -58,20 +67,18 @@ function ProductPage() {
   const navigate = useNavigate();
   const { addToCart, toggleWishlist, isWishlisted } = useIsm();
 
-  if (!product) return null;
-
-  const seller = liveSeller ?? sellerBySlug(product.seller)!;
-
-
-
   const [view, setView] = useState<"image" | "video">("image");
   const [zoom, setZoom] = useState(false);
-  const [size, setSize] = useState(product.sizes?.[0]);
-  const [colour, setColour] = useState(product.colours[0]);
+  const [size, setSize] = useState(product?.sizes?.[0]);
+  const [colour, setColour] = useState(product?.colours?.[0]);
   const [qty, setQty] = useState(1);
   const [postcode, setPostcode] = useState("");
   const [eta, setEta] = useState<string | null>(null);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Product Details");
+
+  if (!product) return null;
+
+  const seller = liveSeller ?? sellerBySlug(product.seller)!;
 
   const wished = isWishlisted(product.id);
   const related = PRODUCTS.filter(
@@ -104,7 +111,11 @@ function ProductPage() {
             Home
           </Link>{" "}
           /{" "}
-          <Link to="/category/$slug" params={{ slug: product.category }} className="hover:text-rani">
+          <Link
+            to="/category/$slug"
+            params={{ slug: product.category }}
+            className="hover:text-rani"
+          >
             {product.category.replace("-", " & ")}
           </Link>{" "}
           / <span className="text-foreground">{product.subcategory}</span>
@@ -119,7 +130,9 @@ function ProductPage() {
                   key={i}
                   onClick={() => setView("image")}
                   className={`overflow-hidden rounded-sm border-2 transition-colors ${
-                    view === "image" && i === 0 ? "border-rani" : "border-transparent hover:border-border"
+                    view === "image" && i === 0
+                      ? "border-rani"
+                      : "border-transparent hover:border-border"
                   }`}
                   aria-label={`View image ${i + 1}`}
                 >
@@ -133,7 +146,10 @@ function ProductPage() {
                   />
                 </button>
               ))}
-              {Boolean((product as any).videoUrl || (product as any).media?.some((m: any) => m.media_type === "video")) && (
+              {Boolean(
+                (product as any).videoUrl ||
+                (product as any).media?.some((m: any) => m.media_type === "video"),
+              ) && (
                 <button
                   onClick={() => setView("video")}
                   className={`relative overflow-hidden rounded-sm border-2 transition-colors ${
@@ -197,7 +213,10 @@ function ProductPage() {
                   </div>
                 )}
               </div>
-              {Boolean((product as any).videoUrl || (product as any).media?.some((m: any) => m.media_type === "video")) && (
+              {Boolean(
+                (product as any).videoUrl ||
+                (product as any).media?.some((m: any) => m.media_type === "video"),
+              ) && (
                 <div className="mt-3 flex gap-2">
                   {(["image", "video"] as const).map((v) => (
                     <button
@@ -365,7 +384,8 @@ function ProductPage() {
                   <div>
                     <p className="font-semibold text-foreground">{seller.name}</p>
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin size={12} /> {seller.city}, {seller.state} · Seller since {seller.since}
+                      <MapPin size={12} /> {seller.city}, {seller.state} · Seller since{" "}
+                      {seller.since}
                     </p>
                     <div className="mt-1.5">
                       <Stars rating={seller.rating} reviews={seller.reviews} />
@@ -405,8 +425,8 @@ function ProductPage() {
                 <p>
                   {product.name} — crafted in {product.region} and stocked locally by {seller.name}.
                   {product.fabric ? ` Fabric: ${product.fabric}.` : ""}
-                  {product.material ? ` Material: ${product.material}.` : ""} Care: dry clean or gentle
-                  hand wash recommended.
+                  {product.material ? ` Material: ${product.material}.` : ""} Care: dry clean or
+                  gentle hand wash recommended.
                 </p>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs md:grid-cols-3">
                   <Spec label="SKU" value={product.id.toUpperCase()} />
@@ -422,23 +442,35 @@ function ProductPage() {
               <ul className="list-disc space-y-2 pl-5">
                 <li>Standard Australia-wide shipping $9.95, free over $99 from this seller.</li>
                 <li>Express metro delivery $14.95, 1–3 business days after dispatch.</li>
-                <li>Dispatched from {seller.city}, {seller.state} within {seller.dispatchDays}.</li>
+                <li>
+                  Dispatched from {seller.city}, {seller.state} within {seller.dispatchDays}.
+                </li>
                 <li>Tracking is issued per package; multi-seller orders arrive separately.</li>
               </ul>
             )}
             {tab === "Returns" && (
               <ul className="list-disc space-y-2 pl-5">
-                <li>7-day standard returns from delivery on unworn items with original tags and packaging (statutory ACL rights protected).</li>
+                <li>
+                  7-day standard returns from delivery on unworn items with original tags and
+                  packaging (statutory ACL rights protected).
+                </li>
                 <li>Free size exchange on apparel and footwear (one per order).</li>
                 <li>Custom, stitched and pierced jewellery items are final sale.</li>
-                <li>Refunds are processed within 5 business days of the seller receiving and inspecting the return.</li>
+                <li>
+                  Refunds are processed within 5 business days of the seller receiving and
+                  inspecting the return.
+                </li>
               </ul>
             )}
           </div>
         </div>
 
         {/* Customer Reviews Section */}
-        <ProductReviewsSection productId={product.id} rating={product.rating} reviewCount={product.reviews} />
+        <ProductReviewsSection
+          productId={product.id}
+          rating={product.rating}
+          reviewCount={product.reviews}
+        />
 
         {related.length > 0 && (
           <div className="mt-12">
@@ -478,7 +510,9 @@ function ProductPage() {
         <div className="min-w-0 shrink-0">
           <p className="text-[15px] font-bold text-foreground">{formatAUD(product.price)}</p>
           {product.compareAt && (
-            <p className="text-[11px] text-muted-foreground line-through">{formatAUD(product.compareAt)}</p>
+            <p className="text-[11px] text-muted-foreground line-through">
+              {formatAUD(product.compareAt)}
+            </p>
           )}
         </div>
         <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
@@ -667,7 +701,9 @@ function ProductReviewsSection({
     <div className="mt-12 rounded-md border border-border bg-surface p-6">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h2 className="font-display text-xl font-bold text-foreground">Verified Customer Reviews</h2>
+          <h2 className="font-display text-xl font-bold text-foreground">
+            Verified Customer Reviews
+          </h2>
           <div className="mt-1.5 flex items-center gap-3">
             <Stars rating={rating} reviews={reviewCount || reviews.length} size={15} />
             <span className="text-xs text-muted-foreground">
@@ -684,10 +720,17 @@ function ProductReviewsSection({
       </div>
 
       {isWritingReview && (
-        <form onSubmit={handleSubmitReview} className="mt-6 rounded-md border border-border/80 bg-surface-raised p-4 space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">Submit Your Review</h3>
+        <form
+          onSubmit={handleSubmitReview}
+          className="mt-6 rounded-md border border-border/80 bg-surface-raised p-4 space-y-4"
+        >
+          <h3 className="text-sm font-bold uppercase tracking-wide text-foreground">
+            Submit Your Review
+          </h3>
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Rating</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Rating
+            </label>
             <div className="mt-1 flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
@@ -703,7 +746,9 @@ function ProductReviewsSection({
           </div>
 
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Review Title</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Review Title
+            </label>
             <input
               type="text"
               required
@@ -715,7 +760,9 @@ function ProductReviewsSection({
           </div>
 
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Detailed Feedback</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Detailed Feedback
+            </label>
             <textarea
               required
               rows={3}
@@ -741,7 +788,9 @@ function ProductReviewsSection({
         {loading ? (
           <p className="py-4 text-xs text-muted-foreground">Loading reviews...</p>
         ) : reviews.length === 0 ? (
-          <p className="py-4 text-xs text-muted-foreground">No customer reviews yet. Be the first to review this product!</p>
+          <p className="py-4 text-xs text-muted-foreground">
+            No customer reviews yet. Be the first to review this product!
+          </p>
         ) : (
           reviews.map((r) => (
             <div key={r.id} className="py-4 space-y-1.5">
@@ -755,12 +804,20 @@ function ProductReviewsSection({
                   )}
                 </div>
                 <span className="text-[11px] text-muted-foreground">
-                  {new Date(r.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
+                  {new Date(r.createdAt).toLocaleDateString("en-AU", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-gold">
                 {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} size={12} className={s <= r.rating ? "fill-current" : "text-border"} />
+                  <Star
+                    key={s}
+                    size={12}
+                    className={s <= r.rating ? "fill-current" : "text-border"}
+                  />
                 ))}
               </div>
               <p className="text-sm font-semibold text-foreground">{r.title}</p>
@@ -772,4 +829,3 @@ function ProductReviewsSection({
     </div>
   );
 }
-

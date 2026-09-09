@@ -12,16 +12,8 @@ export const CSP_DIRECTIVES = {
     "https://js.stripe.com",
     "https://cdn.jsdelivr.net",
   ],
-  "style-src": [
-    "'self'",
-    "'unsafe-inline'",
-    "https://fonts.googleapis.com",
-  ],
-  "font-src": [
-    "'self'",
-    "https://fonts.gstatic.com",
-    "data:",
-  ],
+  "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+  "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
   "img-src": [
     "'self'",
     "data:",
@@ -48,11 +40,7 @@ export const CSP_DIRECTIVES = {
     "https://api.brevo.com",
     "https://digitalapi.auspost.com.au",
   ],
-  "frame-src": [
-    "'self'",
-    "https://js.stripe.com",
-    "https://hooks.stripe.com",
-  ],
+  "frame-src": ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
   "object-src": ["'none'"],
   "base-uri": ["'self'"],
   "form-action": ["'self'"],
@@ -96,14 +84,11 @@ export function applySecurityHeaders(response: Response): Response {
   // 6. Restrictive Permissions Policy
   headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(self), payment=(self \"https://js.stripe.com\")"
+    'camera=(), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")',
   );
 
   // 7. Strict Transport Security (HSTS) — 2 years + subdomains + preload
-  headers.set(
-    "Strict-Transport-Security",
-    "max-age=63072000; includeSubDomains; preload"
-  );
+  headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
 
   // 8. Cross-Origin Embedder and Resource Policies
   headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");

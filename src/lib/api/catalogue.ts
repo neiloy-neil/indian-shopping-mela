@@ -56,23 +56,33 @@ export interface SearchCatalogParams {
  */
 export function mapDbProductToIsm(dbItem: any): Product {
   const variants = dbItem.variants ?? [];
-  const minPrice = variants.length > 0
-    ? Math.min(...variants.map((v: any) => Number(v.price ?? dbItem.price ?? 0)))
-    : Number(dbItem.price ?? 0);
-  
-  const compareAtPrice = variants.length > 0 && variants[0].compare_at_price
-    ? Number(variants[0].compare_at_price)
-    : (dbItem.sale_price ? Number(dbItem.sale_price) : undefined);
+  const minPrice =
+    variants.length > 0
+      ? Math.min(...variants.map((v: any) => Number(v.price ?? dbItem.price ?? 0)))
+      : Number(dbItem.price ?? 0);
 
-  const images = (dbItem.media_urls as string[]) ?? (dbItem.media?.map((m: any) => m.url) as string[]) ?? [];
+  const compareAtPrice =
+    variants.length > 0 && variants[0].compare_at_price
+      ? Number(variants[0].compare_at_price)
+      : dbItem.sale_price
+        ? Number(dbItem.sale_price)
+        : undefined;
+
+  const images =
+    (dbItem.media_urls as string[]) ?? (dbItem.media?.map((m: any) => m.url) as string[]) ?? [];
   const firstImage = images.length > 0 ? images[0] : "sarees";
 
-  const allSizes = Array.from(new Set(variants.map((v: any) => v.size || v.title).filter(Boolean))) as string[];
-  const allColours = Array.from(new Set(variants.map((v: any) => v.colour).filter(Boolean))) as string[];
+  const allSizes = Array.from(
+    new Set(variants.map((v: any) => v.size || v.title).filter(Boolean)),
+  ) as string[];
+  const allColours = Array.from(
+    new Set(variants.map((v: any) => v.colour).filter(Boolean)),
+  ) as string[];
 
-  const totalStock = variants.length > 0
-    ? variants.reduce((acc: number, v: any) => acc + Number(v.stock_quantity ?? 0), 0)
-    : Number(dbItem.stock_quantity ?? 0);
+  const totalStock =
+    variants.length > 0
+      ? variants.reduce((acc: number, v: any) => acc + Number(v.stock_quantity ?? 0), 0)
+      : Number(dbItem.stock_quantity ?? 0);
 
   return {
     id: dbItem.id ?? dbItem.slug,
@@ -105,15 +115,19 @@ import { getClientEnv } from "@/lib/config/env";
  * T125 / T126 — Get Homepage Feed from live Supabase tables, fallback to seed fixtures ONLY in demo/dev mode.
  */
 export async function getHomepageFeed(): Promise<HomepageFeed> {
-  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+  const isDemo =
+    getClientEnv().VITE_DEMO_MODE ||
+    (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
 
   try {
     const { data: dbProducts, error } = await (supabase.from("products") as any)
-      .select(`
+      .select(
+        `
         *,
         variants:product_variants(*),
         seller:sellers(business_name, slug, dispatch_address)
-      `)
+      `,
+      )
       .eq("status", "LIVE")
       .limit(30);
 
@@ -125,7 +139,9 @@ export async function getHomepageFeed(): Promise<HomepageFeed> {
             id: "dept-women",
             name: "Women",
             slug: "women",
-            categories: CATEGORIES.filter((c) => ["women", "jewellery", "footwear"].includes(c.slug)),
+            categories: CATEGORIES.filter((c) =>
+              ["women", "jewellery", "footwear"].includes(c.slug),
+            ),
           },
           {
             id: "dept-men",
@@ -239,7 +255,9 @@ export async function getHomepageFeed(): Promise<HomepageFeed> {
       trendingProducts: PRODUCTS.slice(0, 8),
       newArrivals: PRODUCTS.slice(8, 16),
       topSellers: SELLERS,
-      festiveSpotlight: PRODUCTS.filter((p) => p.festival === "Diwali" || p.category === "pooja").slice(0, 6),
+      festiveSpotlight: PRODUCTS.filter(
+        (p) => p.festival === "Diwali" || p.category === "pooja",
+      ).slice(0, 6),
       regionalSpecialties: REGIONS,
     };
   }
@@ -274,11 +292,13 @@ export async function getCategoryCatalogue(categorySlug: string): Promise<{
 
   try {
     const { data: dbProducts, error } = await (supabase.from("products") as any)
-      .select(`
+      .select(
+        `
         *,
         variants:product_variants(*),
         seller:sellers(business_name, slug, dispatch_address)
-      `)
+      `,
+      )
       .eq("status", "LIVE")
       .or(`department.eq.${categorySlug},subcategory.ilike.%${matchedCat.name}%`);
 
@@ -292,10 +312,16 @@ export async function getCategoryCatalogue(categorySlug: string): Promise<{
     console.warn("Category live query failed:", err);
   }
 
-  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+  const isDemo =
+    getClientEnv().VITE_DEMO_MODE ||
+    (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
 
   if (isDemo) {
-    const staticProducts = PRODUCTS.filter((p) => p.category === categorySlug || p.subcategory.toLowerCase().includes(categorySlug.toLowerCase()));
+    const staticProducts = PRODUCTS.filter(
+      (p) =>
+        p.category === categorySlug ||
+        p.subcategory.toLowerCase().includes(categorySlug.toLowerCase()),
+    );
     return {
       category: matchedCat,
       products: staticProducts.length > 0 ? staticProducts : PRODUCTS.slice(0, 8),
@@ -315,7 +341,9 @@ export async function getSellerStorefrontData(sellerSlug: string): Promise<{
   seller: Seller | null;
   products: Product[];
 }> {
-  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+  const isDemo =
+    getClientEnv().VITE_DEMO_MODE ||
+    (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
 
   try {
     const { data: dbSeller, error: sellerError } = await (supabase.from("sellers") as any)
@@ -325,11 +353,13 @@ export async function getSellerStorefrontData(sellerSlug: string): Promise<{
 
     if (!sellerError && dbSeller) {
       const { data: dbProducts } = await (supabase.from("products") as any)
-        .select(`
+        .select(
+          `
           *,
           variants:product_variants(*),
           seller:sellers(business_name, slug, dispatch_address)
-        `)
+        `,
+        )
         .eq("seller_id", dbSeller.id)
         .eq("status", "LIVE");
 
@@ -342,7 +372,9 @@ export async function getSellerStorefrontData(sellerSlug: string): Promise<{
         reviews: 124,
         since: new Date(dbSeller.created_at).getFullYear(),
         tagline: dbSeller.description ?? "Curated Indian collections shipped Australia-wide",
-        about: dbSeller.description ?? "Preserving Indian heritage, style and handcrafted treasures across Australia.",
+        about:
+          dbSeller.description ??
+          "Preserving Indian heritage, style and handcrafted treasures across Australia.",
         dispatchDays: "1-2 business days",
         banner: "sarees",
       };
@@ -379,12 +411,13 @@ export async function getProductDetailPageData(idOrSlug: string): Promise<{
   seller: Seller | null;
   relatedProducts: Product[];
 }> {
-  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+  const isDemo =
+    getClientEnv().VITE_DEMO_MODE ||
+    (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
-    const query = (supabase.from("products") as any)
-      .select(`
+    const query = (supabase.from("products") as any).select(`
         *,
         variants:product_variants(*),
         seller:sellers(*)
@@ -397,24 +430,33 @@ export async function getProductDetailPageData(idOrSlug: string): Promise<{
     if (!error && dbItem) {
       const product = mapDbProductToIsm(dbItem);
       const sellerData = dbItem.seller;
-      const seller: Seller = sellerData ? {
-        name: sellerData.business_name ?? sellerData.trading_name,
-        slug: sellerData.slug,
-        city: (sellerData.dispatch_address as any)?.suburb ?? "Sydney",
-        state: (sellerData.dispatch_address as any)?.state ?? "NSW",
-        rating: 4.9,
-        reviews: 98,
-        since: 2023,
-        tagline: sellerData.description ?? "Handcrafted Indian Collections",
-        about: sellerData.description ?? "Preserving authentic Indian craft traditions across Australia.",
-        dispatchDays: "1-2 business days",
-        banner: "sarees",
-      } : (SELLERS.find((s) => s.slug === product.seller) ?? SELLERS[0]!);
+      const seller: Seller = sellerData
+        ? {
+            name: sellerData.business_name ?? sellerData.trading_name,
+            slug: sellerData.slug,
+            city: (sellerData.dispatch_address as any)?.suburb ?? "Sydney",
+            state: (sellerData.dispatch_address as any)?.state ?? "NSW",
+            rating: 4.9,
+            reviews: 98,
+            since: 2023,
+            tagline: sellerData.description ?? "Handcrafted Indian Collections",
+            about:
+              sellerData.description ??
+              "Preserving authentic Indian craft traditions across Australia.",
+            dispatchDays: "1-2 business days",
+            banner: "sarees",
+          }
+        : (SELLERS.find((s) => s.slug === product.seller) ?? SELLERS[0]!);
 
       return {
         product,
         seller,
-        relatedProducts: isDemo ? PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 8) : [],
+        relatedProducts: isDemo
+          ? PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(
+              0,
+              8,
+            )
+          : [],
       };
     }
   } catch (err) {
@@ -426,7 +468,9 @@ export async function getProductDetailPageData(idOrSlug: string): Promise<{
     if (!staticProduct) return { product: null, seller: null, relatedProducts: [] };
 
     const staticSeller = SELLERS.find((s) => s.slug === staticProduct.seller) ?? SELLERS[0]!;
-    const related = PRODUCTS.filter((p) => p.category === staticProduct.category && p.id !== staticProduct.id).slice(0, 8);
+    const related = PRODUCTS.filter(
+      (p) => p.category === staticProduct.category && p.id !== staticProduct.id,
+    ).slice(0, 8);
 
     return {
       product: staticProduct,
@@ -449,17 +493,21 @@ export async function searchCatalogueItems(params: SearchCatalogParams): Promise
   products: Product[];
   total: number;
 }> {
-  const isDemo = getClientEnv().VITE_DEMO_MODE || (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
+  const isDemo =
+    getClientEnv().VITE_DEMO_MODE ||
+    (typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production");
   const q = (params.query ?? "").trim().toLowerCase();
-  
+
   try {
     if (q) {
       const { data: dbItems, error } = await (supabase.from("products") as any)
-        .select(`
+        .select(
+          `
           *,
           variants:product_variants(*),
           seller:sellers(business_name, slug, dispatch_address)
-        `)
+        `,
+        )
         .eq("status", "LIVE")
         .or(`title.ilike.%${q}%,description.ilike.%${q}%,tags.cs.{${q}}`);
 
@@ -499,7 +547,9 @@ export async function searchCatalogueItems(params: SearchCatalogParams): Promise
         p.occasion,
         p.fabric,
         ...(p.tags ?? []),
-      ].join(" ").toLowerCase();
+      ]
+        .join(" ")
+        .toLowerCase();
 
       return searchTokens.some((token) => haystack.includes(token));
     });

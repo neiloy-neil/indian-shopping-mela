@@ -8,11 +8,13 @@ export { supabaseAdmin } from "./admin";
  */
 export function createServerSupabaseClient(
   cookieHeader?: string,
-  setCookieCallback?: (name: string, value: string, options: CookieOptions) => void
+  setCookieCallback?: (name: string, value: string, options: CookieOptions) => void,
 ) {
   const env = typeof process !== "undefined" && process.env ? process.env : {};
-  const supabaseUrl = env["SUPABASE_URL"] ?? env["VITE_SUPABASE_URL"] ?? "https://placeholder-project.supabase.co";
-  const supabaseAnonKey = env["VITE_SUPABASE_ANON_KEY"] ?? env["SUPABASE_ANON_KEY"] ?? "placeholder-anon-key";
+  const supabaseUrl =
+    env["SUPABASE_URL"] ?? env["VITE_SUPABASE_URL"] ?? "https://placeholder-project.supabase.co";
+  const supabaseAnonKey =
+    env["VITE_SUPABASE_ANON_KEY"] ?? env["SUPABASE_ANON_KEY"] ?? "placeholder-anon-key";
 
   // Parse cookie header into map
   const cookiesMap = new Map<string, string>();
@@ -41,4 +43,3 @@ export function createServerSupabaseClient(
     },
   });
 }
-

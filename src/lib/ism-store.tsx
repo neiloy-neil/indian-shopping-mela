@@ -41,7 +41,7 @@ type Ctx = {
       size?: string | undefined;
       colour?: string | undefined;
       variantId?: string | undefined;
-    }
+    },
   ) => void;
   setQty: (id: string, qty: number) => void;
   removeFromCart: (id: string) => void;
@@ -106,7 +106,11 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       setUserId(newUserId);
 
       // On Sign-In: Merge guest cart into user account cart
-      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && newUserId && typeof window !== "undefined") {
+      if (
+        (event === "SIGNED_IN" || event === "USER_UPDATED") &&
+        newUserId &&
+        typeof window !== "undefined"
+      ) {
         const token = getOrCreateGuestToken();
         try {
           await mergeGuestCartServerFn({ data: { userId: newUserId, guestToken: token } });
@@ -205,7 +209,7 @@ export function IsmProvider({ children }: { children: ReactNode }) {
         const existing = prev.find((l) => l.variantId === variantId || l.id === id);
         if (existing) {
           return prev.map((l) =>
-            l.variantId === variantId || l.id === id ? { ...l, qty: l.qty + qtyToAdd } : l
+            l.variantId === variantId || l.id === id ? { ...l, qty: l.qty + qtyToAdd } : l,
           );
         }
         return [
@@ -235,7 +239,7 @@ export function IsmProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [userId, updateCart]
+    [userId, updateCart],
   );
 
   const setQty = useCallback(
@@ -246,7 +250,7 @@ export function IsmProvider({ children }: { children: ReactNode }) {
       updateCart((prev) =>
         qty <= 0
           ? prev.filter((l) => l.id !== id && l.variantId !== id)
-          : prev.map((l) => (l.id === id || l.variantId === id ? { ...l, qty } : l))
+          : prev.map((l) => (l.id === id || l.variantId === id ? { ...l, qty } : l)),
       );
 
       if (lineId && typeof window !== "undefined") {
@@ -257,7 +261,7 @@ export function IsmProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [cart, updateCart]
+    [cart, updateCart],
   );
 
   const removeFromCart = useCallback(
@@ -275,14 +279,12 @@ export function IsmProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [cart, updateCart]
+    [cart, updateCart],
   );
 
   const toggleWishlist = useCallback(
     (id: string) => {
-      updateWishlist((prev) =>
-        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-      );
+      updateWishlist((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
       if (userId && typeof window !== "undefined") {
         toggleWishlistServerFn({
@@ -292,15 +294,12 @@ export function IsmProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [userId, updateWishlist]
+    [userId, updateWishlist],
   );
 
   const value = useMemo<Ctx>(() => {
     const cartCount = cart.reduce((n, l) => n + l.qty, 0);
-    const subtotal = cart.reduce(
-      (n, l) => n + (productById(l.id)?.price ?? 0) * l.qty,
-      0
-    );
+    const subtotal = cart.reduce((n, l) => n + (productById(l.id)?.price ?? 0) * l.qty, 0);
     return {
       cart,
       wishlist,

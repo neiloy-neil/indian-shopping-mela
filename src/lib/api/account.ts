@@ -43,7 +43,8 @@ export const getCustomerOrdersServerFn = createServerFn({ method: "POST" })
   .validator((data: { userId: string }) => data)
   .handler(async ({ data }): Promise<CustomerOrderSummaryDto[]> => {
     const { data: rows, error } = await (supabaseAdmin.from("orders") as any)
-      .select(`
+      .select(
+        `
         id,
         order_number,
         total_amount,
@@ -68,7 +69,8 @@ export const getCustomerOrdersServerFn = createServerFn({ method: "POST" })
             image_url
           )
         )
-      `)
+      `,
+      )
       .eq("customer_id", data.userId)
       .order("created_at", { ascending: false });
 
@@ -154,15 +156,17 @@ export const getCustomerAddressesServerFn = createServerFn({ method: "POST" })
  * Server Function: Save or update customer address
  */
 export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    userId: string;
-    addressId?: string | undefined;
-    tag: string;
-    recipientName: string;
-    phone: string;
-    address: Address;
-    isDefault?: boolean | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      userId: string;
+      addressId?: string | undefined;
+      tag: string;
+      recipientName: string;
+      phone: string;
+      address: Address;
+      isDefault?: boolean | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     if (data.isDefault) {
       // Unset previous defaults
@@ -191,21 +195,19 @@ export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
         .eq("id", data.addressId)
         .eq("user_id", data.userId);
     } else {
-      await (supabaseAdmin as any)
-        .from("customer_addresses")
-        .insert({
-          user_id: data.userId,
-          address_type: data.tag,
-          full_name: data.recipientName,
-          phone: data.phone,
-          address_line1: data.address.line1,
-          address_line2: data.address.line2 ?? null,
-          suburb: data.address.suburb,
-          state: data.address.state,
-          postcode: data.address.postcode,
-          country: data.address.country ?? "AU",
-          is_default: data.isDefault ?? true,
-        });
+      await (supabaseAdmin as any).from("customer_addresses").insert({
+        user_id: data.userId,
+        address_type: data.tag,
+        full_name: data.recipientName,
+        phone: data.phone,
+        address_line1: data.address.line1,
+        address_line2: data.address.line2 ?? null,
+        suburb: data.address.suburb,
+        state: data.address.state,
+        postcode: data.address.postcode,
+        country: data.address.country ?? "AU",
+        is_default: data.isDefault ?? true,
+      });
     }
 
     return { success: true };
@@ -232,7 +234,9 @@ export const getCustomerReturnsServerFn = createServerFn({ method: "POST" })
   .validator((data: { userId: string }) => data)
   .handler(async ({ data }) => {
     const { data: rows, error } = await (supabaseAdmin.from("returns") as any)
-      .select("*, return_items(*), sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))")
+      .select(
+        "*, return_items(*), sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))",
+      )
       .eq("customer_id", data.userId)
       .order("created_at", { ascending: false });
 
@@ -244,11 +248,7 @@ export const getCustomerReturnsServerFn = createServerFn({ method: "POST" })
  * Server Function: Update customer profile details
  */
 export const updateCustomerProfileServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    userId: string;
-    fullName: string;
-    phone?: string | undefined;
-  }) => data)
+  .validator((data: { userId: string; fullName: string; phone?: string | undefined }) => data)
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("profiles") as any)
       .update({

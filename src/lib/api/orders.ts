@@ -55,10 +55,14 @@ export interface SellerOrderView {
 /**
  * Fetch actionable sub-orders for a specific seller from PostgreSQL without fake fallbacks.
  */
-export async function getSellerSubOrders(sellerId: string, statusFilter?: string): Promise<SellerOrderView[]> {
+export async function getSellerSubOrders(
+  sellerId: string,
+  statusFilter?: string,
+): Promise<SellerOrderView[]> {
   try {
     let query = (supabaseAdmin.from("sub_orders") as any)
-      .select(`
+      .select(
+        `
         id,
         master_order_id,
         status,
@@ -89,7 +93,8 @@ export async function getSellerSubOrders(sellerId: string, statusFilter?: string
           label_url,
           status
         )
-      `)
+      `,
+      )
       .eq("seller_id", sellerId)
       .order("created_at", { ascending: false });
 
@@ -104,11 +109,22 @@ export async function getSellerSubOrders(sellerId: string, statusFilter?: string
 
     return dbSubOrders.map((so: any) => {
       const address = so.master_order?.shipping_address as Address;
-      const itemsSubtotal = (so.items || []).reduce((acc: number, item: any) => acc + Number(item.total_price || 0), 0);
+      const itemsSubtotal = (so.items || []).reduce(
+        (acc: number, item: any) => acc + Number(item.total_price || 0),
+        0,
+      );
       const totalAud = Number((itemsSubtotal + Number(so.shipping_cost || 0)).toFixed(2));
-      const itemsCount = (so.items || []).reduce((acc: number, item: any) => acc + Number(item.quantity || 1), 0);
-      const deadline = so.dispatch_deadline ? new Date(so.dispatch_deadline) : new Date(new Date(so.created_at).getTime() + 48 * 60 * 60 * 1000);
-      const isUrgent = deadline.getTime() - Date.now() < 24 * 60 * 60 * 1000 && so.status !== "SHIPPED" && so.status !== "DELIVERED";
+      const itemsCount = (so.items || []).reduce(
+        (acc: number, item: any) => acc + Number(item.quantity || 1),
+        0,
+      );
+      const deadline = so.dispatch_deadline
+        ? new Date(so.dispatch_deadline)
+        : new Date(new Date(so.created_at).getTime() + 48 * 60 * 60 * 1000);
+      const isUrgent =
+        deadline.getTime() - Date.now() < 24 * 60 * 60 * 1000 &&
+        so.status !== "SHIPPED" &&
+        so.status !== "DELIVERED";
 
       return {
         id: so.id,
@@ -120,7 +136,11 @@ export async function getSellerSubOrders(sellerId: string, statusFilter?: string
         itemsCount: Math.max(1, itemsCount),
         totalAud,
         status: so.status ?? "NEW_ORDER",
-        dispatchDeadline: deadline.toLocaleDateString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" }),
+        dispatchDeadline: deadline.toLocaleDateString("en-AU", {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
         isUrgent,
         createdAt: so.created_at,
         carrier: so.carrier || so.shipment?.carrier,
@@ -138,14 +158,19 @@ export async function getSellerSubOrders(sellerId: string, statusFilter?: string
  * Server Function: Update Sub-Order Lifecycle Status (NEW_ORDER -> PROCESSING -> READY_TO_SHIP -> SHIPPED).
  */
 export const updateSellerSubOrderStatusServerFn = createServerFn({ method: "POST" })
-  .validator((data: { subOrderId: string; newStatus: "PROCESSING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED" }) => data)
+  .validator(
+    (data: {
+      subOrderId: string;
+      newStatus: "PROCESSING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return updateSellerSubOrderStatus(data.subOrderId, data.newStatus);
   });
 
 export async function updateSellerSubOrderStatus(
   subOrderId: string,
-  newStatus: "PROCESSING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED"
+  newStatus: "PROCESSING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED",
 ): Promise<void> {
   const updatePayload: Record<string, any> = {
     status: newStatus,
@@ -157,7 +182,9 @@ export async function updateSellerSubOrderStatus(
   } else if (newStatus === "DELIVERED") {
     const deliveredAt = new Date().toISOString();
     updatePayload["delivered_at"] = deliveredAt;
-    updatePayload["can_return_until"] = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    updatePayload["can_return_until"] = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
   }
 
   const { error } = await (supabaseAdmin.from("sub_orders") as any)
@@ -197,7 +224,8 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
 
   // 1. Fetch sub-order details
   const { data: subOrder, error: subOrderErr } = await (supabaseAdmin.from("sub_orders") as any)
-    .select(`
+    .select(
+      `
       id,
       master_order_id,
       seller_id,
@@ -216,7 +244,8 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
         payment_status,
         customer_email
       )
-    `)
+    `,
+    )
     .eq("id", subOrderId)
     .single();
 
@@ -228,12 +257,15 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
   const unmodifiableStatuses = ["SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];
   if (unmodifiableStatuses.includes(subOrder.status)) {
     throw new Error(
-      `Cannot cancel sub-order in status "${subOrder.status}". Items already dispatched or resolved must follow the return workflow.`
+      `Cannot cancel sub-order in status "${subOrder.status}". Items already dispatched or resolved must follow the return workflow.`,
     );
   }
 
   // 3. Calculate refund amount for this seller package
-  const itemsTotalAud = (subOrder.items || []).reduce((acc: number, item: any) => acc + Number(item.total_price || 0), 0);
+  const itemsTotalAud = (subOrder.items || []).reduce(
+    (acc: number, item: any) => acc + Number(item.total_price || 0),
+    0,
+  );
   const refundAmountAud = Number((itemsTotalAud + Number(subOrder.shipping_cost || 0)).toFixed(2));
   const refundAmountCents = Math.round(refundAmountAud * 100);
 
@@ -258,7 +290,10 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
         actorId,
         note: `Restocked via cancellation (${reasonCode}) by ${actorRole}`,
       }).catch((restockErr: any) => {
-        console.warn(`Failed to restock variant ${item.variant_id}:`, restockErr?.message || restockErr);
+        console.warn(
+          `Failed to restock variant ${item.variant_id}:`,
+          restockErr?.message || restockErr,
+        );
       });
       restockedCount += item.quantity || 1;
     }
@@ -345,7 +380,8 @@ export const getOrderTrackingDetailsServerFn = createServerFn({ method: "POST" }
 export async function getOrderTrackingDetails(orderId: string) {
   try {
     const { data: dbOrder, error } = await (supabaseAdmin.from("orders") as any)
-      .select(`
+      .select(
+        `
         *,
         sub_orders (
           id,
@@ -378,7 +414,8 @@ export async function getOrderTrackingDetails(orderId: string) {
             image_url
           )
         )
-      `)
+      `,
+      )
       .eq("id", orderId)
       .maybeSingle();
 
@@ -398,12 +435,14 @@ export async function getOrderTrackingDetails(orderId: string) {
         shippingTotal: Number(dbOrder.shipping_total ?? 0),
         gst: Number(dbOrder.gst_total ?? 0),
         payment: `${dbOrder.payment_provider ?? "Stripe AU"} · ${dbOrder.payment_status ?? "PAID"}`,
-        paymentNote: "Payment authorized and verified via Stripe AU. Funds held until package delivery.",
+        paymentNote:
+          "Payment authorized and verified via Stripe AU. Funds held until package delivery.",
         address: address
           ? `${address.line1}, ${address.suburb} ${address.state} ${address.postcode}`
           : "Sydney NSW 2000, Australia",
         subOrders: (dbOrder.sub_orders || []).map((so: any, idx: number) => {
-          const sellerName = so.seller?.business_name ?? so.seller?.store_name ?? "Marketplace Boutique";
+          const sellerName =
+            so.seller?.business_name ?? so.seller?.store_name ?? "Marketplace Boutique";
           const sellerSlug = so.seller?.slug ?? "mumbai-mirror-boutique";
           const isDelivered = so.status === "DELIVERED";
           const isShipped = so.status === "SHIPPED" || isDelivered;
@@ -415,13 +454,18 @@ export async function getOrderTrackingDetails(orderId: string) {
             sellerSlug,
             origin: "Harris Park, NSW",
             status: so.status,
-            eta: isDelivered ? "Delivered" : isShipped ? "ETA 2–3 business days" : "Dispatch in 1–2 business days",
+            eta: isDelivered
+              ? "Delivered"
+              : isShipped
+                ? "ETA 2–3 business days"
+                : "Dispatch in 1–2 business days",
             carrier: so.carrier ?? "Australia Post",
             service: so.shipping_service ?? "Parcel Post",
             tracking: so.tracking_number ?? "AP-AU-PENDING",
             shipping: Number(so.shipping_cost ?? 0),
             payout: isDelivered ? "Payout clearing (14-day hold)" : "Payout pending delivery",
-            canCancel: so.status === "NEW_ORDER" || so.status === "PROCESSING" || so.status === "PREPARING",
+            canCancel:
+              so.status === "NEW_ORDER" || so.status === "PROCESSING" || so.status === "PREPARING",
             canReturn: isDelivered,
             items: (so.items || []).map((it: any) => ({
               productId: it.product_id,
@@ -445,7 +489,9 @@ export async function getOrderTrackingDetails(orderId: string) {
               },
               {
                 label: "Delivered & 7-day return window started",
-                at: so.delivered_at ? new Date(so.delivered_at).toLocaleDateString("en-AU") : "Pending",
+                at: so.delivered_at
+                  ? new Date(so.delivered_at).toLocaleDateString("en-AU")
+                  : "Pending",
                 done: isDelivered,
               },
             ],
@@ -459,6 +505,3 @@ export async function getOrderTrackingDetails(orderId: string) {
 
   return null;
 }
-
-
-

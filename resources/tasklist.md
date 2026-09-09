@@ -6,6 +6,7 @@
 > **Baseline Document**: [Developer Architecture Master Plan (V1)](file:///d:/AI/Indian%20Shopping%20Mela/resources/Indian_Shopping_Mela_Developer_Architecture_Master_Plan_V1.pdf)  
 > **Target Production Stack**: TanStack Start (React 19) + Supabase (PostgreSQL + Auth + Storage + RLS) + Vercel + Stripe AU + Australia Post / Sendle API + Brevo (Email/SMS).  
 > **Confirmed Architecture Decisions**:
+>
 > 1. **Pricing & GST**: Australian Standard (10% GST-inclusive, 1/11th GST itemized on invoices).
 > 2. **Payments & Payouts**: Stripe AU Direct Payment -> Platform Escrow Ledger -> 14-day post-delivery unlock -> ABA/CSV batch bank payouts.
 > 3. **Shipping & Fulfilment**: Primary: Live AusPost / Sendle API label generation; Fallback: Manual courier tracking code entry on API downtime.
@@ -18,24 +19,24 @@
 
 ## 1. Executive Codebase Audit vs. Master Plan V1 (36 Sections)
 
-| Section # | Master Plan Domain | Codebase File / Route | Current Status | Implementation Reference |
-| :---: | :--- | :--- | :--- | :--- |
-| **§1-§2** | Multi-Vendor Roles & Permissions | `src/lib/ism-ops.ts`, `src/lib/supabase/types.ts` | 🟢 Complete | `supabase/migrations/20260906000000_master_schema.sql` |
-| **§4-§5** | Seller Onboarding & Storefront | `src/routes/sell.onboarding.tsx`, `src/lib/api/sellers.ts` | 🟢 API Service Live | `src/lib/api/sellers.ts` (`saveSellerOnboarding`) |
-| **§6-§7** | Catalogue & Single Listing | `src/routes/sell.add-product.tsx`, `src/lib/api/products.ts` | 🟢 API Service Live | `src/lib/api/products.ts` (`createProductWithVariants`) |
-| **§8** | Bulk Upload (CSV/XLSX) — **CRITICAL** | `src/routes/sell.bulk-upload.tsx`, `src/lib/api/bulk-upload.ts` | 🟢 Batch Engine Live | `src/lib/api/bulk-upload.ts` (Chunked processor + error reports) |
-| **§9** | Product Media & Video — **CRITICAL** | `src/lib/api/products.ts` | 🟢 CDN Storage Live | `uploadProductMedia` (`product-media` bucket) |
-| **§10-§11** | Variants, Inventory & AUD Pricing | `product_variants` & `inventory_reservations` | 🟢 Schema & Logic Live | PostgreSQL atomic locks + AUD GST calculation |
-| **§12-§13** | Multi-Seller Cart & Split Checkout | `src/lib/api/checkout.ts`, `src/lib/api/orders.ts` | 🟢 Orchestrator Live | `prepareCheckoutSummary` + 15-min reservation hold |
-| **§14** | Payments & Immutable Ledger | `src/lib/api/orders.ts`, `src/lib/api/admin-finance.ts` | 🟢 Ledger Engine Live | Immutable ledger lines with precision numeric |
-| **§15-§16** | Order Architecture & Fulfilment | `src/lib/api/fulfilment.ts`, `src/lib/api/orders.ts` | 🟢 Fulfilment Live | `generateShippingLabelForSubOrder` & dispatch workflow |
-| **§17-§18** | Shipping API & Tracking Notifications | `src/lib/api/shipping.ts`, `src/lib/api/fulfilment.ts` | 🟢 Adapter & Webhooks Live | `IShippingProvider` & delivery confirmation normalizer |
-| **§19-§20** | Cancellations & Returns Engine | `src/lib/api/returns.ts` | 🟢 Returns Engine Live | 7-day rule check + automatic `PAYOUT_HOLD` |
-| **§21** | Seller Payouts & Settlement | `src/lib/api/admin-finance.ts` | 🟢 Payout Engine Live | `reconcileAndUnlockEligiblePayouts` & ABA/CSV export |
-| **§22-§23** | Reviews & Discovery Filters | `reviews` table | 🟢 Complete | `public.reviews` with verified buyer checks |
-| **§24-§26** | Admin, Seller & Customer Portals | `src/routes/admin.tsx`, `src/routes/account.tsx` | 🟢 UI Complete | Protected via Supabase Auth + RLS |
-| **§27** | Transactional Notifications Engine | `src/lib/api/notifications.ts` | 🟢 Brevo API Live | `sendOrderConfirmationEmail`, `sendPackageDispatchedEmail` |
-| **§28-§30** | Audit Log, Security & Reliability | `audit_logs` & `webhook_events` | 🟢 Live Logging | `public.audit_logs`, `public.webhook_events` |
+|  Section #  | Master Plan Domain                    | Codebase File / Route                                           | Current Status             | Implementation Reference                                         |
+| :---------: | :------------------------------------ | :-------------------------------------------------------------- | :------------------------- | :--------------------------------------------------------------- |
+|  **§1-§2**  | Multi-Vendor Roles & Permissions      | `src/lib/ism-ops.ts`, `src/lib/supabase/types.ts`               | 🟢 Complete                | `supabase/migrations/20260906000000_master_schema.sql`           |
+|  **§4-§5**  | Seller Onboarding & Storefront        | `src/routes/sell.onboarding.tsx`, `src/lib/api/sellers.ts`      | 🟢 API Service Live        | `src/lib/api/sellers.ts` (`saveSellerOnboarding`)                |
+|  **§6-§7**  | Catalogue & Single Listing            | `src/routes/sell.add-product.tsx`, `src/lib/api/products.ts`    | 🟢 API Service Live        | `src/lib/api/products.ts` (`createProductWithVariants`)          |
+|   **§8**    | Bulk Upload (CSV/XLSX) — **CRITICAL** | `src/routes/sell.bulk-upload.tsx`, `src/lib/api/bulk-upload.ts` | 🟢 Batch Engine Live       | `src/lib/api/bulk-upload.ts` (Chunked processor + error reports) |
+|   **§9**    | Product Media & Video — **CRITICAL**  | `src/lib/api/products.ts`                                       | 🟢 CDN Storage Live        | `uploadProductMedia` (`product-media` bucket)                    |
+| **§10-§11** | Variants, Inventory & AUD Pricing     | `product_variants` & `inventory_reservations`                   | 🟢 Schema & Logic Live     | PostgreSQL atomic locks + AUD GST calculation                    |
+| **§12-§13** | Multi-Seller Cart & Split Checkout    | `src/lib/api/checkout.ts`, `src/lib/api/orders.ts`              | 🟢 Orchestrator Live       | `prepareCheckoutSummary` + 15-min reservation hold               |
+|   **§14**   | Payments & Immutable Ledger           | `src/lib/api/orders.ts`, `src/lib/api/admin-finance.ts`         | 🟢 Ledger Engine Live      | Immutable ledger lines with precision numeric                    |
+| **§15-§16** | Order Architecture & Fulfilment       | `src/lib/api/fulfilment.ts`, `src/lib/api/orders.ts`            | 🟢 Fulfilment Live         | `generateShippingLabelForSubOrder` & dispatch workflow           |
+| **§17-§18** | Shipping API & Tracking Notifications | `src/lib/api/shipping.ts`, `src/lib/api/fulfilment.ts`          | 🟢 Adapter & Webhooks Live | `IShippingProvider` & delivery confirmation normalizer           |
+| **§19-§20** | Cancellations & Returns Engine        | `src/lib/api/returns.ts`                                        | 🟢 Returns Engine Live     | 7-day rule check + automatic `PAYOUT_HOLD`                       |
+|   **§21**   | Seller Payouts & Settlement           | `src/lib/api/admin-finance.ts`                                  | 🟢 Payout Engine Live      | `reconcileAndUnlockEligiblePayouts` & ABA/CSV export             |
+| **§22-§23** | Reviews & Discovery Filters           | `reviews` table                                                 | 🟢 Complete                | `public.reviews` with verified buyer checks                      |
+| **§24-§26** | Admin, Seller & Customer Portals      | `src/routes/admin.tsx`, `src/routes/account.tsx`                | 🟢 UI Complete             | Protected via Supabase Auth + RLS                                |
+|   **§27**   | Transactional Notifications Engine    | `src/lib/api/notifications.ts`                                  | 🟢 Brevo API Live          | `sendOrderConfirmationEmail`, `sendPackageDispatchedEmail`       |
+| **§28-§30** | Audit Log, Security & Reliability     | `audit_logs` & `webhook_events`                                 | 🟢 Live Logging            | `public.audit_logs`, `public.webhook_events`                     |
 
 ---
 
@@ -59,6 +60,7 @@
 ## 3. Comprehensive Tasklist by Domain
 
 ### A. Database & Storage Architecture (Supabase PostgreSQL)
+
 - [x] Task DB-01: Create `profiles` table (UUID, role, email, full_name, phone).
 - [x] Task DB-02: Create `sellers` table (business_name, legal_name, ABN, trading_address, return_address, BSB, bank_acc, status, commission_rate).
 - [x] Task DB-03: Create `seller_staff` table (seller_id, user_id, role, permissions array).
@@ -75,6 +77,7 @@
 - [x] Task DB-14: Setup TypeScript database types in `src/lib/supabase/types.ts`.
 
 ### B. Authentication & Portal Access Control
+
 - [x] Task AUTH-01: Initialize Supabase Client (`src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`).
 - [ ] Task AUTH-02: Wire `/signin` for Customer Email/Password and OTP authentication.
 - [x] Task AUTH-03: Wire `/sell/onboarding` API service (`src/lib/api/sellers.ts`).
@@ -82,6 +85,7 @@
 - [ ] Task AUTH-05: Implement session persistence and route protection middleware.
 
 ### C. Catalog, Single Listing & Bulk Upload Engine
+
 - [x] Task CAT-01: Build Catalog & Search API services (`src/lib/api/products.ts`).
 - [x] Task CAT-02: Build Single Product & Variant creation service with media uploads (`createProductWithVariants`, `uploadProductMedia`).
 - [x] Task CAT-03: Build bulk upload backend processor (`src/lib/api/bulk-upload.ts`):
@@ -92,6 +96,7 @@
   - Chunked batch processing (100 rows/batch).
 
 ### D. Cart, Shipping Adapter & Multi-Seller Checkout (Phase 3)
+
 - [x] Task CHK-01: Group cart line items by seller and calculate separate shipping costs per seller package (`src/lib/api/checkout.ts`).
 - [x] Task CHK-02: Build `IShippingProvider` interface and implement **Australia Post / Sendle API** rate calculator (`src/lib/api/shipping.ts`).
 - [x] Task CHK-03: Implement 15-minute temporary reservation hold in `inventory_reservations`.
@@ -103,11 +108,13 @@
   - Insert initial `payout_ledger` entries in `PAYOUT_HOLD` status.
 
 ### E. Seller Fulfilment & Shipping Label Generation (Phase 4)
+
 - [x] Task FUL-01: Wire sub-order acceptance and packaging workflow (`src/lib/api/fulfilment.ts`).
 - [x] Task FUL-02: Implement `generateShippingLabelForSubOrder` calling AusPost/Sendle API with manual tracking fallback.
 - [x] Task FUL-03: Implement `processCarrierDeliveryConfirmation` webhook handler (triggers 7-day return and 14-day payout timers).
 
 ### F. Returns, Payout Ledger & Admin Controls (Phase 4)
+
 - [x] Task RET-01: Implement `createCustomerReturnRequest` with strict 7-day delivery timestamp validation.
 - [x] Task RET-02: Apply automatic `PAYOUT_HOLD` on seller ledger upon return request creation.
 - [x] Task ADM-01: Build financial metrics aggregator `getMarketplaceFinanceMetrics` (`src/lib/api/admin-finance.ts`).
@@ -115,10 +122,12 @@
 - [x] Task ADM-03: Build ABA / CSV payout batch exporter `generateSellerPayoutBatchCsv` for Australian banks.
 
 ### G. Notifications & Communications (Phase 5)
+
 - [x] Task NOTIF-01: Integrate Brevo API client (`src/lib/api/notifications.ts`).
 - [x] Task NOTIF-02: Configure transactional email templates (`sendOrderConfirmationEmail`, `sendPackageDispatchedEmail`).
 
 ### H. UAT Acceptance Testing & Launch (Phase 5)
+
 - [ ] Task UAT-01: Run 1,000-row bulk import test.
 - [ ] Task UAT-02: Test 3-seller multi-vendor checkout and order splitting.
 - [ ] Task UAT-03: Verify atomic inventory concurrency protection.

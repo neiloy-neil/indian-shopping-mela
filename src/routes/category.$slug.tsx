@@ -12,7 +12,12 @@ export const Route = createFileRoute("/category/$slug")({
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
-      return { meta: [{ title: "Category unavailable — Indian Shopping Mela" }, { name: "robots", content: "noindex" }] };
+      return {
+        meta: [
+          { title: "Category unavailable — Indian Shopping Mela" },
+          { name: "robots", content: "noindex" },
+        ],
+      };
     }
     const t = `${loaderData.category.name} — Indian Shopping Mela`;
     const d = `${loaderData.category.blurb}. Shop ${loaderData.category.name.toLowerCase()} from Indian sellers across Australia in AUD.`;
@@ -30,7 +35,6 @@ export const Route = createFileRoute("/category/$slug")({
 
 function CategoryPage() {
   const { category, products } = Route.useLoaderData();
-
 
   return (
     <ShopLayout>
@@ -50,7 +54,9 @@ function CategoryPage() {
                 {category.name}
               </h1>
               <span className="mt-2.5 block h-1 w-24 rounded-full mela-rule" aria-hidden />
-              <p className="mt-3 max-w-xl text-sm text-muted-foreground md:text-[15px]">{category.blurb}</p>
+              <p className="mt-3 max-w-xl text-sm text-muted-foreground md:text-[15px]">
+                {category.blurb}
+              </p>
             </div>
             <span className="shrink-0 rounded-full gold-hairline bg-surface/80 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-primary backdrop-blur">
               {products.length} products

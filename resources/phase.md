@@ -4,6 +4,7 @@
 > **Master Tasklist**: [resources/tasklist.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/tasklist.md)  
 > **Master Roadmap**: [resources/roadmap.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/roadmap.md)  
 > **Confirmed Architecture Decisions**:
+>
 > - **Stack**: TanStack Start + Supabase (PostgreSQL + RLS + Auth + Storage) + Vercel.
 > - **Tax & GST**: Australian Standard (10% GST-inclusive pricing, 1/11th GST itemized with Marketplace ABN).
 > - **Payments & Payouts**: Stripe AU Direct + Platform Escrow Ledger + 14-day post-delivery unlock + ABA/CSV bank payouts.
@@ -42,9 +43,11 @@ gantt
 ## Phase 1: Database, Security & Core Infrastructure (Days 1–2)
 
 ### Goals:
+
 - Deliver rock-solid PostgreSQL schema, Row-Level Security, Supabase Auth, and Storage CDN.
 
 ### Deliverables:
+
 1. **PostgreSQL Migrations**:
    - `profiles`, `sellers`, `seller_staff`, `categories`, `attributes`, `products`, `product_variants`, `product_media`.
    - `orders`, `sub_orders`, `order_items`, `payout_ledger`, `return_requests`, `shipping_labels`, `audit_logs`, `webhook_events`.
@@ -64,9 +67,11 @@ gantt
 ## Phase 2: Catalog, Seller Onboarding & Bulk Import (Days 3–4)
 
 ### Goals:
+
 - Enable sellers to register, submit KYC, create single products, and bulk upload 1,000+ items via Excel/CSV.
 
 ### Deliverables:
+
 1. **Seller Onboarding Flow**:
    - Save ABN, dispatch/return addresses, and bank payout details (BSB + Account Number).
    - Application status transitions (`DRAFT` → `SUBMITTED` → `APPROVED`).
@@ -84,9 +89,11 @@ gantt
 ## Phase 3: Shipping API, Cart & Multi-Seller Checkout (Days 5–6)
 
 ### Goals:
+
 - Connect live shipping calculations, multi-seller cart splitting, and Stripe AU payment capture.
 
 ### Deliverables:
+
 1. **Shipping Service Adapter (`IShippingProvider`)**:
    - Integration with **Australia Post eParcel** and **Sendle API** with manual fallback on courier downtime.
    - Live shipping rate calculation grouped per seller package based on weight/dimensions.
@@ -106,9 +113,11 @@ gantt
 ## Phase 4: Seller Fulfilment, Returns & Financial Ledger (Days 7–8)
 
 ### Goals:
+
 - Enable seller order fulfilment with courier label generation, customer returns (7-day rule), and admin payout reconciliation.
 
 ### Deliverables:
+
 1. **Seller Fulfilment Workflow (`/sell`)**:
    - Seller order management (Accept, Pack, Dispatch).
    - Generate & download courier PDF shipping label via live API (or manual tracking entry fallback).
@@ -127,9 +136,11 @@ gantt
 ## Phase 5: Notifications, UAT Testing & Production Launch (Days 9–10)
 
 ### Goals:
+
 - Complete Brevo transactional messaging, execute mandatory UAT scenarios, and deploy live to Vercel.
 
 ### Deliverables:
+
 1. **Brevo Notifications Engine**:
    - Customer Order Confirmation + Tax Invoice (10% GST itemized).
    - Seller New Order & Dispatch Alerts.

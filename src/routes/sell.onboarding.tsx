@@ -57,7 +57,9 @@ function Select({
 }) {
   return (
     <div>
-      <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</label>
+      <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -117,7 +119,9 @@ function OnboardingPage() {
         termsAcceptedVersion: "V1_2026",
         status: "DRAFT",
       });
-      toast.success("Draft saved successfully", { description: "You can resume your onboarding anytime." });
+      toast.success("Draft saved successfully", {
+        description: "You can resume your onboarding anytime.",
+      });
     } catch (err: any) {
       toast.error("Failed to save draft", { description: err.message });
     } finally {
@@ -153,7 +157,9 @@ function OnboardingPage() {
       });
       setStatus("SUBMITTED");
       setStep(STEPS.length - 1);
-      toast.success("Application submitted", { description: "Your seller application is under review by ISM Admin." });
+      toast.success("Application submitted", {
+        description: "Your seller application is under review by ISM Admin.",
+      });
     } catch (err: any) {
       toast.error("Application submission failed", { description: err.message });
     } finally {
@@ -217,7 +223,9 @@ function OnboardingPage() {
               key={s}
               onClick={() => setStep(i)}
               className={`shrink-0 rounded-sm px-3 py-1.5 text-xs font-semibold ${
-                i === step ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
+                i === step
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-muted-foreground"
               }`}
             >
               {i + 1}. {s}
@@ -253,7 +261,9 @@ function OnboardingPage() {
                 options={["Sole trader", "Company (Pty Ltd)", "Partnership", "Trust"]}
               />
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Legal entity name</label>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Legal entity name
+                </label>
                 <input
                   value={legalName}
                   onChange={(e) => setLegalName(e.target.value)}
@@ -262,7 +272,9 @@ function OnboardingPage() {
                 />
               </div>
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Trading name</label>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Trading name
+                </label>
                 <input
                   value={tradingName}
                   onChange={(e) => setTradingName(e.target.value)}
@@ -270,16 +282,25 @@ function OnboardingPage() {
                   required
                 />
               </div>
-              <Field label="Store name (shown to customers)" defaultValue={tradingName} required readOnly />
+              <Field
+                label="Store name (shown to customers)"
+                defaultValue={tradingName}
+                required
+                readOnly
+              />
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">ABN</label>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  ABN
+                </label>
                 <input
                   value={abn}
                   onChange={(e) => setAbn(e.target.value)}
                   className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                   required
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">Verified against the Australian Business Register (ABR)</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Verified against the Australian Business Register (ABR)
+                </p>
               </div>
               <Field label="GST registered" defaultValue="Yes" required />
               <Field label="Contact name" defaultValue="Meera Shah" required />
@@ -293,7 +314,9 @@ function OnboardingPage() {
             <Card title="Dispatch address">
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Street</label>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Street
+                  </label>
                   <input
                     value={dispatchStreet}
                     onChange={(e) => setDispatchStreet(e.target.value)}
@@ -303,7 +326,9 @@ function OnboardingPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Suburb</label>
+                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      Suburb
+                    </label>
                     <input
                       value={dispatchSuburb}
                       onChange={(e) => setDispatchSuburb(e.target.value)}
@@ -312,7 +337,9 @@ function OnboardingPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">State</label>
+                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      State
+                    </label>
                     <input
                       value={dispatchState}
                       onChange={(e) => setDispatchState(e.target.value)}
@@ -321,7 +348,9 @@ function OnboardingPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Postcode</label>
+                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      Postcode
+                    </label>
                     <input
                       value={dispatchPostcode}
                       onChange={(e) => setDispatchPostcode(e.target.value)}
@@ -355,7 +384,8 @@ function OnboardingPage() {
               )}
               {sameAsDispatch && (
                 <p className="text-sm text-muted-foreground">
-                  Returns will be addressed to {dispatchStreet}, {dispatchSuburb} {dispatchState} {dispatchPostcode}.
+                  Returns will be addressed to {dispatchStreet}, {dispatchSuburb} {dispatchState}{" "}
+                  {dispatchPostcode}.
                 </p>
               )}
             </Card>
@@ -366,11 +396,13 @@ function OnboardingPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card title="Stripe Connect Payouts (AUD)">
               <p className="text-sm text-muted-foreground">
-                Sellers are paid in AUD directly to their Australian bank account via Stripe Connect 14 days post-delivery.
+                Sellers are paid in AUD directly to their Australian bank account via Stripe Connect
+                14 days post-delivery.
               </p>
               <div className="mt-3 space-y-2 text-sm">
                 <p>
-                  Account on file: <span className="font-semibold">•••• •••• 4821</span> (BSB: 062-000)
+                  Account on file: <span className="font-semibold">•••• •••• 4821</span> (BSB:
+                  062-000)
                 </p>
                 <Badge tone="teal">Stripe Connect Ready (AU)</Badge>
               </div>
@@ -379,7 +411,9 @@ function OnboardingPage() {
                 variant="primary"
                 onClick={async () => {
                   try {
-                    toast.success("Connecting Stripe Account...", { description: "Opening secure Australian KYC onboarding window." });
+                    toast.success("Connecting Stripe Account...", {
+                      description: "Opening secure Australian KYC onboarding window.",
+                    });
                   } catch (err: any) {
                     toast.error("Stripe Onboarding error", { description: err.message });
                   }
@@ -397,9 +431,14 @@ function OnboardingPage() {
                   ["Proof of address", "Uploaded"],
                   ["Product authenticity declaration", "Accepted"],
                 ].map(([doc, state]) => (
-                  <li key={doc} className="flex items-center justify-between gap-3 rounded-sm border border-border px-3 py-2">
+                  <li
+                    key={doc}
+                    className="flex items-center justify-between gap-3 rounded-sm border border-border px-3 py-2"
+                  >
                     <span>{doc}</span>
-                    <Badge tone={state === "Uploaded" || state === "Accepted" ? "teal" : "marigold"}>
+                    <Badge
+                      tone={state === "Uploaded" || state === "Accepted" ? "teal" : "marigold"}
+                    >
                       {state}
                     </Badge>
                   </li>
@@ -420,9 +459,13 @@ function OnboardingPage() {
                 return (
                   <button
                     key={c.slug}
-                    onClick={() => setCats((prev) => (on ? prev.filter((x) => x !== c.slug) : [...prev, c.slug]))}
+                    onClick={() =>
+                      setCats((prev) => (on ? prev.filter((x) => x !== c.slug) : [...prev, c.slug]))
+                    }
                     className={`rounded-sm px-3 py-1.5 text-xs font-semibold ${
-                      on ? "bg-rani text-rani-foreground" : "border border-border text-muted-foreground"
+                      on
+                        ? "bg-rani text-rani-foreground"
+                        : "border border-border text-muted-foreground"
                     }`}
                   >
                     {c.name}
@@ -443,7 +486,9 @@ function OnboardingPage() {
                       type="checkbox"
                       checked={agreed.includes(a)}
                       onChange={(e) =>
-                        setAgreed((prev) => (e.target.checked ? [...prev, a] : prev.filter((x) => x !== a)))
+                        setAgreed((prev) =>
+                          e.target.checked ? [...prev, a] : prev.filter((x) => x !== a),
+                        )
                       }
                       className="mt-0.5 size-4 accent-[var(--color-rani)]"
                     />
@@ -460,9 +505,13 @@ function OnboardingPage() {
             <Card title="Review & submit">
               <ul className="space-y-1.5 text-sm text-muted-foreground">
                 <li>Seller type: {sellerType}</li>
-                <li>Store: {tradingName} · {dispatchSuburb}, {dispatchState}</li>
+                <li>
+                  Store: {tradingName} · {dispatchSuburb}, {dispatchState}
+                </li>
                 <li>Categories: {cats.length} selected</li>
-                <li>Agreements accepted: {agreed.length} of {SELLER_AGREEMENTS.length}</li>
+                <li>
+                  Agreements accepted: {agreed.length} of {SELLER_AGREEMENTS.length}
+                </li>
                 <li>Status: {status.replace(/_/g, " ")}</li>
               </ul>
             </Card>
@@ -475,7 +524,9 @@ function OnboardingPage() {
                     ) : (
                       <Circle size={15} className="shrink-0 text-muted-foreground" />
                     )}
-                    <span className={c.done ? "text-muted-foreground line-through" : ""}>{c.label}</span>
+                    <span className={c.done ? "text-muted-foreground line-through" : ""}>
+                      {c.label}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -490,7 +541,11 @@ function OnboardingPage() {
         )}
 
         <div className="flex justify-between gap-2">
-          <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => Math.max(0, s - 1))}>
+          <Button
+            variant="outline"
+            disabled={step === 0}
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+          >
             Back
           </Button>
           <Button

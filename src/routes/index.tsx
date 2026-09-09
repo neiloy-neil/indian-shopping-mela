@@ -52,7 +52,6 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-
 const TRUST = [
   { icon: Truck, title: "Australia-Wide Shopping", note: "Every state & territory" },
   { icon: Store, title: "Multiple Indian Sellers", note: "Verified local businesses" },
@@ -138,34 +137,43 @@ const COLLECTIONS = [
   },
 ];
 
-
 function Home() {
   const feed = Route.useLoaderData();
-  const trending = feed?.trendingProducts && feed.trendingProducts.length > 0 ? feed.trendingProducts : PRODUCTS;
-  const women = trending.filter((p) => p.category === "women" || p.category === "sarees").slice(0, 8).length > 0
-    ? trending.filter((p) => p.category === "women" || p.category === "sarees").slice(0, 8)
-    : byCategory("women").slice(0, 8);
-  const jewellery = trending.filter((p) => p.category === "jewellery").slice(0, 8).length > 0
-    ? trending.filter((p) => p.category === "jewellery").slice(0, 8)
-    : byCategory("jewellery").slice(0, 8);
-  const home = trending.filter((p) => p.category === "home-living" || p.category === "home").slice(0, 8).length > 0
-    ? trending.filter((p) => p.category === "home-living" || p.category === "home").slice(0, 8)
-    : byCategory("home-living").slice(0, 8);
-  const festival = feed?.festiveSpotlight && feed.festiveSpotlight.length > 0
-    ? feed.festiveSpotlight.slice(0, 8)
-    : [...byCategory("festivals"), ...byTag("trending")].slice(0, 8);
-  const wedding = trending.filter((p) => p.tags.includes("wedding")).slice(0, 8).length > 0
-    ? trending.filter((p) => p.tags.includes("wedding")).slice(0, 8)
-    : PRODUCTS.filter((p) => p.tags.includes("wedding")).slice(0, 8);
-  const pooja = trending.filter((p) => p.category === "pooja").slice(0, 8).length > 0
-    ? trending.filter((p) => p.category === "pooja").slice(0, 8)
-    : byCategory("pooja").slice(0, 8);
-  const footwear = trending.filter((p) => p.category === "footwear").length > 0
-    ? trending.filter((p) => p.category === "footwear")
-    : byCategory("footwear");
-  const gifts = trending.filter((p) => p.tags.includes("gift")).slice(0, 8).length > 0
-    ? trending.filter((p) => p.tags.includes("gift")).slice(0, 8)
-    : PRODUCTS.filter((p) => p.tags.includes("gift")).slice(0, 8);
+  const trending =
+    feed?.trendingProducts && feed.trendingProducts.length > 0 ? feed.trendingProducts : PRODUCTS;
+  const women =
+    trending.filter((p) => p.category === "women" || p.category === "sarees").slice(0, 8).length > 0
+      ? trending.filter((p) => p.category === "women" || p.category === "sarees").slice(0, 8)
+      : byCategory("women").slice(0, 8);
+  const jewellery =
+    trending.filter((p) => p.category === "jewellery").slice(0, 8).length > 0
+      ? trending.filter((p) => p.category === "jewellery").slice(0, 8)
+      : byCategory("jewellery").slice(0, 8);
+  const home =
+    trending.filter((p) => p.category === "home-living" || p.category === "home").slice(0, 8)
+      .length > 0
+      ? trending.filter((p) => p.category === "home-living" || p.category === "home").slice(0, 8)
+      : byCategory("home-living").slice(0, 8);
+  const festival =
+    feed?.festiveSpotlight && feed.festiveSpotlight.length > 0
+      ? feed.festiveSpotlight.slice(0, 8)
+      : [...byCategory("festivals"), ...byTag("trending")].slice(0, 8);
+  const wedding =
+    trending.filter((p) => p.tags.includes("wedding")).slice(0, 8).length > 0
+      ? trending.filter((p) => p.tags.includes("wedding")).slice(0, 8)
+      : PRODUCTS.filter((p) => p.tags.includes("wedding")).slice(0, 8);
+  const pooja =
+    trending.filter((p) => p.category === "pooja").slice(0, 8).length > 0
+      ? trending.filter((p) => p.category === "pooja").slice(0, 8)
+      : byCategory("pooja").slice(0, 8);
+  const footwear =
+    trending.filter((p) => p.category === "footwear").length > 0
+      ? trending.filter((p) => p.category === "footwear")
+      : byCategory("footwear");
+  const gifts =
+    trending.filter((p) => p.tags.includes("gift")).slice(0, 8).length > 0
+      ? trending.filter((p) => p.tags.includes("gift")).slice(0, 8)
+      : PRODUCTS.filter((p) => p.tags.includes("gift")).slice(0, 8);
 
   return (
     <ShopLayout>
@@ -174,28 +182,29 @@ function Home() {
         <div className="ism-container flex gap-5 py-3 sm:py-4">
           <CategorySidebar />
 
-           <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
+          <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
             {/* Hero carousel */}
             <HeroCarousel />
 
-
             {/* Trust strip */}
-             <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 rounded-md border border-border bg-surface px-3 py-3 min-[360px]:gap-x-4 min-[360px]:px-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 rounded-md border border-border bg-surface px-3 py-3 min-[360px]:gap-x-4 min-[360px]:px-4 sm:grid-cols-3 lg:grid-cols-6">
               {TRUST.map((t) => (
                 <div key={t.title} className="flex items-start gap-2">
                   <t.icon size={17} className="mt-0.5 shrink-0 text-rani" />
                   <div className="min-w-0">
-                     <p className="text-[11px] font-semibold leading-tight text-foreground min-[360px]:text-[12px]">
+                    <p className="text-[11px] font-semibold leading-tight text-foreground min-[360px]:text-[12px]">
                       {t.title}
                     </p>
-                     <p className="hidden text-[10.5px] leading-tight text-muted-foreground min-[350px]:block">{t.note}</p>
+                    <p className="hidden text-[10.5px] leading-tight text-muted-foreground min-[350px]:block">
+                      {t.note}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Promo tiles fill the row beside the sidebar */}
-             <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:px-0 sm:pb-0">
+            <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:px-0 sm:pb-0">
               {[
                 {
                   slug: "wedding",
@@ -220,28 +229,30 @@ function Home() {
                   key={p.slug}
                   to="/category/$slug"
                   params={{ slug: p.slug }}
-                   className="group flex w-[72%] shrink-0 snap-start flex-col justify-between rounded-md border border-gold/50 bg-cream px-3 py-3 transition-colors hover:border-rani sm:w-auto sm:px-4"
+                  className="group flex w-[72%] shrink-0 snap-start flex-col justify-between rounded-md border border-gold/50 bg-cream px-3 py-3 transition-colors hover:border-rani sm:w-auto sm:px-4"
                 >
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rani">
                     {p.kicker}
                   </p>
-                   <p className="mt-1 font-display text-[14px] font-semibold leading-snug text-primary sm:text-[15px]">
+                  <p className="mt-1 font-display text-[14px] font-semibold leading-snug text-primary sm:text-[15px]">
                     {p.title}
                   </p>
-                   <span className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/70 group-hover:text-rani sm:text-[11px]">
+                  <span className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-foreground/70 group-hover:text-rani sm:text-[11px]">
                     {p.cta} →
                   </span>
                 </Link>
               ))}
             </div>
           </div>
-
         </div>
       </section>
 
       {/* Category tiles */}
       <section className="ism-container py-6">
-        <SectionHead title="Shop by Category" subtitle="Eleven aisles of the mela, all in one place" />
+        <SectionHead
+          title="Shop by Category"
+          subtitle="Eleven aisles of the mela, all in one place"
+        />
         <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:thin] md:mx-0 md:px-0">
           {CATEGORIES.map((c) => (
             <Link
@@ -432,8 +443,6 @@ function Home() {
           ))}
         </div>
       </section>
-
-
 
       {/* Festival */}
       <Band>

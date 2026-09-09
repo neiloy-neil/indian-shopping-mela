@@ -136,7 +136,9 @@ export function Header() {
               className="hidden flex-col items-start px-1 text-xs leading-tight text-foreground hover:text-rani md:flex"
             >
               <span className="text-[10px] text-muted-foreground">
-                {isAuthenticated ? `Hello, ${user?.fullName ? user.fullName.split(" ")[0] : "Account"}` : "Sign In"}
+                {isAuthenticated
+                  ? `Hello, ${user?.fullName ? user.fullName.split(" ")[0] : "Account"}`
+                  : "Sign In"}
               </span>
               <span className="font-semibold">Account</span>
             </Link>
@@ -249,7 +251,11 @@ export function Header() {
               ))}
             </div>
             <div className="mt-4 space-y-1 border-t border-border pt-4 text-sm">
-              <Link to="/sell" onClick={() => setMenuOpen(false)} className="block px-2 py-2 font-semibold text-primary">
+              <Link
+                to="/sell"
+                onClick={() => setMenuOpen(false)}
+                className="block px-2 py-2 font-semibold text-primary"
+              >
                 Sell on ISM
               </Link>
               <Link to="/account" onClick={() => setMenuOpen(false)} className="block px-2 py-2">

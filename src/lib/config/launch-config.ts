@@ -38,7 +38,7 @@ export interface MarketplaceConfig {
 export const ISM_LAUNCH_CONFIG: MarketplaceConfig = {
   currency: "AUD",
   minorUnitMultiplier: 100,
-  gstRate: 0.10, // 10%
+  gstRate: 0.1, // 10%
   returnWindowDays: 7, // 7 days ordinary change-of-mind per Master Architecture Plan
   payoutDelayDays: 14, // 14 days after confirmed delivery
   defaultCommissionRate: 12.0, // 12% ISM commission

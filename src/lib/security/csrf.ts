@@ -22,7 +22,7 @@ export function validateCsrf(
   origin?: string | null,
   referer?: string | null,
   secFetchSite?: string | null,
-  customHeader?: string | null
+  customHeader?: string | null,
 ): CsrfValidationResult {
   // 1. If Sec-Fetch-Site is present, reject cross-site requests
   if (secFetchSite && secFetchSite === "cross-site") {
@@ -33,7 +33,8 @@ export function validateCsrf(
   if (origin) {
     try {
       const originUrl = new URL(origin).origin;
-      const isAllowed = ALLOWED_ORIGINS.some((allowed) => allowed === originUrl) ||
+      const isAllowed =
+        ALLOWED_ORIGINS.some((allowed) => allowed === originUrl) ||
         originUrl.endsWith(".indianshoppingmela.com.au");
 
       if (!isAllowed) {
@@ -49,7 +50,8 @@ export function validateCsrf(
   if (referer) {
     try {
       const refererUrl = new URL(referer).origin;
-      const isAllowed = ALLOWED_ORIGINS.some((allowed) => allowed === refererUrl) ||
+      const isAllowed =
+        ALLOWED_ORIGINS.some((allowed) => allowed === refererUrl) ||
         refererUrl.endsWith(".indianshoppingmela.com.au");
 
       if (!isAllowed) {

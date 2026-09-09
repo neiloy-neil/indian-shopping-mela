@@ -3,7 +3,11 @@ import { stripe } from "@/lib/stripe-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Address } from "@/lib/supabase/types";
 import { calculateMultiSellerShippingQuotes, type ParcelDetails } from "./shipping";
-import { reserveInventoryLines, releaseInventoryReservations, commitInventoryReservations } from "./inventory";
+import {
+  reserveInventoryLines,
+  releaseInventoryReservations,
+  commitInventoryReservations,
+} from "./inventory";
 
 export interface CheckoutItemDto {
   variantId: string;
@@ -78,7 +82,9 @@ export interface CreateOrderResult {
  * Authoritatively fetch and validate items from PostgreSQL.
  * Rejects deactivated products, inactive sellers, or insufficient stock.
  */
-export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Promise<AuthoritativeCartItem[]> {
+export async function loadAuthoritativeCartItems(
+  items: CheckoutItemDto[],
+): Promise<AuthoritativeCartItem[]> {
   if (!items || items.length === 0) {
     throw new Error("Checkout cart is empty");
   }
@@ -101,7 +107,8 @@ export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Prom
 
   if (validUuids.length > 0) {
     const { data: variants, error } = await (supabaseAdmin.from("product_variants") as any)
-      .select(`
+      .select(
+        `
         id,
         title,
         seller_sku,
@@ -127,7 +134,8 @@ export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Prom
             dispatch_address
           )
         )
-      `)
+      `,
+      )
       .in("id", validUuids);
 
     if (error) {
@@ -158,7 +166,9 @@ export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Prom
           (!variant.sale_start_at || new Date(variant.sale_start_at) <= now) &&
           (!variant.sale_end_at || new Date(variant.sale_end_at) >= now);
 
-        const authoritativePrice = hasActiveSale ? Number(variant.sale_price) : Number(variant.price);
+        const authoritativePrice = hasActiveSale
+          ? Number(variant.sale_price)
+          : Number(variant.price);
         const weightKg = Number(variant.weight_kg_override ?? product.weight_kg ?? 0.5);
 
         authoritativeItems.push({
@@ -171,7 +181,10 @@ export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Prom
           unitPriceAud: authoritativePrice,
           quantity: item.quantity,
           weightKg,
-          imageUrl: Array.isArray(variant.images) && variant.images.length > 0 ? variant.images[0] : undefined,
+          imageUrl:
+            Array.isArray(variant.images) && variant.images.length > 0
+              ? variant.images[0]
+              : undefined,
           sellerBusinessName: seller?.business_name ?? seller?.store_name ?? "Marketplace Seller",
           sellerDispatchAddress: seller?.dispatch_address as Address | undefined,
         });
@@ -180,9 +193,13 @@ export async function loadAuthoritativeCartItems(items: CheckoutItemDto[]): Prom
   }
 
   // Ensure all requested items were found in DB
-  const missingItems = items.filter((i) => !authoritativeItems.some((a) => a.variantId === i.variantId));
+  const missingItems = items.filter(
+    (i) => !authoritativeItems.some((a) => a.variantId === i.variantId),
+  );
   if (missingItems.length > 0) {
-    throw new Error(`Item variant ${missingItems[0]?.variantId ?? "unknown"} was not found in the database or is unavailable.`);
+    throw new Error(
+      `Item variant ${missingItems[0]?.variantId ?? "unknown"} was not found in the database or is unavailable.`,
+    );
   }
 
   return authoritativeItems;
@@ -198,7 +215,9 @@ export const prepareCheckoutSummaryServerFn = createServerFn({ method: "POST" })
     return prepareCheckoutSummary(data);
   });
 
-export async function prepareCheckoutSummary(params: PrepareCheckoutParams): Promise<CheckoutSummary> {
+export async function prepareCheckoutSummary(
+  params: PrepareCheckoutParams,
+): Promise<CheckoutSummary> {
   const { items, destinationAddress, sessionId } = params;
 
   // 1. Authoritatively fetch live pricing and seller data from PostgreSQL
@@ -206,7 +225,9 @@ export async function prepareCheckoutSummary(params: PrepareCheckoutParams): Pro
 
   // 2. Atomically reserve inventory for all items across all packages (15-min TTL)
   const reservationItems = authoritativeItems
-    .filter((item) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.variantId))
+    .filter((item) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.variantId),
+    )
     .map((item) => ({ variantId: item.variantId, quantity: item.quantity }));
 
   if (reservationItems.length > 0) {
@@ -241,7 +262,7 @@ export async function prepareCheckoutSummary(params: PrepareCheckoutParams): Pro
     const parcel: ParcelDetails = { weightKg: totalWeight };
     const [quoteResult] = await calculateMultiSellerShippingQuotes(
       [{ sellerId, address: dispatchAddress, parcel, itemsTotal: packageSubtotal }],
-      destinationAddress
+      destinationAddress,
     );
 
     const shippingQuote = quoteResult?.quote ?? {
@@ -287,9 +308,13 @@ export const createCheckoutOrderServerFn = createServerFn({ method: "POST" })
     return createCheckoutOrderTransactional(data);
   });
 
-export async function createCheckoutOrderTransactional(params: CreateOrderParams): Promise<CreateOrderResult> {
+export async function createCheckoutOrderTransactional(
+  params: CreateOrderParams,
+): Promise<CreateOrderResult> {
   const effectiveBillingAddress = params.billingAddress ?? params.shippingAddress;
-  const idempotencyKey = params.idempotencyKey ?? `ord_idem_${params.sessionId}_${params.items.map((i) => `${i.variantId}:${i.quantity}`).join("_")}`;
+  const idempotencyKey =
+    params.idempotencyKey ??
+    `ord_idem_${params.sessionId}_${params.items.map((i) => `${i.variantId}:${i.quantity}`).join("_")}`;
 
   // 1. Check Idempotency: Return existing master order if already created with this key
   const { data: existingOrder } = await (supabaseAdmin.from("orders") as any)
@@ -299,7 +324,11 @@ export async function createCheckoutOrderTransactional(params: CreateOrderParams
 
   if (existingOrder) {
     let clientSecret = "";
-    if (existingOrder.payment_intent_id && process.env["STRIPE_SECRET_KEY"] && !process.env["STRIPE_SECRET_KEY"].includes("placeholder")) {
+    if (
+      existingOrder.payment_intent_id &&
+      process.env["STRIPE_SECRET_KEY"] &&
+      !process.env["STRIPE_SECRET_KEY"].includes("placeholder")
+    ) {
       try {
         const pi = await stripe.paymentIntents.retrieve(existingOrder.payment_intent_id);
         clientSecret = pi.client_secret ?? "";
@@ -341,7 +370,10 @@ export async function createCheckoutOrderTransactional(params: CreateOrderParams
 
   try {
     // 3. Create Stripe PaymentIntent with authoritative amount
-    if (process.env["STRIPE_SECRET_KEY"] && !process.env["STRIPE_SECRET_KEY"].includes("placeholder")) {
+    if (
+      process.env["STRIPE_SECRET_KEY"] &&
+      !process.env["STRIPE_SECRET_KEY"].includes("placeholder")
+    ) {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: totalAmountCents,
         currency: "aud",
@@ -395,7 +427,9 @@ export async function createCheckoutOrderTransactional(params: CreateOrderParams
       const subOrderId = `sub_${masterOrderId}_${String.fromCharCode(65 + idx)}`;
       const commissionPct = 12.0; // 12% ISM marketplace commission
       const commissionAmount = Number(((pkg.subtotalAud * commissionPct) / 100).toFixed(2));
-      const netSellerAmount = Number((pkg.subtotalAud + pkg.shippingCostAud - commissionAmount).toFixed(2));
+      const netSellerAmount = Number(
+        (pkg.subtotalAud + pkg.shippingCostAud - commissionAmount).toFixed(2),
+      );
 
       const { error: subErr } = await (supabaseAdmin.from("sub_orders") as any).insert({
         id: subOrderId,
@@ -498,5 +532,3 @@ export async function confirmOrderPaymentSuccess(paymentIntentId: string): Promi
     await commitInventoryReservations(paymentIntentId, payment.order_id);
   }
 }
-
-

@@ -13,7 +13,10 @@ export const Route = createFileRoute("/signin")({
         content: "Sign in to your Indian Shopping Mela customer account, orders and wishlist.",
       },
       { property: "og:title", content: "Sign In — Indian Shopping Mela" },
-      { property: "og:description", content: "Access your ISM orders, tracking, returns and wishlist." },
+      {
+        property: "og:description",
+        content: "Access your ISM orders, tracking, returns and wishlist.",
+      },
     ],
   }),
   component: SignInPage,
@@ -173,10 +176,10 @@ function SignInPage() {
               {loading
                 ? "Processing..."
                 : mode === "signin"
-                ? "Sign In"
-                : mode === "signup"
-                ? "Create Account"
-                : "Send Reset Link"}
+                  ? "Sign In"
+                  : mode === "signup"
+                    ? "Create Account"
+                    : "Send Reset Link"}
             </button>
           </form>
 

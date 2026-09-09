@@ -1,6 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, CreditCard, Lock, Package, RotateCcw, ShieldCheck, AlertCircle } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  Lock,
+  Package,
+  RotateCcw,
+  ShieldCheck,
+  AlertCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -20,9 +28,10 @@ const stripePublishableKey =
     ? (import.meta.env["VITE_STRIPE_PUBLISHABLE_KEY"] as string)
     : "pk_test_placeholder";
 
-const stripePromise = stripePublishableKey && stripePublishableKey.startsWith("pk_")
-  ? loadStripe(stripePublishableKey)
-  : null;
+const stripePromise =
+  stripePublishableKey && stripePublishableKey.startsWith("pk_")
+    ? loadStripe(stripePublishableKey)
+    : null;
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -30,10 +39,14 @@ export const Route = createFileRoute("/checkout")({
       { title: "Checkout — Indian Shopping Mela" },
       {
         name: "description",
-        content: "Authoritative Australian multi-vendor checkout: delivery, shipping, Stripe payment and review in AUD.",
+        content:
+          "Authoritative Australian multi-vendor checkout: delivery, shipping, Stripe payment and review in AUD.",
       },
       { property: "og:title", content: "Checkout — Indian Shopping Mela" },
-      { property: "og:description", content: "One unified checkout across every Indian boutique seller in your cart." },
+      {
+        property: "og:description",
+        content: "One unified checkout across every Indian boutique seller in your cart.",
+      },
     ],
   }),
   component: CheckoutPage,
@@ -79,7 +92,10 @@ function StripePaymentForm({
 
       if (error) {
         toast.error("Payment failed", { description: error.message });
-      } else if (paymentIntent && (paymentIntent.status === "succeeded" || paymentIntent.status === "processing")) {
+      } else if (
+        paymentIntent &&
+        (paymentIntent.status === "succeeded" || paymentIntent.status === "processing")
+      ) {
         onPaymentSuccess();
       }
     } catch (err: any) {
@@ -92,12 +108,7 @@ function StripePaymentForm({
   return (
     <div className="mt-4 space-y-4">
       <PaymentElement options={{ layout: "tabs" }} />
-      <button
-        type="button"
-        id="stripe-submit-btn"
-        className="hidden"
-        onClick={handleStripePay}
-      />
+      <button type="button" id="stripe-submit-btn" className="hidden" onClick={handleStripePay} />
     </div>
   );
 }
@@ -248,14 +259,29 @@ function CheckoutPage() {
             Dhanyawad, {name.split(" ")[0]}!
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Order <span className="font-mono font-bold text-foreground">#{placedOrderNumber || "ISM10002"}</span> has been placed.
-            We have sent your invoice and delivery tracking details to <span className="font-semibold text-foreground">{email}</span>.
+            Order{" "}
+            <span className="font-mono font-bold text-foreground">
+              #{placedOrderNumber || "ISM10002"}
+            </span>{" "}
+            has been placed. We have sent your invoice and delivery tracking details to{" "}
+            <span className="font-semibold text-foreground">{email}</span>.
           </p>
           <div className="mt-6 rounded-md border border-border bg-card p-4 text-left text-xs space-y-2">
             <p className="font-semibold text-foreground">Order Overview:</p>
-            <p className="text-muted-foreground">• {sellers.length} distinct boutique seller package(s) dispatched separately.</p>
-            <p className="text-muted-foreground">• Total amount paid: <span className="font-bold text-foreground">{formatAUD(summary?.grandTotalAud ?? subtotal)} AUD</span> (inclusive of 10% GST).</p>
-            <p className="text-muted-foreground">• Protected by Australia-wide 7-day change-of-mind return policy & Australian Consumer Law.</p>
+            <p className="text-muted-foreground">
+              • {sellers.length} distinct boutique seller package(s) dispatched separately.
+            </p>
+            <p className="text-muted-foreground">
+              • Total amount paid:{" "}
+              <span className="font-bold text-foreground">
+                {formatAUD(summary?.grandTotalAud ?? subtotal)} AUD
+              </span>{" "}
+              (inclusive of 10% GST).
+            </p>
+            <p className="text-muted-foreground">
+              • Protected by Australia-wide 7-day change-of-mind return policy & Australian Consumer
+              Law.
+            </p>
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
@@ -283,7 +309,9 @@ function CheckoutPage() {
         <div className="mx-auto max-w-md py-16 text-center">
           <Package className="mx-auto size-12 text-muted-foreground" />
           <h1 className="mt-4 font-display text-xl font-bold">Your cart is empty</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Add handcrafted Indian clothing or jewellery to begin checkout.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Add handcrafted Indian clothing or jewellery to begin checkout.
+          </p>
           <Link
             to="/category/$slug"
             params={{ slug: "women" }}
@@ -296,14 +324,16 @@ function CheckoutPage() {
     );
   }
 
-  const grandTotal = summary?.grandTotalAud ?? (subtotal + sellers.length * (express ? 14.95 : 9.95));
-  const shippingTotal = summary?.shippingTotalAud ?? (sellers.length * (express ? 14.95 : 9.95));
+  const grandTotal = summary?.grandTotalAud ?? subtotal + sellers.length * (express ? 14.95 : 9.95);
+  const shippingTotal = summary?.shippingTotalAud ?? sellers.length * (express ? 14.95 : 9.95);
   const gstTotal = summary?.gstTotalAud ?? Number((grandTotal / 11).toFixed(2));
 
   return (
     <ShopLayout>
       <div className="mx-auto max-w-5xl py-6 sm:py-8">
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Secure Checkout</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          Secure Checkout
+        </h1>
         <p className="mt-1 text-xs text-muted-foreground">
           Zero-trust verified checkout · 10% Australian GST included · Australia Post delivery
         </p>
@@ -437,7 +467,8 @@ function CheckoutPage() {
               <div className="space-y-4">
                 <h2 className="text-sm font-bold uppercase tracking-wide">2. Shipping Method</h2>
                 <p className="text-xs text-muted-foreground">
-                  Each independent boutique seller ships directly from their Australian dispatch facility.
+                  Each independent boutique seller ships directly from their Australian dispatch
+                  facility.
                 </p>
                 <div className="space-y-2">
                   <button
@@ -456,7 +487,9 @@ function CheckoutPage() {
                     </span>
                     <div>
                       <span className="block text-sm font-semibold">Standard Australia Post</span>
-                      <span className="block text-xs text-muted-foreground">3–6 business days · $9.95 per seller package</span>
+                      <span className="block text-xs text-muted-foreground">
+                        3–6 business days · $9.95 per seller package
+                      </span>
                     </div>
                   </button>
                   <button
@@ -475,7 +508,9 @@ function CheckoutPage() {
                     </span>
                     <div>
                       <span className="block text-sm font-semibold">Express Post</span>
-                      <span className="block text-xs text-muted-foreground">1–3 business days · $14.95 per seller package</span>
+                      <span className="block text-xs text-muted-foreground">
+                        1–3 business days · $14.95 per seller package
+                      </span>
                     </div>
                   </button>
                 </div>
@@ -495,10 +530,13 @@ function CheckoutPage() {
                           <div className="flex items-center gap-2">
                             <Package size={14} className="text-primary shrink-0" />
                             <span className="font-semibold">
-                              Package {i + 1} of {sellers.length} — {seller?.name ?? "Boutique Seller"}
+                              Package {i + 1} of {sellers.length} —{" "}
+                              {seller?.name ?? "Boutique Seller"}
                             </span>
                           </div>
-                          <span className="text-muted-foreground">{seller?.dispatchDays ?? "1–2 business days"}</span>
+                          <span className="text-muted-foreground">
+                            {seller?.dispatchDays ?? "1–2 business days"}
+                          </span>
                         </div>
                       );
                     })}
@@ -510,7 +548,9 @@ function CheckoutPage() {
             {/* Step 2: Payment */}
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="text-sm font-bold uppercase tracking-wide">3. Payment Information</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wide">
+                  3. Payment Information
+                </h2>
                 <p className="text-xs text-muted-foreground">
                   Encrypted, PCI-compliant payment processed by Stripe Australia.
                 </p>
@@ -547,7 +587,11 @@ function CheckoutPage() {
                       <CreditCard size={14} className="text-primary" /> Ready to process order
                     </p>
                     <p>
-                      Order <span className="font-mono font-bold text-foreground">#{placedOrderNumber || "ISM10002"}</span> has been initialized on the server with 15-minute atomic stock reservation.
+                      Order{" "}
+                      <span className="font-mono font-bold text-foreground">
+                        #{placedOrderNumber || "ISM10002"}
+                      </span>{" "}
+                      has been initialized on the server with 15-minute atomic stock reservation.
                     </p>
                   </div>
                 )}
@@ -557,7 +601,9 @@ function CheckoutPage() {
             {/* Step 3: Review */}
             {step === 3 && (
               <div className="space-y-4">
-                <h2 className="text-sm font-bold uppercase tracking-wide">4. Review & Confirm Order</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wide">
+                  4. Review & Confirm Order
+                </h2>
                 <div className="space-y-3 text-xs">
                   <div className="rounded-sm border border-border p-3">
                     <p className="font-bold uppercase text-muted-foreground">Delivery To</p>
@@ -568,7 +614,10 @@ function CheckoutPage() {
                   <div className="rounded-sm border border-border p-3">
                     <p className="font-bold uppercase text-muted-foreground">Shipping Method</p>
                     <p className="mt-1 text-foreground font-semibold">
-                      {express ? "Express Post (1–3 business days)" : "Standard Australia Post (3–6 business days)"} · {sellers.length} package(s)
+                      {express
+                        ? "Express Post (1–3 business days)"
+                        : "Standard Australia Post (3–6 business days)"}{" "}
+                      · {sellers.length} package(s)
                     </p>
                   </div>
                   <div className="rounded-sm border border-border p-3">
@@ -579,7 +628,9 @@ function CheckoutPage() {
                           <span>
                             {l.line.qty} × {l.product.name} ({l.line.size ?? "Standard"})
                           </span>
-                          <span className="font-semibold">{formatAUD(l.product.price * l.line.qty)}</span>
+                          <span className="font-semibold">
+                            {formatAUD(l.product.price * l.line.qty)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -637,7 +688,9 @@ function CheckoutPage() {
                   disabled={isPlacing}
                   className="rounded-sm bg-rani px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-rani-foreground hover:bg-rani/90 disabled:opacity-50"
                 >
-                  {isPlacing ? "Authorizing Payment..." : `Place Order · ${formatAUD(grandTotal)} AUD`}
+                  {isPlacing
+                    ? "Authorizing Payment..."
+                    : `Place Order · ${formatAUD(grandTotal)} AUD`}
                 </button>
               )}
             </div>
@@ -650,7 +703,9 @@ function CheckoutPage() {
               <span className="mt-2 block h-px w-full gold-hairline" aria-hidden />
               <dl className="mt-4 space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Items ({lines.reduce((n, l) => n + l.line.qty, 0)})</dt>
+                  <dt className="text-muted-foreground">
+                    Items ({lines.reduce((n, l) => n + l.line.qty, 0)})
+                  </dt>
                   <dd className="font-semibold text-foreground">{formatAUD(subtotal)}</dd>
                 </div>
                 <div className="flex justify-between">
@@ -673,10 +728,12 @@ function CheckoutPage() {
                 <Lock size={12} className="text-teal shrink-0" /> Bank-grade 256-bit encryption
               </p>
               <p className="flex items-center gap-1.5">
-                <ShieldCheck size={12} className="text-primary shrink-0" /> Full buyer protection across all sellers
+                <ShieldCheck size={12} className="text-primary shrink-0" /> Full buyer protection
+                across all sellers
               </p>
               <p className="flex items-center gap-1.5">
-                <RotateCcw size={12} className="text-primary shrink-0" /> 7-day change-of-mind return policy
+                <RotateCcw size={12} className="text-primary shrink-0" /> 7-day change-of-mind
+                return policy
               </p>
             </div>
           </aside>

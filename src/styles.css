@@ -190,16 +190,36 @@
 @utility festive-warm {
   background-color: var(--cream);
   background-image:
-    radial-gradient(60rem 24rem at 8% -10%, color-mix(in oklab, var(--marigold) 22%, transparent), transparent 70%),
-    radial-gradient(48rem 22rem at 96% 0%, color-mix(in oklab, var(--rani) 16%, transparent), transparent 70%),
-    radial-gradient(40rem 26rem at 50% 120%, color-mix(in oklab, var(--gold) 22%, transparent), transparent 70%);
+    radial-gradient(
+      60rem 24rem at 8% -10%,
+      color-mix(in oklab, var(--marigold) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      48rem 22rem at 96% 0%,
+      color-mix(in oklab, var(--rani) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      40rem 26rem at 50% 120%,
+      color-mix(in oklab, var(--gold) 22%, transparent),
+      transparent 70%
+    );
 }
 
 @utility festive-deep {
   background-color: var(--primary);
   background-image:
-    radial-gradient(38rem 20rem at 0% 0%, color-mix(in oklab, var(--rani) 55%, transparent), transparent 70%),
-    radial-gradient(32rem 18rem at 100% 100%, color-mix(in oklab, var(--teal) 40%, transparent), transparent 70%);
+    radial-gradient(
+      38rem 20rem at 0% 0%,
+      color-mix(in oklab, var(--rani) 55%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      32rem 18rem at 100% 100%,
+      color-mix(in oklab, var(--teal) 40%, transparent),
+      transparent 70%
+    );
 }
 
 /* Subtle mandala / lotus linework overlay */
@@ -211,8 +231,16 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      repeating-radial-gradient(circle at 100% 0%, transparent 0 38px, color-mix(in oklab, var(--gold) 45%, transparent) 38px 39px),
-      repeating-radial-gradient(circle at 0% 100%, transparent 0 52px, color-mix(in oklab, var(--rani) 22%, transparent) 52px 53px);
+      repeating-radial-gradient(
+        circle at 100% 0%,
+        transparent 0 38px,
+        color-mix(in oklab, var(--gold) 45%, transparent) 38px 39px
+      ),
+      repeating-radial-gradient(
+        circle at 0% 100%,
+        transparent 0 52px,
+        color-mix(in oklab, var(--rani) 22%, transparent) 52px 53px
+      );
     opacity: 0.5;
     mask-image: radial-gradient(120% 120% at 50% 40%, black, transparent 78%);
   }
@@ -244,8 +272,20 @@
 
 @utility sparkle-dots {
   background-image:
-    radial-gradient(circle, color-mix(in oklab, var(--gold) 80%, transparent) 1px, transparent 1.4px),
-    radial-gradient(circle, color-mix(in oklab, var(--rani) 60%, transparent) 1px, transparent 1.4px);
-  background-size: 34px 34px, 54px 54px;
-  background-position: 0 0, 17px 21px;
+    radial-gradient(
+      circle,
+      color-mix(in oklab, var(--gold) 80%, transparent) 1px,
+      transparent 1.4px
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in oklab, var(--rani) 60%, transparent) 1px,
+      transparent 1.4px
+    );
+  background-size:
+    34px 34px,
+    54px 54px;
+  background-position:
+    0 0,
+    17px 21px;
 }

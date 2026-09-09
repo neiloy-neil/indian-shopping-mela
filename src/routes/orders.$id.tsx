@@ -40,7 +40,8 @@ export const Route = createFileRoute("/orders/$id")({
 function OrderDetail() {
   const { id } = Route.useParams();
   const loaderData = Route.useLoaderData();
-  const isDev = typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production";
+  const isDev =
+    typeof process !== "undefined" && process.env && process.env["NODE_ENV"] !== "production";
   const [orderState, setOrderState] = useState(loaderData?.order ?? (isDev ? MASTER_ORDER : null));
   const [cancellingSubOrderId, setCancellingSubOrderId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -89,7 +90,7 @@ function OrderDetail() {
                     },
                   ],
                 }
-              : so
+              : so,
           ),
         }));
         toast.success(`Package ${subOrderId} cancelled`, {
@@ -114,7 +115,8 @@ function OrderDetail() {
           <Package className="mx-auto size-12 text-muted-foreground" />
           <h1 className="mt-4 font-display text-2xl font-bold text-primary">Order Not Found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            We couldn't locate details for order #{id}. Please check the order number or view your active orders in your account.
+            We couldn't locate details for order #{id}. Please check the order number or view your
+            active orders in your account.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link
@@ -162,7 +164,9 @@ function OrderDetail() {
               </p>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Order total</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Order total
+              </p>
               <p className="font-display text-2xl font-bold text-rani">{formatAUD(o.total)}</p>
               <p className="text-[11px] text-muted-foreground">incl. GST {formatAUD(o.gst)}</p>
             </div>
@@ -212,7 +216,10 @@ function OrderDetail() {
                 <div>
                   <ul className="divide-y divide-border text-sm">
                     {s.items.map((it: any) => (
-                      <li key={it.productId} className="flex items-start justify-between gap-3 py-2.5">
+                      <li
+                        key={it.productId}
+                        className="flex items-start justify-between gap-3 py-2.5"
+                      >
                         <div className="min-w-0">
                           <Link
                             to="/product/$id"
@@ -225,7 +232,9 @@ function OrderDetail() {
                             {it.variant} · Qty {it.qty}
                           </p>
                         </div>
-                        <span className="shrink-0 font-semibold">{formatAUD(it.price * it.qty)}</span>
+                        <span className="shrink-0 font-semibold">
+                          {formatAUD(it.price * it.qty)}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -250,11 +259,7 @@ function OrderDetail() {
                         className="w-full rounded-sm border border-input bg-surface p-2 text-xs"
                       />
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="rani"
-                          onClick={() => handleCancelSubOrder(s.id)}
-                        >
+                        <Button size="sm" variant="rani" onClick={() => handleCancelSubOrder(s.id)}>
                           Confirm Cancellation
                         </Button>
                         <Button
@@ -285,7 +290,9 @@ function OrderDetail() {
                         </Link>
                       ) : (
                         <Button variant="ghost" disabled>
-                          {s.status === "CANCELLED" ? "Package cancelled" : "Return available after delivery"}
+                          {s.status === "CANCELLED"
+                            ? "Package cancelled"
+                            : "Return available after delivery"}
                         </Button>
                       )}
                       <Button
@@ -294,7 +301,7 @@ function OrderDetail() {
                           const invoiceWindow = window.open("", "_blank");
                           if (invoiceWindow) {
                             invoiceWindow.document.write(
-                              `<html><head><title>Tax Invoice - ${o.id}</title></head><body style="font-family: sans-serif; padding: 40px;"><h2>Indian Shopping Mela — Tax Invoice</h2><p><strong>Order #:</strong> ${o.id}</p><p><strong>Sub-Order:</strong> ${s.id}</p><p><strong>Seller:</strong> ${s.seller}</p><p><strong>Total:</strong> ${formatAUD(s.items.reduce((acc: number, i: any) => acc + i.price * i.qty, 0) + s.shipping)} (GST incl.)</p></body></html>`
+                              `<html><head><title>Tax Invoice - ${o.id}</title></head><body style="font-family: sans-serif; padding: 40px;"><h2>Indian Shopping Mela — Tax Invoice</h2><p><strong>Order #:</strong> ${o.id}</p><p><strong>Sub-Order:</strong> ${s.id}</p><p><strong>Seller:</strong> ${s.seller}</p><p><strong>Total:</strong> ${formatAUD(s.items.reduce((acc: number, i: any) => acc + i.price * i.qty, 0) + s.shipping)} (GST incl.)</p></body></html>`,
                             );
                             invoiceWindow.document.close();
                           }
@@ -311,13 +318,17 @@ function OrderDetail() {
                     <li key={t.label} className="flex gap-2.5 text-sm">
                       <span
                         className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ${
-                          t.done ? "bg-teal text-teal-foreground" : "border border-border bg-surface"
+                          t.done
+                            ? "bg-teal text-teal-foreground"
+                            : "border border-border bg-surface"
                         }`}
                       >
                         {t.done && <Check size={10} />}
                       </span>
                       <span className="min-w-0">
-                        <span className={`block font-medium ${t.done ? "" : "text-muted-foreground"}`}>
+                        <span
+                          className={`block font-medium ${t.done ? "" : "text-muted-foreground"}`}
+                        >
                           {t.label}
                         </span>
                         <span className="block text-[11px] text-muted-foreground">
@@ -362,4 +373,3 @@ function OrderDetail() {
     </ShopLayout>
   );
 }
-

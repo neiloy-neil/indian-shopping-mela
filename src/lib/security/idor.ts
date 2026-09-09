@@ -6,7 +6,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 export class AuthorizationError extends Error {
   statusCode = 403;
-  constructor(message: string = "Access denied: You do not have permission to access this resource.") {
+  constructor(
+    message: string = "Access denied: You do not have permission to access this resource.",
+  ) {
     super(message);
     this.name = "AuthorizationError";
   }
@@ -30,7 +32,10 @@ export async function assertCustomerOwnsOrder(userId: string, orderId: string): 
 /**
  * Verify that the authenticated customer is the owner of the address record
  */
-export async function assertCustomerOwnsAddress(userId: string, addressId: string): Promise<boolean> {
+export async function assertCustomerOwnsAddress(
+  userId: string,
+  addressId: string,
+): Promise<boolean> {
   const { data: address, error } = await (supabaseAdmin.from("customer_addresses") as any)
     .select("id, user_id")
     .eq("id", addressId)
@@ -45,7 +50,10 @@ export async function assertCustomerOwnsAddress(userId: string, addressId: strin
 /**
  * Verify that the authenticated seller owns the product listing
  */
-export async function assertSellerOwnsProduct(sellerId: string, productId: string): Promise<boolean> {
+export async function assertSellerOwnsProduct(
+  sellerId: string,
+  productId: string,
+): Promise<boolean> {
   const { data: product, error } = await (supabaseAdmin.from("products") as any)
     .select("id, seller_id")
     .eq("id", productId)
@@ -60,7 +68,10 @@ export async function assertSellerOwnsProduct(sellerId: string, productId: strin
 /**
  * Verify that the authenticated seller owns the sub-order package
  */
-export async function assertSellerOwnsSubOrder(sellerId: string, subOrderId: string): Promise<boolean> {
+export async function assertSellerOwnsSubOrder(
+  sellerId: string,
+  subOrderId: string,
+): Promise<boolean> {
   const { data: subOrder, error } = await (supabaseAdmin.from("sub_orders") as any)
     .select("id, seller_id")
     .eq("id", subOrderId)
@@ -75,7 +86,10 @@ export async function assertSellerOwnsSubOrder(sellerId: string, subOrderId: str
 /**
  * Verify that the actor holds Finance Admin or Super Admin role with validated MFA
  */
-export async function assertFinanceAdminWithMfa(userId: string, isMfaVerified: boolean): Promise<boolean> {
+export async function assertFinanceAdminWithMfa(
+  userId: string,
+  isMfaVerified: boolean,
+): Promise<boolean> {
   const { data: profile, error } = await (supabaseAdmin.from("profiles") as any)
     .select("id, role")
     .eq("id", userId)
@@ -86,7 +100,9 @@ export async function assertFinanceAdminWithMfa(userId: string, isMfaVerified: b
   }
 
   if (!isMfaVerified) {
-    throw new AuthorizationError("Multi-Factor Authentication (MFA) verification is required for financial operations.");
+    throw new AuthorizationError(
+      "Multi-Factor Authentication (MFA) verification is required for financial operations.",
+    );
   }
 
   return true;

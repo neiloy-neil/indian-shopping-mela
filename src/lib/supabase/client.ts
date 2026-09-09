@@ -11,8 +11,12 @@ const getEnv = (key: string): string | undefined => {
   return undefined;
 };
 
-const supabaseUrl = getEnv("VITE_SUPABASE_URL") ?? getEnv("SUPABASE_URL") ?? "https://placeholder-project.supabase.co";
-const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY") ?? getEnv("SUPABASE_ANON_KEY") ?? "placeholder-anon-key";
+const supabaseUrl =
+  getEnv("VITE_SUPABASE_URL") ??
+  getEnv("SUPABASE_URL") ??
+  "https://placeholder-project.supabase.co";
+const supabaseAnonKey =
+  getEnv("VITE_SUPABASE_ANON_KEY") ?? getEnv("SUPABASE_ANON_KEY") ?? "placeholder-anon-key";
 
 /**
  * Public Supabase client for browser-side queries.

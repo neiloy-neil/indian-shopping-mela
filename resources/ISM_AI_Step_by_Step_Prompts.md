@@ -6,13 +6,11 @@ Do not paste all prompts into an AI at once. Complete one step, verify its accep
 
 The prompts assume the AI has access to the latest repository and can edit files/run commands.
 
-
 ---
 
 # PROMPT 0: STEP 0 — Baseline, tasklist authority, and repository safety
 
 **Tasklist scope:** `T013–T019`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -70,7 +68,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -79,7 +77,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -105,12 +103,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -119,7 +119,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -140,7 +140,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -162,20 +161,18 @@ Your goals:
 - Do not touch business logic yet except what is necessary for this baseline.
 
 Important:
+
 - If lint/typecheck/build/test currently fail, record the failures precisely. Do not hide them.
 - Do not mark a quality task complete merely because it was attempted.
 - Do not rewrite package lockfiles unless the chosen package manager requires it and you can explain why.
 
 Finish only when T013–T019 are accurately marked based on evidence.
 
-
-
 ---
 
 # PROMPT 1: STEP 1 — Repair the Supabase migration chain and build one canonical schema
 
 **Tasklist scope:** `T020–T045`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -233,7 +230,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -242,7 +239,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -268,12 +265,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -282,7 +281,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -303,7 +302,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -353,14 +351,11 @@ Required work:
 
 Do not mark T043/T044/T045 complete until the canonical migration and seed are internally coherent and the checker passes.
 
-
-
 ---
 
 # PROMPT 2: STEP 2 — Apply canonical schema to clean staging and generate real DB types
 
 **Tasklist scope:** `T046–T055`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -418,7 +413,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -427,7 +422,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -453,12 +448,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -467,7 +464,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -488,7 +485,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -515,6 +511,7 @@ Required work:
 - Add schema/migration verification to CI.
 
 If you cannot access staging credentials:
+
 - mark only the staging-dependent tasks `[!]`;
 - still complete local preparation that does not require credentials;
 - do not fake successful migration output.
@@ -522,14 +519,11 @@ If you cannot access staging credentials:
 Exit criteria:
 `db reset/migration + seed + generated types + RLS smoke` must be real and reproducible.
 
-
-
 ---
 
 # PROMPT 3: STEP 3 — Harden production env, server-only boundaries, Vercel target, and health
 
 **Tasklist scope:** `T056–T063`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -587,7 +581,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -596,7 +590,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -622,12 +616,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -636,7 +632,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -657,7 +653,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -680,6 +675,7 @@ Required work:
 7. Add release/build metadata to health safely.
 
 Test:
+
 - Vercel preview;
 - dynamic route refresh;
 - SSR;
@@ -689,14 +685,11 @@ Test:
 
 Do not mark Vercel tasks complete without an actual preview deployment test.
 
-
-
 ---
 
 # PROMPT 4: STEP 4 — Complete Supabase SSR auth, route guards, seller/admin authorization, and MFA
 
 **Tasklist scope:** `T064–T078`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -754,7 +747,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -763,7 +756,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -789,12 +782,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -803,7 +798,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -824,7 +819,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -859,14 +853,11 @@ Required work:
 
 Do not treat client-side “Sign In Required” rendering as authorization.
 
-
-
 ---
 
 # PROMPT 5: STEP 5 — Make catalogue fully live and remove production fixture fallback
 
 **Tasklist scope:** `T079–T087`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -924,7 +915,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -933,7 +924,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -959,12 +950,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -973,7 +966,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -994,7 +987,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -1019,14 +1011,11 @@ Acceptance:
 Editing staging DB must change frontend output.
 A DB failure must never show fake purchasable products in production.
 
-
-
 ---
 
 # PROMPT 6: STEP 6 — Complete seller onboarding and Stripe Connect onboarding
 
 **Tasklist scope:** `T088–T103`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -1084,7 +1073,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -1093,7 +1082,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -1119,12 +1108,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -1133,7 +1124,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -1154,7 +1145,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -1186,14 +1176,11 @@ Required work:
 End-to-end staging test:
 new user → seller application → docs → submit → admin approve → Stripe onboarding → approved seller dashboard.
 
-
-
 ---
 
 # PROMPT 7: STEP 7 — Complete seller product CRUD, dynamic attributes, images, and moderation
 
 **Tasklist scope:** `T104–T124`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -1251,7 +1238,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -1260,7 +1247,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -1286,12 +1273,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -1300,7 +1289,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -1321,7 +1310,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -1353,14 +1341,11 @@ Required work:
 Test:
 Create a staging product with variants/images, submit, moderate, make LIVE, edit it, and prove old order snapshots would not be changed.
 
-
-
 ---
 
 # PROMPT 8: STEP 8 — Make cart and wishlist database-backed
 
 **Tasklist scope:** `T125–T135`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -1418,7 +1403,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -1427,7 +1412,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -1453,12 +1438,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -1467,7 +1454,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -1488,7 +1475,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -1517,14 +1503,11 @@ Required work:
 Acceptance:
 Cart survives refresh and login, and a guest/customer cannot access another cart.
 
-
-
 ---
 
 # PROMPT 9: STEP 9 — Complete atomic inventory lifecycle
 
 **Tasklist scope:** `T136–T147`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -1582,7 +1565,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -1591,7 +1574,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -1617,12 +1600,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -1631,7 +1616,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -1652,7 +1637,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -1676,14 +1660,11 @@ Required work:
 Acceptance:
 Two simultaneous purchases of final unit → one succeeds, one fails, stock never negative.
 
-
-
 ---
 
 # PROMPT 10: STEP 10 — Build zero-trust checkout and atomic order preparation
 
 **Tasklist scope:** `T148–T162`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -1741,7 +1722,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -1750,7 +1731,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -1776,12 +1757,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -1790,7 +1773,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -1811,7 +1794,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -1846,14 +1828,11 @@ Required work:
 Acceptance:
 Any failure during preparation leaves no partial order or unreleased orphan state.
 
-
-
 ---
 
 # PROMPT 11: STEP 11 — Complete Stripe Payment Element, real webhook endpoint, and payment recovery
 
 **Tasklist scope:** `T163–T179`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -1911,7 +1890,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -1920,7 +1899,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -1946,12 +1925,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -1960,7 +1941,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -1981,7 +1962,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2015,14 +1995,11 @@ Required work:
 
 Do not mark complete until real Stripe test-mode webhook replay passes.
 
-
-
 ---
 
 # PROMPT 12: STEP 12 — Finalize immutable marketplace ledger and reconciliation
 
 **Tasklist scope:** `T180–T192`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -2080,7 +2057,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -2089,7 +2066,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -2115,12 +2092,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -2129,7 +2108,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -2150,7 +2129,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2176,14 +2154,11 @@ Required work:
 Acceptance:
 For a test order, every cent reconciles and historical economics do not depend on current product/commission settings.
 
-
-
 ---
 
 # PROMPT 13: STEP 13 — Connect one real shipping provider end-to-end
 
 **Tasklist scope:** `T193–T211`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -2241,7 +2216,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -2250,7 +2225,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -2276,12 +2251,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -2290,7 +2267,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -2311,7 +2288,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2341,14 +2317,11 @@ Required work:
 
 Do not generate fake tracking IDs or fake label URLs.
 
-
-
 ---
 
 # PROMPT 14: STEP 14 — Replace seller fulfilment and customer order tracking fixtures
 
 **Tasklist scope:** `T212–T227`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -2406,7 +2379,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -2415,7 +2388,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -2441,12 +2414,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -2455,7 +2430,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -2476,7 +2451,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2504,14 +2478,11 @@ Required work:
 
 Do not accept seller ID from the browser as authority.
 
-
-
 ---
 
 # PROMPT 15: STEP 15 — Complete cancellations
 
 **Tasklist scope:** `T228–T237`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -2569,7 +2540,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -2578,7 +2549,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -2604,12 +2575,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -2618,7 +2591,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -2639,7 +2612,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2661,14 +2633,11 @@ Required work:
 
 Test all three cancellation actors.
 
-
-
 ---
 
 # PROMPT 16: STEP 16 — Complete returns, evidence, Stripe refunds, and payout holds
 
 **Tasklist scope:** `T238–T257`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -2726,7 +2695,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -2735,7 +2704,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -2761,12 +2730,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -2775,7 +2746,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -2796,7 +2767,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2825,14 +2795,11 @@ Required work:
 
 No refund may be represented by only changing a status.
 
-
-
 ---
 
 # PROMPT 17: STEP 17 — Complete seller payouts using the locked architecture
 
 **Tasklist scope:** `T258–T273`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -2890,7 +2857,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -2899,7 +2866,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -2925,12 +2892,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -2939,7 +2908,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -2960,7 +2929,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -2988,14 +2956,11 @@ If Stripe Connect is selected:
 
 If the owner chose ABA/manual banking instead, stop and rewrite this phase to that approved architecture before coding.
 
-
-
 ---
 
 # PROMPT 18: STEP 18 — Build real CSV/XLSX bulk import end-to-end
 
 **Tasklist scope:** `T274–T308`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -3053,7 +3018,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -3062,7 +3027,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -3088,12 +3053,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -3102,7 +3069,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -3123,7 +3090,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -3170,14 +3136,11 @@ Required work:
 
 Do not accept “UI says imported” as completion.
 
-
-
 ---
 
 # PROMPT 19: STEP 19 — Complete bulk stock and reservation-safe inventory updates
 
 **Tasklist scope:** `T309–T316`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -3235,7 +3198,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -3244,7 +3207,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -3270,12 +3233,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -3284,7 +3249,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -3305,7 +3270,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -3325,14 +3289,11 @@ Required work:
 Acceptance:
 A stock file cannot alter another seller's SKU or erase reserved units.
 
-
-
 ---
 
 # PROMPT 20: STEP 20 — Complete product video according to the owner-approved architecture
 
 **Tasklist scope:** `T317–T335`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -3390,7 +3351,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -3399,7 +3360,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -3425,12 +3386,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -3439,7 +3402,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -3461,7 +3424,6 @@ At the end of this step, report:
 
 Do the implementation, not just an explanation.
 
-
 ## STEP-SPECIFIC INSTRUCTION
 
 Execute **Phase 21**.
@@ -3469,6 +3431,7 @@ Execute **Phase 21**.
 Read the owner decision first.
 
 If Mux:
+
 - direct upload;
 - processing state;
 - signed webhook;
@@ -3480,6 +3443,7 @@ If Mux:
 - remove simulated controls.
 
 If direct Supabase MP4:
+
 - document reduced capability;
 - validate MP4/size/duration;
 - one canonical bucket;
@@ -3488,17 +3452,15 @@ If direct Supabase MP4:
 - remove blob fallback on upload failure.
 
 In both cases:
+
 - product video failure must never produce a broken player;
 - production must not use timer-based simulated success/rejection.
-
-
 
 ---
 
 # PROMPT 21: STEP 21 — Build event-driven notifications with idempotency and retries
 
 **Tasklist scope:** `T336–T351`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -3556,7 +3518,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -3565,7 +3527,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -3591,12 +3553,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -3605,7 +3569,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -3626,7 +3590,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -3654,14 +3617,11 @@ Required work:
 
 Do not call provider helpers from random UI components.
 
-
-
 ---
 
 # PROMPT 22: STEP 22 — Replace admin, seller team, and customer account demo data
 
 **Tasklist scope:** `T352–T386`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -3719,7 +3679,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -3728,7 +3688,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -3754,12 +3714,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -3768,7 +3730,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -3790,12 +3752,12 @@ At the end of this step, report:
 
 Do the implementation, not just an explanation.
 
-
 ## STEP-SPECIFIC INSTRUCTION
 
 Execute **Phases 23–25** in dependency-safe order.
 
 ADMIN:
+
 - remove “Admin console demo” behavior;
 - connect real metrics;
 - seller approvals;
@@ -3813,6 +3775,7 @@ ADMIN:
 - pagination.
 
 SELLER TEAM:
+
 - remove static `SELLER_STAFF`;
 - resolve authenticated seller;
 - invite;
@@ -3823,6 +3786,7 @@ SELLER TEAM:
 - verify revoked access.
 
 CUSTOMER ACCOUNT:
+
 - real order history;
 - package/tracking;
 - address CRUD;
@@ -3835,14 +3799,11 @@ CUSTOMER ACCOUNT:
 
 Do not mark a section complete while static `ism-data`/`ism-ops` is still its production source.
 
-
-
 ---
 
 # PROMPT 23: STEP 23 — Standardize background jobs and webhook processing
 
 **Tasklist scope:** `T387–T397`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -3900,7 +3861,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -3909,7 +3870,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -3935,12 +3896,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -3949,7 +3912,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -3970,7 +3933,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -3994,14 +3956,11 @@ Required work:
 Acceptance:
 A browser connection is never required for long-running import, payout, notification, or retry work.
 
-
-
 ---
 
 # PROMPT 24: STEP 24 — Security hardening
 
 **Tasklist scope:** `T398–T418`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -4059,7 +4018,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -4068,7 +4027,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -4094,12 +4053,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -4108,7 +4069,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -4129,7 +4090,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -4161,14 +4121,11 @@ Required work:
 
 Do not weaken security to meet launch timing.
 
-
-
 ---
 
 # PROMPT 25: STEP 25 — Monitoring, backups, restore, and operational readiness
 
 **Tasklist scope:** `T419–T435`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -4226,7 +4183,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -4235,7 +4192,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -4261,12 +4218,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -4275,7 +4234,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -4296,7 +4255,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -4324,14 +4282,11 @@ Required work:
 
 Do not mark backup/restore complete from code alone; verify the real environment.
 
-
-
 ---
 
 # PROMPT 26: STEP 26 — Build real test suite and CI gates
 
 **Tasklist scope:** `T436–T464`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -4389,7 +4344,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -4398,7 +4353,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -4424,12 +4379,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -4438,7 +4395,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -4459,7 +4416,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -4502,14 +4458,11 @@ Required work:
 
 Do not mark a UAT scenario complete because a unit-test helper exists.
 
-
-
 ---
 
 # PROMPT 27: STEP 27 — Performance and reliability
 
 **Tasklist scope:** `T465–T476`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -4567,7 +4520,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -4576,7 +4529,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -4602,12 +4555,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -4616,7 +4571,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -4637,7 +4592,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -4661,14 +4615,11 @@ Required work:
 
 Document measured results.
 
-
-
 ---
 
 # PROMPT 28: STEP 28 — Remove every remaining production demo/fake/fallback path
 
 **Tasklist scope:** `T477–T493`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -4726,7 +4677,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -4735,7 +4686,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -4761,12 +4712,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -4775,7 +4728,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -4796,7 +4749,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -4828,14 +4780,11 @@ Add CI grep/check where practical.
 Acceptance:
 Production build cannot silently simulate a successful business transaction.
 
-
-
 ---
 
 # PROMPT 29: STEP 29 — Legal/configuration finalization
 
 **Tasklist scope:** `T494–T503`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -4893,7 +4842,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -4902,7 +4851,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -4928,12 +4877,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -4942,7 +4893,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -4963,7 +4914,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -4992,14 +4942,11 @@ Integrate only approved text/settings:
 
 If approval is missing, mark `[!]`. Do not invent legal approval.
 
-
-
 ---
 
 # PROMPT 30: STEP 30 — Full staging UAT against Master Plan
 
 **Tasklist scope:** `T504–T533`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -5057,7 +5004,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -5066,7 +5013,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -5092,12 +5039,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -5106,7 +5055,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -5127,7 +5076,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -5170,14 +5118,11 @@ Required scenarios:
 
 Attach/record evidence for each scenario.
 
-
-
 ---
 
 # PROMPT 31: STEP 31 — Production deployment
 
 **Tasklist scope:** `T534–T554`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -5235,7 +5180,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -5244,7 +5189,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -5270,12 +5215,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -5284,7 +5231,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -5305,7 +5252,6 @@ At the end of this step, report:
 8. **Commit hash** if a commit was created
 
 Do the implementation, not just an explanation.
-
 
 ## STEP-SPECIFIC INSTRUCTION
 
@@ -5337,14 +5283,11 @@ Required work:
 
 Never copy staging fake users/orders into production.
 
-
-
 ---
 
 # PROMPT 32: STEP 32 — Controlled pilot and final go-live gate
 
 **Tasklist scope:** `T555–T568 + G001–G042`
-
 
 ## MASTER PROMPT — INCLUDE THIS ENTIRE BLOCK IN EVERY STEP
 
@@ -5402,7 +5345,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - stock;
    - refund amount;
    - payout amount.
-   The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
+     The browser should send IDs/quantity/address/service selection only. The server must load authoritative values from PostgreSQL/config/provider APIs.
 
 7. **Fail closed.**
    Never do:
@@ -5411,7 +5354,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
    - DB failure → fake catalogue in production;
    - shipping failure → fake label/tracking;
    - upload failure → local blob success.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness is non-negotiable.**
    - Use one canonical money representation.
@@ -5437,12 +5380,14 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - Do not modify unrelated files.
 
 12. **Before marking any task `[x]`, run the applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any task-specific DB/provider/E2E test.
 
 13. **Update `resources/tasklist3.md`.**
@@ -5451,7 +5396,7 @@ You are working inside the **latest Indian Shopping Mela repository**, and the c
     - `[x]` verified complete
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with date, task IDs, evidence, and commit hash.
+      Update the Progress Log with date, task IDs, evidence, and commit hash.
 
 14. **If an external credential/business/legal decision is required, stop only that blocked subtask.**
     Mark it `[!]` and clearly state exactly what is needed. Continue only with independent tasks whose dependencies are satisfied.
@@ -5473,7 +5418,6 @@ At the end of this step, report:
 
 Do the implementation, not just an explanation.
 
-
 ## STEP-SPECIFIC INSTRUCTION
 
 Execute **Phase 35** and then the Final Go-Live Gate.
@@ -5487,6 +5431,7 @@ Recommended controlled pilot:
 - controlled traffic.
 
 Required pilot:
+
 - seller readiness;
 - payout readiness;
 - addresses;
@@ -5506,4 +5451,3 @@ Then evaluate every `G001–G042`.
 Do not declare public production launch until every applicable gate is `[x]`.
 
 If a gate is not met, report exactly why and continue the remediation path instead of claiming success.
-

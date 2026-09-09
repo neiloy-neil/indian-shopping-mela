@@ -31,12 +31,14 @@ export async function acceptSubOrder(subOrderId: string, sellerId: string): Prom
  * Server Function: Seller marks order Ready to Ship and generates courier shipping label.
  */
 export const generateShippingLabelServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    subOrderId: string;
-    sellerId: string;
-    parcel?: ParcelDetails | undefined;
-    manualTrackingNumber?: string | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      subOrderId: string;
+      sellerId: string;
+      parcel?: ParcelDetails | undefined;
+      manualTrackingNumber?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return generateShippingLabelForSubOrder({
       subOrderId: data.subOrderId,
@@ -70,11 +72,23 @@ export async function generateShippingLabelForSubOrder(params: {
     const provider = new AusPostShippingProvider();
     const shipmentResult = await provider.createShipment(
       params.subOrderId,
-      subOrder.seller?.dispatch_address ?? { line1: "14 Wigram St", suburb: "Harris Park", state: "NSW", postcode: "2150", country: "AU" },
-      subOrder.master_order?.shipping_address ?? { line1: "1 Delivery Way", suburb: "Sydney", state: "NSW", postcode: "2000", country: "AU" },
+      subOrder.seller?.dispatch_address ?? {
+        line1: "14 Wigram St",
+        suburb: "Harris Park",
+        state: "NSW",
+        postcode: "2150",
+        country: "AU",
+      },
+      subOrder.master_order?.shipping_address ?? {
+        line1: "1 Delivery Way",
+        suburb: "Sydney",
+        state: "NSW",
+        postcode: "2000",
+        country: "AU",
+      },
       params.parcel,
       subOrder.master_order?.customer_name ?? "Customer",
-      subOrder.master_order?.customer_phone ?? undefined
+      subOrder.master_order?.customer_phone ?? undefined,
     );
     trackingNumber = shipmentResult.trackingNumber;
     labelPdfUrl = shipmentResult.labelPdfUrl;
@@ -117,7 +131,10 @@ export const processCarrierDeliveryConfirmationServerFn = createServerFn({ metho
     return processCarrierDeliveryConfirmation(data.subOrderId, data.deliveryTimestamp);
   });
 
-export async function processCarrierDeliveryConfirmation(subOrderId: string, deliveryTimestamp?: string): Promise<boolean> {
+export async function processCarrierDeliveryConfirmation(
+  subOrderId: string,
+  deliveryTimestamp?: string,
+): Promise<boolean> {
   const deliveredAt = deliveryTimestamp ? new Date(deliveryTimestamp) : new Date();
 
   // 1. Update sub-order delivery states
@@ -173,7 +190,8 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SellerSubOrderRow[]> => {
     try {
       let query = (supabaseAdmin.from("sub_orders") as any)
-        .select(`
+        .select(
+          `
           id,
           master_order_id,
           subtotal,
@@ -184,7 +202,8 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
           created_at,
           items:order_items(id, quantity, title),
           master_order:orders(order_number, customer_name, shipping_address)
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (data.sellerId) {
@@ -199,7 +218,10 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
       return subOrders.map((so: any) => {
         const address = so.master_order?.shipping_address as any;
         const state = address?.state || "NSW";
-        const itemCount = (so.items || []).reduce((acc: number, item: any) => acc + Number(item.quantity || 1), 0);
+        const itemCount = (so.items || []).reduce(
+          (acc: number, item: any) => acc + Number(item.quantity || 1),
+          0,
+        );
         const total = Number(so.subtotal || 0) + Number(so.shipping_cost || 0);
 
         return {
@@ -221,4 +243,3 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
       return [];
     }
   });
-

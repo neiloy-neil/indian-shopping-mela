@@ -13,7 +13,7 @@ type Search = { order?: string | undefined };
 
 export const Route = createFileRoute("/returns/new")({
   validateSearch: (search: Record<string, unknown>): Search => ({
-    order: typeof search['order'] === "string" ? (search['order'] as string) : undefined,
+    order: typeof search["order"] === "string" ? (search["order"] as string) : undefined,
   }),
   component: NewReturn,
 });
@@ -80,7 +80,8 @@ function NewReturn() {
                   Request a return
                 </h1>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Sub-order {sub.id} · Seller: {sub.seller} · Ordinary returns within 7 days of delivery under ACL.
+                  Sub-order {sub.id} · Seller: {sub.seller} · Ordinary returns within 7 days of
+                  delivery under ACL.
                 </p>
               </header>
 
@@ -141,7 +142,9 @@ function NewReturn() {
                       <div>
                         <p className="font-semibold text-primary">{r.label}</p>
                         <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {r.statutory ? "Statutory claim under ACL" : "Change of mind (within 7 days)"}
+                          {r.statutory
+                            ? "Statutory claim under ACL"
+                            : "Change of mind (within 7 days)"}
                         </p>
                       </div>
                     </label>
@@ -199,7 +202,8 @@ function NewReturn() {
                 <div className="mt-4 rounded-sm bg-muted/40 p-2.5 text-[11px] text-muted-foreground">
                   <p className="flex items-start gap-1">
                     <Info size={13} className="mt-0.5 shrink-0" />
-                    Refunded to the original payment method after the return is received and checked.
+                    Refunded to the original payment method after the return is received and
+                    checked.
                   </p>
                 </div>
                 <Button
@@ -217,8 +221,8 @@ function NewReturn() {
                         "change-of-mind": "CHANGED_MIND",
                         "wrong-size": "WRONG_SIZE",
                         "wrong-item": "WRONG_ITEM",
-                        "damaged": "DAMAGED_IN_TRANSIT",
-                        "faulty": "DEFECTIVE_FAULTY",
+                        damaged: "DAMAGED_IN_TRANSIT",
+                        faulty: "DEFECTIVE_FAULTY",
                         "not-as-described": "NOT_AS_DESCRIBED",
                       };
 
@@ -235,7 +239,8 @@ function NewReturn() {
 
                       setSubmitted(true);
                       toast.success("Return request submitted", {
-                        description: "Return request registered. Seller notified and payout hold placed on ledger.",
+                        description:
+                          "Return request registered. Seller notified and payout hold placed on ledger.",
                       });
                     } catch (err: any) {
                       toast.error("Return request failed", { description: err.message });

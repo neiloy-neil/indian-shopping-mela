@@ -41,7 +41,11 @@ export interface SaveSellerOnboardingInput {
  * 3. Sum the resulting products
  * 4. Divide sum by 89; if remainder is 0, the ABN is valid.
  */
-export function validateAustralianAbn(abn: string): { valid: boolean; formatted: string; reason?: string | undefined } {
+export function validateAustralianAbn(abn: string): {
+  valid: boolean;
+  formatted: string;
+  reason?: string | undefined;
+} {
   const cleanAbn = abn.replace(/\s+/g, "");
   if (!/^\d{11}$/.test(cleanAbn)) {
     return { valid: false, formatted: cleanAbn, reason: "ABN must be exactly 11 numeric digits." };
@@ -85,12 +89,14 @@ export function isValidSellerStatusTransition(from: SellerStatus, to: SellerStat
  * Server Function: Admin review of seller onboarding application
  */
 export const adminReviewSellerApplicationServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    newStatus: SellerStatus;
-    reviewerNote?: string | undefined;
-    commissionRate?: number | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      newStatus: SellerStatus;
+      reviewerNote?: string | undefined;
+      commissionRate?: number | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { data: seller, error: fetchErr } = await (supabaseAdmin as any)
       .from("sellers")
@@ -104,7 +110,9 @@ export const adminReviewSellerApplicationServerFn = createServerFn({ method: "PO
 
     const currentStatus = seller.status as SellerStatus;
     if (!isValidSellerStatusTransition(currentStatus, data.newStatus)) {
-      throw new Error(`Invalid seller status transition from ${currentStatus} to ${data.newStatus}`);
+      throw new Error(
+        `Invalid seller status transition from ${currentStatus} to ${data.newStatus}`,
+      );
     }
 
     const updatePayload: any = {
@@ -149,7 +157,9 @@ export const saveSellerOnboardingServerFn = createServerFn({ method: "POST" })
     return saveSellerOnboardingTransactional(data);
   });
 
-export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboardingInput): Promise<SellerRow> {
+export async function saveSellerOnboardingTransactional(
+  payload: SaveSellerOnboardingInput,
+): Promise<SellerRow> {
   const cleanSlug = payload.slug.toLowerCase().replace(/[^a-z0-9-]/g, "-");
   const targetStatus: SellerStatus = payload.status === "SUBMITTED" ? "SUBMITTED" : "DRAFT";
 
@@ -183,7 +193,7 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
         return_address: payload.returnAddress ?? {},
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "slug" }
+      { onConflict: "slug" },
     )
     .select()
     .single();
@@ -202,22 +212,28 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
         permissions: ["all"],
         is_active: true,
       },
-      { onConflict: "seller_id,user_id" }
+      { onConflict: "seller_id,user_id" },
     );
   }
 
   // 3. Update dispatch_address JSONB in sellers row
   if (payload.dispatchAddress) {
-    await (supabaseAdmin as any).from("sellers").update({
-      dispatch_address: payload.dispatchAddress,
-    }).eq("id", seller.id);
+    await (supabaseAdmin as any)
+      .from("sellers")
+      .update({
+        dispatch_address: payload.dispatchAddress,
+      })
+      .eq("id", seller.id);
   }
 
   // 4. Update return_address JSONB in sellers row
   if (payload.returnAddress) {
-    await (supabaseAdmin as any).from("sellers").update({
-      return_address: payload.returnAddress,
-    }).eq("id", seller.id);
+    await (supabaseAdmin as any)
+      .from("sellers")
+      .update({
+        return_address: payload.returnAddress,
+      })
+      .eq("id", seller.id);
   }
 
   return seller as unknown as SellerRow;
@@ -227,14 +243,17 @@ export async function saveSellerOnboardingTransactional(payload: SaveSellerOnboa
  * Server Function: Upload or record seller verification document metadata
  */
 export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    documentType: "abn_certificate" | "identity_proof" | "business_registration" | "bank_statement";
-    fileUrl: string;
-    fileName: string;
-    fileSize: number;
-    mimeType: string;
-  }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      documentType:
+        "abn_certificate" | "identity_proof" | "business_registration" | "bank_statement";
+      fileUrl: string;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
     if (!allowedMimeTypes.includes(data.mimeType)) {
@@ -269,7 +288,11 @@ export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "PO
       action: "SELLER_DOCUMENT_UPLOADED",
       entity_type: "SELLER_DOCUMENT",
       entity_id: doc.id,
-      payload: { sellerId: data.sellerId, documentType: data.documentType, fileName: data.fileName },
+      payload: {
+        sellerId: data.sellerId,
+        documentType: data.documentType,
+        fileName: data.fileName,
+      },
     });
 
     return doc as SellerDocumentRow;
@@ -279,11 +302,13 @@ export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "PO
  * Server Function: Record immutable seller agreement acceptance version
  */
 export const recordSellerAgreementAcceptanceServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    agreementType: "seller_master_agreement" | "marketplace_terms" | "prohibited_items_policy";
-    version: string;
-  }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      agreementType: "seller_master_agreement" | "marketplace_terms" | "prohibited_items_policy";
+      version: string;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { data: agreement, error } = await (supabaseAdmin as any)
       .from("seller_agreements")
@@ -411,13 +436,15 @@ export const getSellerTeamMembersServerFn = createServerFn({ method: "POST" })
  * Server Function: Invite a new staff member to seller team
  */
 export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    email: string;
-    name: string;
-    role: string;
-    permissions: string[];
-  }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      email: string;
+      name: string;
+      role: string;
+      permissions: string[];
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const inviteToken = `inv_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 
@@ -459,13 +486,16 @@ export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" }
     const role = log.new_data?.role || "member";
     const permissions = log.new_data?.permissions || ["products", "orders"];
 
-    await (supabaseAdmin.from("seller_staff") as any).upsert({
-      seller_id: sellerId,
-      user_id: data.userId,
-      staff_role: role,
-      permissions,
-      is_active: true,
-    }, { onConflict: "seller_id,user_id" });
+    await (supabaseAdmin.from("seller_staff") as any).upsert(
+      {
+        seller_id: sellerId,
+        user_id: data.userId,
+        staff_role: role,
+        permissions,
+        is_active: true,
+      },
+      { onConflict: "seller_id,user_id" },
+    );
 
     return { success: true, sellerId };
   });
@@ -474,11 +504,7 @@ export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" }
  * Server Function: Update staff member permissions
  */
 export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    memberEmail: string;
-    permissions: string[];
-  }) => data)
+  .validator((data: { sellerId: string; memberEmail: string; permissions: string[] }) => data)
   .handler(async ({ data }) => {
     await (supabaseAdmin as any).from("audit_logs").insert({
       action: "SELLER_PERMISSIONS_UPDATED",
@@ -494,10 +520,7 @@ export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "PO
  * Server Function: Remove a staff member from seller team
  */
 export const removeSellerStaffServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    memberEmail: string;
-  }) => data)
+  .validator((data: { sellerId: string; memberEmail: string }) => data)
   .handler(async ({ data }) => {
     await (supabaseAdmin as any).from("audit_logs").insert({
       action: "SELLER_MEMBER_REMOVED",

@@ -18,7 +18,10 @@ export const Route = createFileRoute("/sell/add-product")({
           "Create a new listing with images, product video, pricing, variants, inventory, shipping and returns settings.",
       },
       { property: "og:title", content: "Add Product — ISM Seller Centre" },
-      { property: "og:description", content: "Full listing form for Indian sellers on ISM Australia." },
+      {
+        property: "og:description",
+        content: "Full listing form for Indian sellers on ISM Australia.",
+      },
     ],
   }),
   component: AddProduct,
@@ -167,12 +170,19 @@ function AddProduct() {
             price: Number(price) || 99,
             salePrice: compareAt ? Number(compareAt) : undefined,
             stockQuantity: Number(stock) || 1,
-            attributes: { Department: department, Subcategory: subcategory, Fabric: fabric, Region: region },
+            attributes: {
+              Department: department,
+              Subcategory: subcategory,
+              Fabric: fabric,
+              Region: region,
+            },
             images,
           },
         ],
       });
-      toast.success("Draft saved successfully", { description: "Your listing draft is safely stored." });
+      toast.success("Draft saved successfully", {
+        description: "Your listing draft is safely stored.",
+      });
     } catch (err: any) {
       toast.error("Error saving draft", { description: err.message });
     } finally {
@@ -208,7 +218,13 @@ function AddProduct() {
             price: Number(price) || 199,
             salePrice: compareAt ? Number(compareAt) : undefined,
             stockQuantity: Number(stock) || 10,
-            attributes: { Department: department, Subcategory: subcategory, Fabric: fabric, Region: region, Occasion: occasion },
+            attributes: {
+              Department: department,
+              Subcategory: subcategory,
+              Fabric: fabric,
+              Region: region,
+              Occasion: occasion,
+            },
             images,
           },
         ],
@@ -240,7 +256,10 @@ function AddProduct() {
       }
     >
       <div className="space-y-6 pb-24">
-        <Section title="Basic Details" description="Core product information shown in search and product pages.">
+        <Section
+          title="Basic Details"
+          description="Core product information shown in search and product pages."
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -258,14 +277,30 @@ function AddProduct() {
               value={department}
               onChange={setDepartment}
               required
-              options={["Women", "Men", "Kids", "Jewellery", "Pooja Essentials", "Home & Living", "Footwear"]}
+              options={[
+                "Women",
+                "Men",
+                "Kids",
+                "Jewellery",
+                "Pooja Essentials",
+                "Home & Living",
+                "Footwear",
+              ]}
             />
             <Select
               label="Subcategory"
               value={subcategory}
               onChange={setSubcategory}
               required
-              options={["Sarees", "Lehengas", "Kurtas", "Necklace Sets", "Bangles", "Juttis", "Diyas & Mandir"]}
+              options={[
+                "Sarees",
+                "Lehengas",
+                "Kurtas",
+                "Necklace Sets",
+                "Bangles",
+                "Juttis",
+                "Diyas & Mandir",
+              ]}
             />
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -282,7 +317,15 @@ function AddProduct() {
               label="Craft Region"
               value={region}
               onChange={setRegion}
-              options={["Uttar Pradesh", "Rajasthan", "Gujarat", "Tamil Nadu", "West Bengal", "Maharashtra", "Punjab"]}
+              options={[
+                "Uttar Pradesh",
+                "Rajasthan",
+                "Gujarat",
+                "Tamil Nadu",
+                "West Bengal",
+                "Maharashtra",
+                "Punjab",
+              ]}
             />
             <div className="sm:col-span-2">
               <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -295,7 +338,9 @@ function AddProduct() {
                 placeholder="Handloom Banarasi silk with real zari border, includes unstitched blouse piece…"
                 className="mt-1 w-full rounded-sm border border-input bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">Minimum 20 characters recommended — detailed descriptions rank higher in search.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Minimum 20 characters recommended — detailed descriptions rank higher in search.
+              </p>
             </div>
             <Select
               label="Occasion"
@@ -318,7 +363,8 @@ function AddProduct() {
         >
           <div>
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Product images <span className="text-rani">*</span> <span className="normal-case text-muted-foreground/70">(up to 12 images)</span>
+              Product images <span className="text-rani">*</span>{" "}
+              <span className="normal-case text-muted-foreground/70">(up to 12 images)</span>
             </p>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
               {Array.from({ length: 12 }, (_, i) => {
@@ -329,7 +375,11 @@ function AddProduct() {
                   <div key={i} className="relative aspect-square">
                     {imgUrl ? (
                       <div className="group relative size-full overflow-hidden rounded-sm border border-border bg-surface">
-                        <img src={imgUrl} alt={`Product preview ${i + 1}`} className="size-full object-cover" />
+                        <img
+                          src={imgUrl}
+                          alt={`Product preview ${i + 1}`}
+                          className="size-full object-cover"
+                        />
                         <button
                           type="button"
                           onClick={() => handleRemoveImage(i)}
@@ -376,7 +426,10 @@ function AddProduct() {
 
           <div className="mt-5 border-t border-border pt-5">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Product video <span className="normal-case text-muted-foreground/60">(optional, strongly recommended)</span>
+              Product video{" "}
+              <span className="normal-case text-muted-foreground/60">
+                (optional, strongly recommended)
+              </span>
             </p>
             {videoUrl ? (
               <div className="relative max-w-md overflow-hidden rounded-md border border-border bg-black">
@@ -406,7 +459,9 @@ function AddProduct() {
                   <Film size={26} />
                 )}
                 <span className="text-sm font-semibold">
-                  {isUploadingVideo ? "Uploading video..." : "Drag and drop your product video, or click to browse"}
+                  {isUploadingVideo
+                    ? "Uploading video..."
+                    : "Drag and drop your product video, or click to browse"}
                 </span>
                 <span className="text-xs text-rani/80">
                   MP4, up to 60 seconds, 20MB max — uploaded directly to secure CDN.
@@ -419,7 +474,10 @@ function AddProduct() {
           </div>
         </Section>
 
-        <Section title="Pricing" description="All prices are shown to customers in Australian dollars, GST inclusive where applicable.">
+        <Section
+          title="Pricing"
+          description="All prices are shown to customers in Australian dollars, GST inclusive where applicable."
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -443,12 +501,19 @@ function AddProduct() {
                 className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
               />
             </div>
-            <Field label="Cost per item (AUD)" placeholder="140.00" hint="Used for your profit reports only — never shown to customers." />
+            <Field
+              label="Cost per item (AUD)"
+              placeholder="140.00"
+              hint="Used for your profit reports only — never shown to customers."
+            />
             <Select label="GST" required options={["GST included (10%)", "GST free"]} />
           </div>
         </Section>
 
-        <Section title="Variants" description="Add size and colour options; each combination becomes its own SKU.">
+        <Section
+          title="Variants"
+          description="Add size and colour options; each combination becomes its own SKU."
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Option 1 — Size" placeholder="S, M, L, XL" />
             <Field label="Option 2 — Colour" placeholder="Rani Pink, Deep Purple" />
@@ -464,7 +529,10 @@ function AddProduct() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {[["M / Rani Pink", `${sku}-M-RP`], ["L / Deep Purple", `${sku}-L-DP`]].map((r) => (
+                {[
+                  ["M / Rani Pink", `${sku}-M-RP`],
+                  ["L / Deep Purple", `${sku}-L-DP`],
+                ].map((r) => (
                   <tr key={r[1]}>
                     <td className="py-2">{r[0]}</td>
                     <td className="text-xs text-muted-foreground">{r[1]}</td>
@@ -505,11 +573,18 @@ function AddProduct() {
                 className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
               />
             </div>
-            <Select label="Availability" required options={["Ready to Ship", "Made to order (7 days)", "Pre-order"]} />
+            <Select
+              label="Availability"
+              required
+              options={["Ready to Ship", "Made to order (7 days)", "Pre-order"]}
+            />
           </div>
         </Section>
 
-        <Section title="Shipping" description="Used to calculate rates and generate real shipping labels.">
+        <Section
+          title="Shipping"
+          description="Used to calculate rates and generate real shipping labels."
+        >
           <p className="mb-3 rounded-sm border border-marigold/40 bg-marigold/10 p-2.5 text-[11px]">
             {BACKEND_REQUIRED_NOTES.shipping}
           </p>
@@ -526,13 +601,28 @@ function AddProduct() {
               />
             </div>
             <Field label="Dimensions (cm)" placeholder="30 × 25 × 6" required />
-            <Select label="Handling time" required options={["1 business day", "1–2 business days", "3–5 business days"]} />
-            <Select label="Shipping profile" required options={["Standard AU", "Express AU", "Bulky"]} />
-            <Select label="Dispatch from" required options={["Harris Park NSW 2150", "Craigieburn VIC 3064"]} />
+            <Select
+              label="Handling time"
+              required
+              options={["1 business day", "1–2 business days", "3–5 business days"]}
+            />
+            <Select
+              label="Shipping profile"
+              required
+              options={["Standard AU", "Express AU", "Bulky"]}
+            />
+            <Select
+              label="Dispatch from"
+              required
+              options={["Harris Park NSW 2150", "Craigieburn VIC 3064"]}
+            />
           </div>
         </Section>
 
-        <Section title="Returns" description="Set the returns policy customers see on this listing.">
+        <Section
+          title="Returns"
+          description="Set the returns policy customers see on this listing."
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <Select
               label="Return eligibility"
@@ -545,8 +635,8 @@ function AddProduct() {
             />
             <Field label="Return address" placeholder="Same as dispatch address" />
             <p className="text-[11px] text-muted-foreground md:col-span-2">
-              Faulty, damaged, wrong or not-as-described items are always accepted under Australian Consumer Law,
-              regardless of the setting above.
+              Faulty, damaged, wrong or not-as-described items are always accepted under Australian
+              Consumer Law, regardless of the setting above.
             </p>
           </div>
         </Section>
@@ -587,7 +677,12 @@ function Select({
   return (
     <div className={className}>
       <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        {label} {required ? <span className="text-rani">*</span> : <span className="normal-case text-muted-foreground/60">(optional)</span>}
+        {label}{" "}
+        {required ? (
+          <span className="text-rani">*</span>
+        ) : (
+          <span className="normal-case text-muted-foreground/60">(optional)</span>
+        )}
       </label>
       <select
         value={value}

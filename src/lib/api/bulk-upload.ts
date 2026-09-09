@@ -57,14 +57,21 @@ export const validateBulkRowsServerFn = createServerFn({ method: "POST" })
  * Server Function: Commit valid rows in transactional chunks
  */
 export const commitBulkImportChunkServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    rows: BulkUploadRow[];
-    mode?: "CREATE" | "UPDATE" | undefined;
-    blankPolicy?: "ignore" | "clear" | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      rows: BulkUploadRow[];
+      mode?: "CREATE" | "UPDATE" | undefined;
+      blankPolicy?: "ignore" | "clear" | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
-    return commitBulkImportChunk(data.sellerId, data.rows, data.mode ?? "CREATE", data.blankPolicy ?? "ignore");
+    return commitBulkImportChunk(
+      data.sellerId,
+      data.rows,
+      data.mode ?? "CREATE",
+      data.blankPolicy ?? "ignore",
+    );
   });
 
 /**
@@ -92,7 +99,10 @@ export function isSafeRemoteMediaUrl(urlStr: string): { safe: boolean; reason?: 
       hostname.endsWith(".local") ||
       hostname.endsWith(".onion")
     ) {
-      return { safe: false, reason: "Access to private or local network addresses is strictly prohibited." };
+      return {
+        safe: false,
+        reason: "Access to private or local network addresses is strictly prohibited.",
+      };
     }
     return { safe: true };
   } catch {
@@ -103,7 +113,10 @@ export function isSafeRemoteMediaUrl(urlStr: string): { safe: boolean; reason?: 
 /**
  * Parse raw CSV or XLSX ArrayBuffer into structured product rows using SheetJS
  */
-export function parseSpreadsheetBuffer(buffer: ArrayBuffer | Uint8Array, _fileName?: string): Partial<BulkUploadRow>[] {
+export function parseSpreadsheetBuffer(
+  buffer: ArrayBuffer | Uint8Array,
+  _fileName?: string,
+): Partial<BulkUploadRow>[] {
   const workbook = XLSX.read(buffer, { type: "array" });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) return [];
@@ -192,7 +205,10 @@ export function generateCsvTemplate(): string {
     ],
   ];
 
-  return [headers.join(","), ...sampleRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(","))].join("\n");
+  return [
+    headers.join(","),
+    ...sampleRows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")),
+  ].join("\n");
 }
 
 /**
@@ -463,7 +479,8 @@ export function validateBulkRows(rows: Partial<BulkUploadRow>[]): {
 export function generateErrorReportCsv(errors: BulkValidationError[]): string {
   const header = "Row Number,Seller SKU,Field,Error Code,Error Message\n";
   const rows = errors.map(
-    (e) => `${e.rowNumber},"${e.sku}","${e.field}","${e.errorCode}","${e.message.replace(/"/g, '""')}"`
+    (e) =>
+      `${e.rowNumber},"${e.sku}","${e.field}","${e.errorCode}","${e.message.replace(/"/g, '""')}"`,
   );
   return header + rows.join("\n");
 }
@@ -475,7 +492,7 @@ export async function commitBulkImportChunk(
   sellerId: string,
   rows: BulkUploadRow[],
   mode: "CREATE" | "UPDATE" = "CREATE",
-  blankPolicy: "ignore" | "clear" = "ignore"
+  blankPolicy: "ignore" | "clear" = "ignore",
 ): Promise<{ inserted: number; updated: number; failed: number; batchId: string }> {
   let inserted = 0;
   let updated = 0;
@@ -567,10 +584,13 @@ export async function commitBulkImportChunk(
 
       const productId = product.id;
       const weightGrams = Math.round(row.weight_kg * 1000);
-      const variantTitle = row.size || row.colour ? `${row.size ?? ""} ${row.colour ?? ""}`.trim() : "Standard";
+      const variantTitle =
+        row.size || row.colour ? `${row.size ?? ""} ${row.colour ?? ""}`.trim() : "Standard";
 
       // 2. Insert variant
-      const { data: variant, error: variantError } = await (supabaseAdmin.from("product_variants") as any)
+      const { data: variant, error: variantError } = await (
+        supabaseAdmin.from("product_variants") as any
+      )
         .insert({
           product_id: productId,
           sku: row.seller_sku,
@@ -656,8 +676,7 @@ export const getSellerStockListServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId?: string | undefined }) => data)
   .handler(async ({ data }): Promise<SellerStockItem[]> => {
     try {
-      let query = (supabaseAdmin.from("product_variants") as any)
-        .select(`
+      let query = (supabaseAdmin.from("product_variants") as any).select(`
           id,
           sku,
           stock_quantity,
@@ -730,10 +749,12 @@ export interface BulkStockUpdateResult {
  * Server Function: Batch update variant stock levels with seller ownership check and reservation protection
  */
 export const updateStockBatchServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId?: string | undefined;
-    updates: Array<{ variantId?: string; sku?: string; newStock: number; rowNumber?: number }>;
-  }) => data)
+  .validator(
+    (data: {
+      sellerId?: string | undefined;
+      updates: Array<{ variantId?: string; sku?: string; newStock: number; rowNumber?: number }>;
+    }) => data,
+  )
   .handler(async ({ data }): Promise<BulkStockUpdateResult> => {
     let updatedCount = 0;
     const errors: BulkStockUpdateError[] = [];
@@ -744,19 +765,26 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
 
       // 1. Validate quantity format
       if (isNaN(item.newStock) || item.newStock === null || item.newStock === undefined) {
-        errors.push({ sku: skuOrId, error: "Stock quantity must be a valid number", rowNumber: rowNum });
+        errors.push({
+          sku: skuOrId,
+          error: "Stock quantity must be a valid number",
+          rowNumber: rowNum,
+        });
         continue;
       }
 
       const targetStock = Math.floor(Number(item.newStock));
       if (targetStock < 0) {
-        errors.push({ sku: skuOrId, error: "Stock quantity cannot be negative", rowNumber: rowNum });
+        errors.push({
+          sku: skuOrId,
+          error: "Stock quantity cannot be negative",
+          rowNumber: rowNum,
+        });
         continue;
       }
 
       // 2. Fetch current variant + product ownership
-      let fetchQuery = (supabaseAdmin.from("product_variants") as any)
-        .select(`
+      let fetchQuery = (supabaseAdmin.from("product_variants") as any).select(`
           id,
           sku,
           stock_quantity,
@@ -786,7 +814,11 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
       const variant = variantList[0];
 
       // 3. Validate seller ownership if sellerId provided
-      if (data.sellerId && variant.products?.seller_id && variant.products.seller_id !== data.sellerId) {
+      if (
+        data.sellerId &&
+        variant.products?.seller_id &&
+        variant.products.seller_id !== data.sellerId
+      ) {
         errors.push({
           sku: variant.sku || skuOrId,
           error: "Unauthorized: SKU belongs to another seller's store",
@@ -802,7 +834,10 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
         .eq("status", "active")
         .gt("expires_at", new Date().toISOString());
 
-      const totalReserved = (activeRes || []).reduce((acc: number, r: any) => acc + (Number(r.quantity) || 0), 0);
+      const totalReserved = (activeRes || []).reduce(
+        (acc: number, r: any) => acc + (Number(r.quantity) || 0),
+        0,
+      );
 
       if (targetStock < totalReserved) {
         errors.push({
@@ -836,7 +871,7 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
 
       const totalProductStock = (allVariants || []).reduce(
         (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
-        0
+        0,
       );
 
       await (supabaseAdmin.from("products") as any)
@@ -921,12 +956,17 @@ export const generateSellerStockTemplateServerFn = createServerFn({ method: "POS
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
-      worksheet["!cols"] = [{ wch: 18 }, { wch: 40 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 20 }];
+      worksheet["!cols"] = [
+        { wch: 18 },
+        { wch: 40 },
+        { wch: 22 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 20 },
+      ];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Stock_Update");
       const base64 = XLSX.write(workbook, { bookType: "xlsx", type: "base64" });
       return { base64, format: "xlsx" };
     }
   });
-
-

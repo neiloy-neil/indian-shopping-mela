@@ -4,8 +4,11 @@ import { useIsm } from "@/lib/ism-store";
 
 export function BottomNav() {
   const { wishlist } = useIsm();
-  const item = "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold text-muted-foreground";
-  const active = { className: "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold text-rani" };
+  const item =
+    "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold text-muted-foreground";
+  const active = {
+    className: "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-semibold text-rani",
+  };
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface md:hidden">

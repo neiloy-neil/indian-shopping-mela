@@ -48,7 +48,11 @@ import {
   getAdminAuditLogsServerFn,
   type FinanceSummaryMetrics,
 } from "@/lib/api/admin-finance";
-import { runSystemJobServerFn, getDeadLetterQueueServerFn, retryDeadLetterItemServerFn } from "@/lib/api/jobs";
+import {
+  runSystemJobServerFn,
+  getDeadLetterQueueServerFn,
+  retryDeadLetterItemServerFn,
+} from "@/lib/api/jobs";
 import {
   ATTRIBUTE_TYPES,
   CATEGORY_TREE,
@@ -92,13 +96,22 @@ export const Route = createFileRoute("/admin")({
           "Admin console: Live GMV, seller approvals, product moderation, orders, returns, payouts and audit across ISM Australia.",
       },
       { property: "og:title", content: "Marketplace Admin — Indian Shopping Mela" },
-      { property: "og:description", content: "Authoritative operations console for the ISM Australian marketplace." },
+      {
+        property: "og:description",
+        content: "Authoritative operations console for the ISM Australian marketplace.",
+      },
     ],
   }),
   component: AdminPage,
 });
 
-function StatusBadge({ children, tone }: { children: React.ReactNode; tone: "ok" | "warn" | "info" | "muted" | "bad" }) {
+function StatusBadge({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: "ok" | "warn" | "info" | "muted" | "bad";
+}) {
   const map = {
     ok: "bg-teal/12 text-teal",
     warn: "bg-marigold/20 text-marigold-foreground",
@@ -108,7 +121,9 @@ function StatusBadge({ children, tone }: { children: React.ReactNode; tone: "ok"
   } as const;
 
   return (
-    <span className={`inline-block rounded-sm px-2 py-1 text-[10px] font-bold uppercase ${map[tone]}`}>
+    <span
+      className={`inline-block rounded-sm px-2 py-1 text-[10px] font-bold uppercase ${map[tone]}`}
+    >
       {children}
     </span>
   );
@@ -126,21 +141,42 @@ function AdminPage() {
   const [ledgerList, setLedgerList] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [deadLetters, setDeadLetters] = useState<{ webhookDeadLetters: any[]; notificationDeadLetters: any[] }>({
+  const [deadLetters, setDeadLetters] = useState<{
+    webhookDeadLetters: any[];
+    notificationDeadLetters: any[];
+  }>({
     webhookDeadLetters: [],
     notificationDeadLetters: [],
   });
 
   const refreshAll = () => {
-    getMarketplaceFinanceMetricsServerFn().then(setFinanceMetrics).catch(() => null);
-    getAdminSellersServerFn().then(setSellersList).catch(() => null);
-    getAdminProductsServerFn().then(setProductsList).catch(() => null);
-    getAdminOrdersServerFn().then(setOrdersList).catch(() => null);
-    getAdminReturnsServerFn().then(setReturnsList).catch(() => null);
-    getAdminLedgerServerFn().then(setLedgerList).catch(() => null);
-    getAdminUsersServerFn().then(setUsersList).catch(() => null);
-    getAdminAuditLogsServerFn().then(setAuditLogs).catch(() => null);
-    getDeadLetterQueueServerFn().then(setDeadLetters).catch(() => null);
+    getMarketplaceFinanceMetricsServerFn()
+      .then(setFinanceMetrics)
+      .catch(() => null);
+    getAdminSellersServerFn()
+      .then(setSellersList)
+      .catch(() => null);
+    getAdminProductsServerFn()
+      .then(setProductsList)
+      .catch(() => null);
+    getAdminOrdersServerFn()
+      .then(setOrdersList)
+      .catch(() => null);
+    getAdminReturnsServerFn()
+      .then(setReturnsList)
+      .catch(() => null);
+    getAdminLedgerServerFn()
+      .then(setLedgerList)
+      .catch(() => null);
+    getAdminUsersServerFn()
+      .then(setUsersList)
+      .catch(() => null);
+    getAdminAuditLogsServerFn()
+      .then(setAuditLogs)
+      .catch(() => null);
+    getDeadLetterQueueServerFn()
+      .then(setDeadLetters)
+      .catch(() => null);
   };
 
   useEffect(() => {
@@ -177,7 +213,10 @@ function AdminPage() {
     }
   };
 
-  const handleModerateReturn = async (returnId: string, action: "APPROVE" | "REJECT" | "REFUND") => {
+  const handleModerateReturn = async (
+    returnId: string,
+    action: "APPROVE" | "REJECT" | "REFUND",
+  ) => {
     try {
       await moderateReturnServerFn({ data: { returnId, action } });
       toast.success(`Return Action: ${action} processed`);
@@ -260,75 +299,127 @@ function AdminPage() {
           {section === "dashboard" && (
             <>
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <Metric label="Live GMV" value={formatAUD(financeMetrics?.totalGmvAud ?? 0)} note="authoritative ledger" tone="rani" />
-                <Metric label="Platform Commission" value={formatAUD(financeMetrics?.totalPlatformCommissionAud ?? 0)} note="ISM net revenue" />
-                <Metric label="Pending 14-Day Holds" value={formatAUD(financeMetrics?.totalPendingHoldAud ?? 0)} note="delivery clearance" tone="marigold" />
-                <Metric label="Matured Payouts Due" value={formatAUD(financeMetrics?.totalEligiblePayoutsAud ?? 0)} note="ready for Stripe" tone="teal" />
+                <Metric
+                  label="Live GMV"
+                  value={formatAUD(financeMetrics?.totalGmvAud ?? 0)}
+                  note="authoritative ledger"
+                  tone="rani"
+                />
+                <Metric
+                  label="Platform Commission"
+                  value={formatAUD(financeMetrics?.totalPlatformCommissionAud ?? 0)}
+                  note="ISM net revenue"
+                />
+                <Metric
+                  label="Pending 14-Day Holds"
+                  value={formatAUD(financeMetrics?.totalPendingHoldAud ?? 0)}
+                  note="delivery clearance"
+                  tone="marigold"
+                />
+                <Metric
+                  label="Matured Payouts Due"
+                  value={formatAUD(financeMetrics?.totalEligiblePayoutsAud ?? 0)}
+                  note="ready for Stripe"
+                  tone="teal"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <Metric label="Registered Sellers" value={String(sellersList.length)} note={`${sellersList.filter(s => s.status === "approved").length} approved`} tone="teal" />
-                <Metric label="Live Catalogue Items" value={String(productsList.length)} note="across all sellers" tone="marigold" />
-                <Metric label="Active Orders" value={String(ordersList.length)} note="live fulfillment" />
-                <Metric label="Open Returns" value={String(returnsList.length)} note="under review" tone="rani" />
+                <Metric
+                  label="Registered Sellers"
+                  value={String(sellersList.length)}
+                  note={`${sellersList.filter((s) => s.status === "approved").length} approved`}
+                  tone="teal"
+                />
+                <Metric
+                  label="Live Catalogue Items"
+                  value={String(productsList.length)}
+                  note="across all sellers"
+                  tone="marigold"
+                />
+                <Metric
+                  label="Active Orders"
+                  value={String(ordersList.length)}
+                  note="live fulfillment"
+                />
+                <Metric
+                  label="Open Returns"
+                  value={String(returnsList.length)}
+                  note="under review"
+                  tone="rani"
+                />
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <Card title="Pending Seller Approvals">
                   <div className="divide-y divide-border text-sm">
-                    {sellersList.filter((s) => s.status !== "approved").slice(0, 5).map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-3 py-2.5">
-                        <div>
-                          <p className="font-medium">{s.business_name || s.store_name}</p>
-                          <p className="text-xs text-muted-foreground">ABN: {s.abn || "N/A"} · {s.email}</p>
+                    {sellersList
+                      .filter((s) => s.status !== "approved")
+                      .slice(0, 5)
+                      .map((s) => (
+                        <div key={s.id} className="flex items-center justify-between gap-3 py-2.5">
+                          <div>
+                            <p className="font-medium">{s.business_name || s.store_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              ABN: {s.abn || "N/A"} · {s.email}
+                            </p>
+                          </div>
+                          <div className="space-x-2">
+                            <button
+                              onClick={() => handleApproveSeller(s.id, s.business_name)}
+                              className="rounded-sm bg-teal px-3 py-1.5 text-[11px] font-bold uppercase text-teal-foreground"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectSeller(s.id, s.business_name)}
+                              className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase hover:border-rani hover:text-rani"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         </div>
-                        <div className="space-x-2">
-                          <button
-                            onClick={() => handleApproveSeller(s.id, s.business_name)}
-                            className="rounded-sm bg-teal px-3 py-1.5 text-[11px] font-bold uppercase text-teal-foreground"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleRejectSeller(s.id, s.business_name)}
-                            className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase hover:border-rani hover:text-rani"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                     {sellersList.filter((s) => s.status !== "approved").length === 0 && (
-                      <p className="text-xs text-muted-foreground py-3">All registered sellers are approved.</p>
+                      <p className="text-xs text-muted-foreground py-3">
+                        All registered sellers are approved.
+                      </p>
                     )}
                   </div>
                 </Card>
 
                 <Card title="Product Moderation Queue">
                   <div className="divide-y divide-border text-sm">
-                    {productsList.filter((p) => p.status === "PENDING_REVIEW" || p.status === "DRAFT").slice(0, 5).map((p) => (
-                      <div key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                        <div>
-                          <p className="font-medium">{p.title}</p>
-                          <p className="text-xs text-muted-foreground">{formatAUD(Number(p.price))} · {p.seller?.business_name || "Seller"}</p>
+                    {productsList
+                      .filter((p) => p.status === "PENDING_REVIEW" || p.status === "DRAFT")
+                      .slice(0, 5)
+                      .map((p) => (
+                        <div key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+                          <div>
+                            <p className="font-medium">{p.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatAUD(Number(p.price))} · {p.seller?.business_name || "Seller"}
+                            </p>
+                          </div>
+                          <div className="space-x-2">
+                            <button
+                              onClick={() => handleModerateProduct(p.id, "LIVE")}
+                              className="rounded-sm bg-teal px-3 py-1.5 text-[11px] font-bold uppercase text-teal-foreground"
+                            >
+                              Publish
+                            </button>
+                            <button
+                              onClick={() => handleModerateProduct(p.id, "REJECTED")}
+                              className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase hover:border-rani hover:text-rani"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         </div>
-                        <div className="space-x-2">
-                          <button
-                            onClick={() => handleModerateProduct(p.id, "LIVE")}
-                            className="rounded-sm bg-teal px-3 py-1.5 text-[11px] font-bold uppercase text-teal-foreground"
-                          >
-                            Publish
-                          </button>
-                          <button
-                            onClick={() => handleModerateProduct(p.id, "REJECTED")}
-                            className="rounded-sm border border-border px-3 py-1.5 text-[11px] font-bold uppercase hover:border-rani hover:text-rani"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                     {productsList.filter((p) => p.status === "PENDING_REVIEW").length === 0 && (
-                      <p className="text-xs text-muted-foreground py-3">No pending listings awaiting review.</p>
+                      <p className="text-xs text-muted-foreground py-3">
+                        No pending listings awaiting review.
+                      </p>
                     )}
                   </div>
                 </Card>
@@ -354,11 +445,25 @@ function AdminPage() {
                     {sellersList.map((s) => (
                       <tr key={s.id}>
                         <td className="py-2.5 font-medium">{s.business_name || s.store_name}</td>
-                        <td className="text-muted-foreground font-mono text-xs">{s.abn || "Pending"}</td>
+                        <td className="text-muted-foreground font-mono text-xs">
+                          {s.abn || "Pending"}
+                        </td>
                         <td>{s.email}</td>
-                        <td className="font-mono text-xs">{s.stripe_account_id ? s.stripe_account_id.slice(0, 14) + "..." : "Not Connected"}</td>
+                        <td className="font-mono text-xs">
+                          {s.stripe_account_id
+                            ? s.stripe_account_id.slice(0, 14) + "..."
+                            : "Not Connected"}
+                        </td>
                         <td>
-                          <StatusBadge tone={s.status === "approved" ? "ok" : s.status === "suspended" ? "bad" : "warn"}>
+                          <StatusBadge
+                            tone={
+                              s.status === "approved"
+                                ? "ok"
+                                : s.status === "suspended"
+                                  ? "bad"
+                                  : "warn"
+                            }
+                          >
                             {s.status}
                           </StatusBadge>
                         </td>
@@ -406,17 +511,25 @@ function AdminPage() {
                     {productsList.map((p) => (
                       <tr key={p.id}>
                         <td className="py-2.5 font-medium">{p.title}</td>
-                        <td className="text-muted-foreground">{p.seller?.business_name || "Seller"}</td>
+                        <td className="text-muted-foreground">
+                          {p.seller?.business_name || "Seller"}
+                        </td>
                         <td>{formatAUD(Number(p.price))}</td>
                         <td>{p.stock_quantity}</td>
                         <td>
-                          <StatusBadge tone={p.status === "LIVE" ? "ok" : p.status === "REJECTED" ? "bad" : "warn"}>
+                          <StatusBadge
+                            tone={
+                              p.status === "LIVE" ? "ok" : p.status === "REJECTED" ? "bad" : "warn"
+                            }
+                          >
                             {p.status}
                           </StatusBadge>
                         </td>
                         <td className="text-right space-x-2">
                           <button
-                            onClick={() => handleModerateProduct(p.id, p.status === "LIVE" ? "REJECTED" : "LIVE")}
+                            onClick={() =>
+                              handleModerateProduct(p.id, p.status === "LIVE" ? "REJECTED" : "LIVE")
+                            }
                             className="rounded-sm border border-border px-2.5 py-1 text-[11px] font-bold uppercase hover:border-rani hover:text-rani"
                           >
                             {p.status === "LIVE" ? "Unpublish" : "Approve & Publish"}
@@ -447,15 +560,23 @@ function AdminPage() {
                   <tbody className="divide-y divide-border">
                     {ordersList.map((o) => (
                       <tr key={o.id}>
-                        <td className="py-2.5 font-mono text-xs font-semibold">{o.order_number || o.id}</td>
+                        <td className="py-2.5 font-mono text-xs font-semibold">
+                          {o.order_number || o.id}
+                        </td>
                         <td>{o.customer_name || o.customer_email}</td>
                         <td>{o.sub_orders?.length || 1} package(s)</td>
                         <td>{formatAUD(Number(o.total_amount))}</td>
                         <td>
-                          <StatusBadge tone={o.payment_status === "PAID" ? "ok" : "warn"}>{o.payment_status}</StatusBadge>
+                          <StatusBadge tone={o.payment_status === "PAID" ? "ok" : "warn"}>
+                            {o.payment_status}
+                          </StatusBadge>
                         </td>
                         <td className="text-right">
-                          <StatusBadge tone={o.status === "CONFIRMED" || o.status === "DELIVERED" ? "ok" : "info"}>
+                          <StatusBadge
+                            tone={
+                              o.status === "CONFIRMED" || o.status === "DELIVERED" ? "ok" : "info"
+                            }
+                          >
                             {o.status}
                           </StatusBadge>
                         </td>
@@ -485,11 +606,17 @@ function AdminPage() {
                     {returnsList.map((r) => (
                       <tr key={r.id}>
                         <td className="py-2.5 font-mono text-xs">#{r.id.slice(0, 8)}</td>
-                        <td className="text-muted-foreground">{r.seller?.business_name || "Seller"}</td>
+                        <td className="text-muted-foreground">
+                          {r.seller?.business_name || "Seller"}
+                        </td>
                         <td className="text-xs">{r.reason}</td>
                         <td>{formatAUD(Number(r.refund_amount))}</td>
                         <td>
-                          <StatusBadge tone={r.status === "APPROVED" || r.status === "REFUNDED" ? "ok" : "warn"}>
+                          <StatusBadge
+                            tone={
+                              r.status === "APPROVED" || r.status === "REFUNDED" ? "ok" : "warn"
+                            }
+                          >
                             {r.status}
                           </StatusBadge>
                         </td>
@@ -540,13 +667,19 @@ function AdminPage() {
                         <tr key={l.id}>
                           <td className="py-2 font-mono text-xs">{l.id.slice(0, 8)}</td>
                           <td className="font-semibold text-xs">{l.entry_type}</td>
-                          <td className="font-mono text-xs">{l.amount_cents ?? Math.round(l.amount * 100)}</td>
-                          <td className={Number(l.amount) < 0 ? "text-rani" : "text-teal"}>
-                            {formatAUD(Number(l.amount || (l.amount_cents / 100)))}
+                          <td className="font-mono text-xs">
+                            {l.amount_cents ?? Math.round(l.amount * 100)}
                           </td>
-                          <td className="font-mono text-xs text-muted-foreground">{l.order_id || "N/A"}</td>
+                          <td className={Number(l.amount) < 0 ? "text-rani" : "text-teal"}>
+                            {formatAUD(Number(l.amount || l.amount_cents / 100))}
+                          </td>
+                          <td className="font-mono text-xs text-muted-foreground">
+                            {l.order_id || "N/A"}
+                          </td>
                           <td className="text-xs text-muted-foreground">{l.description}</td>
-                          <td className="text-right text-xs text-muted-foreground">{new Date(l.created_at).toLocaleDateString("en-AU")}</td>
+                          <td className="text-right text-xs text-muted-foreground">
+                            {new Date(l.created_at).toLocaleDateString("en-AU")}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -558,7 +691,9 @@ function AdminPage() {
                 <button
                   onClick={async () => {
                     const res = await reconcileAndUnlockEligiblePayoutsServerFn();
-                    toast.success(`Reconciled 14-day holds: ${res.eligibleSellersCount} seller(s) eligible (${formatAUD(res.totalEligiblePayoutAud)})`);
+                    toast.success(
+                      `Reconciled 14-day holds: ${res.eligibleSellersCount} seller(s) eligible (${formatAUD(res.totalEligiblePayoutAud)})`,
+                    );
                     refreshAll();
                   }}
                   className="rounded-sm bg-primary text-primary-foreground px-4 py-2 text-xs font-bold uppercase"
@@ -568,7 +703,9 @@ function AdminPage() {
                 <button
                   onClick={async () => {
                     const res = await generateSellerPayoutBatchCsvServerFn();
-                    toast.success(`Batch ${res.batchId} generated: ${res.sellerCount} sellers (${formatAUD(res.totalPayoutAud)})`);
+                    toast.success(
+                      `Batch ${res.batchId} generated: ${res.sellerCount} sellers (${formatAUD(res.totalPayoutAud)})`,
+                    );
                   }}
                   className="rounded-sm border border-border px-4 py-2 text-xs font-bold uppercase hover:border-rani hover:text-rani"
                 >
@@ -596,7 +733,19 @@ function AdminPage() {
                         <td className="py-2.5 font-medium">{u.full_name || "Customer"}</td>
                         <td>{u.email}</td>
                         <td>
-                          <StatusBadge tone={u.role === "admin_super" ? "bad" : ["admin_support", "admin_catalogue", "admin_finance"].includes(u.role) ? "warn" : u.role === "seller_owner" || u.role === "seller_staff" ? "info" : "muted"}>
+                          <StatusBadge
+                            tone={
+                              u.role === "admin_super"
+                                ? "bad"
+                                : ["admin_support", "admin_catalogue", "admin_finance"].includes(
+                                      u.role,
+                                    )
+                                  ? "warn"
+                                  : u.role === "seller_owner" || u.role === "seller_staff"
+                                    ? "info"
+                                    : "muted"
+                            }
+                          >
                             {u.role}
                           </StatusBadge>
                         </td>
@@ -605,7 +754,9 @@ function AdminPage() {
                             value={u.role}
                             onChange={async (e) => {
                               try {
-                                await updateUserRoleServerFn({ data: { userId: u.id, newRole: e.target.value as any } });
+                                await updateUserRoleServerFn({
+                                  data: { userId: u.id, newRole: e.target.value as any },
+                                });
                                 toast.success(`Updated role for ${u.email} to ${e.target.value}`);
                                 getAdminUsersServerFn().then(setUsersList);
                               } catch (err: any) {
@@ -637,36 +788,61 @@ function AdminPage() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="border border-border p-3 rounded-sm space-y-2">
                     <p className="font-semibold text-sm">Reservation Expiry Worker</p>
-                    <p className="text-xs text-muted-foreground">Releases atomic stock reservations &gt; 15 min old.</p>
-                    <button onClick={() => handleRunJob("reservation_expiry")} className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase">
+                    <p className="text-xs text-muted-foreground">
+                      Releases atomic stock reservations &gt; 15 min old.
+                    </p>
+                    <button
+                      onClick={() => handleRunJob("reservation_expiry")}
+                      className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase"
+                    >
                       <Play size={13} /> Run Expiry Job
                     </button>
                   </div>
                   <div className="border border-border p-3 rounded-sm space-y-2">
                     <p className="font-semibold text-sm">Payout Maturity Worker</p>
-                    <p className="text-xs text-muted-foreground">Matures delivered orders &gt; 14 days without active holds.</p>
-                    <button onClick={() => handleRunJob("payout_eligibility")} className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase">
+                    <p className="text-xs text-muted-foreground">
+                      Matures delivered orders &gt; 14 days without active holds.
+                    </p>
+                    <button
+                      onClick={() => handleRunJob("payout_eligibility")}
+                      className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase"
+                    >
                       <Play size={13} /> Run Payout Job
                     </button>
                   </div>
                   <div className="border border-border p-3 rounded-sm space-y-2">
                     <p className="font-semibold text-sm">Notification Retry Worker</p>
-                    <p className="text-xs text-muted-foreground">Retries queued transactional emails with backoff.</p>
-                    <button onClick={() => handleRunJob("notification_retry")} className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase">
+                    <p className="text-xs text-muted-foreground">
+                      Retries queued transactional emails with backoff.
+                    </p>
+                    <button
+                      onClick={() => handleRunJob("notification_retry")}
+                      className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase"
+                    >
                       <Play size={13} /> Run Retry Worker
                     </button>
                   </div>
                   <div className="border border-border p-3 rounded-sm space-y-2">
                     <p className="font-semibold text-sm">Bulk Import Worker</p>
-                    <p className="text-xs text-muted-foreground">Processes queued product CSV/XLSX chunks in background.</p>
-                    <button onClick={() => handleRunJob("bulk_import")} className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase">
+                    <p className="text-xs text-muted-foreground">
+                      Processes queued product CSV/XLSX chunks in background.
+                    </p>
+                    <button
+                      onClick={() => handleRunJob("bulk_import")}
+                      className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase"
+                    >
                       <Play size={13} /> Run Import Worker
                     </button>
                   </div>
                   <div className="border border-border p-3 rounded-sm space-y-2">
                     <p className="font-semibold text-sm">Provider Retry Worker</p>
-                    <p className="text-xs text-muted-foreground">Re-attempts pending carrier tracking &amp; webhook processing.</p>
-                    <button onClick={() => handleRunJob("provider_retry")} className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase">
+                    <p className="text-xs text-muted-foreground">
+                      Re-attempts pending carrier tracking &amp; webhook processing.
+                    </p>
+                    <button
+                      onClick={() => handleRunJob("provider_retry")}
+                      className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-sm text-xs font-bold uppercase"
+                    >
                       <Play size={13} /> Run Provider Retry
                     </button>
                   </div>
@@ -676,21 +852,29 @@ function AdminPage() {
               <Card title="Dead-Letter Queue &amp; Failure Visibility">
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    Exhausted webhook events and notifications are moved here after 3 retries for operational investigation.
+                    Exhausted webhook events and notifications are moved here after 3 retries for
+                    operational investigation.
                   </p>
-                  {deadLetters.webhookDeadLetters.length === 0 && deadLetters.notificationDeadLetters.length === 0 ? (
-                    <p className="text-xs text-teal font-semibold py-2">✓ Dead-Letter queue is completely clear (0 failed jobs).</p>
+                  {deadLetters.webhookDeadLetters.length === 0 &&
+                  deadLetters.notificationDeadLetters.length === 0 ? (
+                    <p className="text-xs text-teal font-semibold py-2">
+                      ✓ Dead-Letter queue is completely clear (0 failed jobs).
+                    </p>
                   ) : (
                     <div className="divide-y divide-border">
                       {deadLetters.webhookDeadLetters.map((dl) => (
                         <div key={dl.id} className="py-2 flex justify-between items-center text-xs">
                           <div>
-                            <span className="font-bold">Webhook: {dl.provider} ({dl.event_type})</span>
+                            <span className="font-bold">
+                              Webhook: {dl.provider} ({dl.event_type})
+                            </span>
                             <p className="text-muted-foreground">Error: {dl.last_error}</p>
                           </div>
                           <button
                             onClick={async () => {
-                              await retryDeadLetterItemServerFn({ data: { itemType: "webhook", itemId: dl.id } });
+                              await retryDeadLetterItemServerFn({
+                                data: { itemType: "webhook", itemId: dl.id },
+                              });
                               toast.success("Requeued for retry");
                               getDeadLetterQueueServerFn().then(setDeadLetters);
                             }}
@@ -722,7 +906,9 @@ function AdminPage() {
                   <tbody className="divide-y divide-border">
                     {auditLogs.map((a) => (
                       <tr key={a.id}>
-                        <td className="py-2 text-xs text-muted-foreground">{new Date(a.created_at).toLocaleString("en-AU")}</td>
+                        <td className="py-2 text-xs text-muted-foreground">
+                          {new Date(a.created_at).toLocaleString("en-AU")}
+                        </td>
                         <td className="font-mono text-xs font-semibold">{a.action}</td>
                         <td className="text-xs text-muted-foreground">{a.entity_type}</td>
                         <td className="font-mono text-xs text-muted-foreground">{a.entity_id}</td>

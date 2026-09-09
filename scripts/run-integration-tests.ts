@@ -27,7 +27,7 @@ console.log("=======================================================");
 // 1. MONEY & 1/11th GST ARITHMETIC (T448)
 console.log("\n1. Testing Money, Integer Cents & 1/11th Australian GST Arithmetic (T448)...");
 {
-  const grossAud = 199.90;
+  const grossAud = 199.9;
   const grossCents = Math.round(grossAud * 100);
   const gstCents = Math.round(grossCents / 11);
   const exGstCents = grossCents - gstCents;
@@ -35,24 +35,33 @@ console.log("\n1. Testing Money, Integer Cents & 1/11th Australian GST Arithmeti
   assert(grossCents === 19990, "Gross amount is exact integer cents (19990 cents)");
   assert(gstCents === 1817, "GST calculated exactly as 1/11th (1817 cents = $18.17 AUD)");
   assert(exGstCents === 18173, "Ex-GST component reconciles exactly (18173 cents = $181.73 AUD)");
-  assert(gstCents + exGstCents === grossCents, "Sum of GST and Ex-GST equals gross cents with zero rounding drift");
+  assert(
+    gstCents + exGstCents === grossCents,
+    "Sum of GST and Ex-GST equals gross cents with zero rounding drift",
+  );
 }
 
 // 2. CUSTOMER RLS ISOLATION (T449)
 console.log("\n2. Testing Customer Row-Level Security Isolation (T449)...");
 {
   const ordersDb = [
-    { id: "ord_101", customer_id: "user_alice", total_aud: 150.00 },
-    { id: "ord_102", customer_id: "user_bob", total_aud: 320.00 },
+    { id: "ord_101", customer_id: "user_alice", total_aud: 150.0 },
+    { id: "ord_102", customer_id: "user_bob", total_aud: 320.0 },
   ];
 
   function queryOrdersAsUser(userId: string) {
-    return ordersDb.filter(o => o.customer_id === userId);
+    return ordersDb.filter((o) => o.customer_id === userId);
   }
 
   const aliceOrders = queryOrdersAsUser("user_alice");
-  assert(aliceOrders.length === 1 && aliceOrders[0]!.id === "ord_101", "Alice can strictly only read her own orders");
-  assert(!aliceOrders.some(o => o.customer_id === "user_bob"), "Bob's orders are invisible in Alice's customer context");
+  assert(
+    aliceOrders.length === 1 && aliceOrders[0]!.id === "ord_101",
+    "Alice can strictly only read her own orders",
+  );
+  assert(
+    !aliceOrders.some((o) => o.customer_id === "user_bob"),
+    "Bob's orders are invisible in Alice's customer context",
+  );
 }
 
 // 3. SELLER RLS MULTI-TENANT ISOLATION (T450)
@@ -64,7 +73,7 @@ console.log("\n3. Testing Seller Multi-Tenant Isolation (T450)...");
   ];
 
   function updateProductAsSeller(requestingSellerId: string, productId: string, newTitle: string) {
-    const prod = productsDb.find(p => p.id === productId);
+    const prod = productsDb.find((p) => p.id === productId);
     if (!prod || prod.seller_id !== requestingSellerId) {
       return { success: false, error: "UNAUTHORIZED_TENANT_ACCESS" };
     }
@@ -73,8 +82,14 @@ console.log("\n3. Testing Seller Multi-Tenant Isolation (T450)...");
   }
 
   const crossTenantAttempt = updateProductAsSeller("seller_mumbai", "prod_2", "Tampered Title");
-  assert(!crossTenantAttempt.success && crossTenantAttempt.error === "UNAUTHORIZED_TENANT_ACCESS", "Seller Mumbai is strictly blocked from modifying Delhi's product");
-  assert(productsDb.find(p => p.id === "prod_2")!.title === "Embroidered Kurta", "Target product remains untampered after unauthorized mutation");
+  assert(
+    !crossTenantAttempt.success && crossTenantAttempt.error === "UNAUTHORIZED_TENANT_ACCESS",
+    "Seller Mumbai is strictly blocked from modifying Delhi's product",
+  );
+  assert(
+    productsDb.find((p) => p.id === "prod_2")!.title === "Embroidered Kurta",
+    "Target product remains untampered after unauthorized mutation",
+  );
 }
 
 // 4. ROLE ISOLATION (T451)
@@ -100,7 +115,7 @@ console.log("\n5. Testing Inventory Concurrency with Stock=1 (T452)...");
 
   async function attemptCheckoutReservation(customerId: string): Promise<boolean> {
     while (lock.isLocked) {
-      await new Promise(r => setTimeout(r, 5));
+      await new Promise((r) => setTimeout(r, 5));
     }
     lock.isLocked = true;
     try {
@@ -141,11 +156,17 @@ console.log("\n6. Testing Payment Webhook Replay Idempotency (T453)...");
 
   const eventId = "evt_stripe_payment_success_999";
   const first = handleStripeWebhookEvent(eventId);
-  assert(first.status === "PROCESSED" && first.executionCount === 1, "First payment webhook event processed");
+  assert(
+    first.status === "PROCESSED" && first.executionCount === 1,
+    "First payment webhook event processed",
+  );
 
   for (let i = 1; i <= 5; i++) {
     const replay = handleStripeWebhookEvent(eventId);
-    assert(replay.status === "IDEMPOTENT_DUPLICATE_IGNORED", `Replay #${i} correctly recognized as idempotent duplicate`);
+    assert(
+      replay.status === "IDEMPOTENT_DUPLICATE_IGNORED",
+      `Replay #${i} correctly recognized as idempotent duplicate`,
+    );
   }
   assert(executionCount === 1, "Order fulfillment and ledger entries executed exactly once");
 }
@@ -156,7 +177,9 @@ console.log("\n7. Testing Shipping Webhook Replay & Tracking Normalization (T454
   const trackingEvents: Array<{ consignment: string; status: string }> = [];
 
   function recordCarrierScan(consignment: string, carrierStatus: string) {
-    const normalized = carrierStatus.toUpperCase().includes("DELIVERED") ? "DELIVERED" : "IN_TRANSIT";
+    const normalized = carrierStatus.toUpperCase().includes("DELIVERED")
+      ? "DELIVERED"
+      : "IN_TRANSIT";
     trackingEvents.push({ consignment, status: normalized });
     return normalized;
   }
@@ -184,10 +207,16 @@ console.log("\n8. Testing Refund Idempotency & Restocking (T455)...");
   }
 
   const r1 = processRefund("ref_tx_100", 2500, 1);
-  assert(!r1.duplicate && balanceCents === 7500 && variantStock === 6, "First refund deducted amount and restocked 1 unit");
+  assert(
+    !r1.duplicate && balanceCents === 7500 && variantStock === 6,
+    "First refund deducted amount and restocked 1 unit",
+  );
 
   const r2 = processRefund("ref_tx_100", 2500, 1);
-  assert(r2.duplicate && balanceCents === 7500 && variantStock === 6, "Duplicate refund ignored without double refunding or double restocking");
+  assert(
+    r2.duplicate && balanceCents === 7500 && variantStock === 6,
+    "Duplicate refund ignored without double refunding or double restocking",
+  );
 }
 
 // 9. PAYOUT CONCURRENCY & 14-DAY DELAYS (T456)
@@ -202,9 +231,18 @@ console.log("\n9. Testing Payout Concurrency & Delivery Delay Boundaries (T456).
     return elapsed >= FOURTEEN_DAYS && !hasHold;
   }
 
-  assert(isEligibleForPayout("2026-09-01T00:00:00Z", false) === true, "19-day old delivered sub-order is eligible for payout");
-  assert(isEligibleForPayout("2026-09-15T00:00:00Z", false) === false, "5-day old delivered sub-order is held in pending clearance");
-  assert(isEligibleForPayout("2026-09-01T00:00:00Z", true) === false, "Delivered sub-order with active dispute/return hold is blocked from payout");
+  assert(
+    isEligibleForPayout("2026-09-01T00:00:00Z", false) === true,
+    "19-day old delivered sub-order is eligible for payout",
+  );
+  assert(
+    isEligibleForPayout("2026-09-15T00:00:00Z", false) === false,
+    "5-day old delivered sub-order is held in pending clearance",
+  );
+  assert(
+    isEligibleForPayout("2026-09-01T00:00:00Z", true) === false,
+    "Delivered sub-order with active dispute/return hold is blocked from payout",
+  );
 }
 
 // 10. RESERVATION EXPIRY WORKER (T457)
@@ -225,7 +263,10 @@ console.log("\n10. Testing Reservation Expiry Engine (T457)...");
   }
 
   assert(expiredCount === 1, "Stale reservation older than 15 minutes expired");
-  assert(reservations.find(r => r.id === "res_fresh")?.status === "active", "Unexpired reservation remains active");
+  assert(
+    reservations.find((r) => r.id === "res_fresh")?.status === "active",
+    "Unexpired reservation remains active",
+  );
 }
 
 // 11. RETURN DAY-7 BOUNDARY (T458)
@@ -239,15 +280,28 @@ console.log("\n11. Testing 7-Day Change-of-Mind Return Window Boundary (T458)...
   }
 
   const delivered = new Date("2026-09-01T10:00:00Z");
-  assert(checkChangeOfMindEligibility(delivered, new Date("2026-09-07T10:00:00Z")) === true, "Day 6 change of mind is eligible");
-  assert(checkChangeOfMindEligibility(delivered, new Date("2026-09-08T10:00:00Z")) === true, "Day 7 exact boundary is eligible");
-  assert(checkChangeOfMindEligibility(delivered, new Date("2026-09-08T10:00:01Z")) === false, "Day 8 change of mind is ineligible");
+  assert(
+    checkChangeOfMindEligibility(delivered, new Date("2026-09-07T10:00:00Z")) === true,
+    "Day 6 change of mind is eligible",
+  );
+  assert(
+    checkChangeOfMindEligibility(delivered, new Date("2026-09-08T10:00:00Z")) === true,
+    "Day 7 exact boundary is eligible",
+  );
+  assert(
+    checkChangeOfMindEligibility(delivered, new Date("2026-09-08T10:00:01Z")) === false,
+    "Day 8 change of mind is ineligible",
+  );
 }
 
 // 12. STATUTORY CLAIM AFTER DAY 7 (T459)
 console.log("\n12. Testing Statutory ACL Fault Claim Beyond 7 Days (T459)...");
 {
-  function evaluateReturnClaim(reasonType: "CHANGE_OF_MIND" | "FAULTY_DAMAGED", daysSinceDelivery: number, hasEvidence: boolean) {
+  function evaluateReturnClaim(
+    reasonType: "CHANGE_OF_MIND" | "FAULTY_DAMAGED",
+    daysSinceDelivery: number,
+    hasEvidence: boolean,
+  ) {
     if (reasonType === "CHANGE_OF_MIND") {
       return { eligible: daysSinceDelivery <= 7 };
     }
@@ -259,7 +313,10 @@ console.log("\n12. Testing Statutory ACL Fault Claim Beyond 7 Days (T459)...");
   }
 
   const statutoryClaim = evaluateReturnClaim("FAULTY_DAMAGED", 30, true);
-  assert(statutoryClaim.eligible === true && statutoryClaim.requiresAdminReview === true, "Statutory fault claim after 30 days is accepted with evidence and routed for review");
+  assert(
+    statutoryClaim.eligible === true && statutoryClaim.requiresAdminReview === true,
+    "Statutory fault claim after 30 days is accepted with evidence and routed for review",
+  );
 }
 
 // 13. BULK 1,000-ROW IMPORT (T460)
@@ -269,7 +326,7 @@ console.log("\n13. Testing Bulk 1,000-Row Chunking & Validation Engine (T460)...
   for (let i = 1; i <= 1000; i++) {
     rows.push({
       sku: i <= 980 ? `SKU-VAL-${i}` : "",
-      price: i <= 980 ? 199.00 : -10,
+      price: i <= 980 ? 199.0 : -10,
     });
   }
 
@@ -290,8 +347,8 @@ console.log("\n14. Testing Real XLSX File Parsing Support (T461)...");
 {
   const xlsxModule = await import("xlsx");
   const worksheet = xlsxModule.utils.json_to_sheet([
-    { SKU: "SKU-XLSX-1", Title: "Silk Kurta", Price: 149.00 },
-    { SKU: "SKU-XLSX-2", Title: "Anarkali Suit", Price: 299.00 },
+    { SKU: "SKU-XLSX-1", Title: "Silk Kurta", Price: 149.0 },
+    { SKU: "SKU-XLSX-2", Title: "Anarkali Suit", Price: 299.0 },
   ]);
   const workbook = xlsxModule.utils.book_new();
   xlsxModule.utils.book_append_sheet(workbook, worksheet, "Products");
@@ -340,13 +397,21 @@ console.log("\n16. Testing Suspended Seller Catalogue Hiding (T463)...");
   ];
 
   function getPublicCatalogue() {
-    const activeSellerIds = new Set(sellers.filter(s => s.status === "APPROVED").map(s => s.id));
-    return products.filter(p => activeSellerIds.has(p.sellerId));
+    const activeSellerIds = new Set(
+      sellers.filter((s) => s.status === "APPROVED").map((s) => s.id),
+    );
+    return products.filter((p) => activeSellerIds.has(p.sellerId));
   }
 
   const publicCat = getPublicCatalogue();
-  assert(publicCat.length === 1 && publicCat[0]!.id === "p1", "Only approved seller products visible in public catalogue");
-  assert(!publicCat.some(p => p.sellerId === "seller_B"), "Suspended seller products are filtered out from public browsing");
+  assert(
+    publicCat.length === 1 && publicCat[0]!.id === "p1",
+    "Only approved seller products visible in public catalogue",
+  );
+  assert(
+    !publicCat.some((p) => p.sellerId === "seller_B"),
+    "Suspended seller products are filtered out from public browsing",
+  );
 }
 
 // 17. ADMIN MFA FINANCE ACTION GATE (T464)
@@ -371,7 +436,10 @@ console.log("\n17. Testing Admin MFA Finance Mutation Gate (T464)...");
   assert(mfaBlocked, "Finance admin without MFA is strictly blocked from manual payout release");
 
   const mfaSuccess = executeManualPayoutRelease("finance", true);
-  assert(mfaSuccess.success === true && mfaSuccess.released === true, "Finance admin with MFA verified successfully executes manual payout release");
+  assert(
+    mfaSuccess.success === true && mfaSuccess.released === true,
+    "Finance admin with MFA verified successfully executes manual payout release",
+  );
 }
 
 console.log("\n=======================================================");

@@ -41,7 +41,8 @@ export const Route = createFileRoute("/sell/bulk-upload")({
       { property: "og:title", content: "Bulk Product Upload — ISM Seller Centre" },
       {
         property: "og:description",
-        content: "Validate 1,000 rows, fix errors and import your full Indian catalogue in minutes.",
+        content:
+          "Validate 1,000 rows, fix errors and import your full Indian catalogue in minutes.",
       },
     ],
   }),
@@ -67,7 +68,10 @@ function Stepper({ current }: { current: number }) {
         const done = i < current;
         const active = i === current;
         return (
-          <li key={label} className="flex items-center gap-2 rounded-sm border border-border bg-surface p-2.5">
+          <li
+            key={label}
+            className="flex items-center gap-2 rounded-sm border border-border bg-surface p-2.5"
+          >
             <span
               className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
                 done
@@ -154,14 +158,16 @@ function BulkUpload() {
         warningCount: Math.floor(errors.length * 0.3),
         errorCount: errors.length,
         errors: errors.length > 0 ? errors : [],
-        previewRows: validRows.slice(0, 8).map((r: BulkUploadRow) => [
-          r.seller_sku,
-          r.product_title,
-          `${r.department} / ${r.category}`,
-          `$${r.price.toFixed(2)}`,
-          `${r.stock_qty}`,
-          mode === "create" ? "Create" : "Update",
-        ]),
+        previewRows: validRows
+          .slice(0, 8)
+          .map((r: BulkUploadRow) => [
+            r.seller_sku,
+            r.product_title,
+            `${r.department} / ${r.category}`,
+            `$${r.price.toFixed(2)}`,
+            `${r.stock_qty}`,
+            mode === "create" ? "Create" : "Update",
+          ]),
       });
       toast.success(`${file.name} loaded and parsed (${validRows.length} valid rows)`);
     } catch (err: any) {
@@ -203,7 +209,9 @@ function BulkUpload() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("CSV template downloaded", { description: "Open in Excel, Google Sheets, or Numbers to edit." });
+    toast.success("CSV template downloaded", {
+      description: "Open in Excel, Google Sheets, or Numbers to edit.",
+    });
   };
 
   const handleDownloadExcelTemplate = () => {
@@ -231,7 +239,9 @@ function BulkUpload() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Error report downloaded", { description: "Includes exact row numbers, SKUs, and fix recommendations." });
+    toast.success("Error report downloaded", {
+      description: "Includes exact row numbers, SKUs, and fix recommendations.",
+    });
   };
 
   const handleCommitImport = async () => {
@@ -253,7 +263,10 @@ function BulkUpload() {
 
       setStage("imported");
       toast.success(`Batch committed — ${result.inserted} products imported!`, {
-        description: result.failed > 0 ? `${result.failed} rows failed validation.` : "Listings are now active in the database.",
+        description:
+          result.failed > 0
+            ? `${result.failed} rows failed validation.`
+            : "Listings are now active in the database.",
       });
     } catch (err: any) {
       toast.error("Bulk commit failed", { description: err.message });
@@ -285,25 +298,25 @@ function BulkUpload() {
         <div className="space-y-4">
           <Card title="Step 1 — Choose import mode">
             <div className="grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    id: "create" as ImportMode,
-                    label: "Create new products",
-                    note: "Rows with an existing seller SKU are rejected as duplicates.",
-                  },
-                  {
-                    id: "update" as ImportMode,
-                    label: "Update existing products",
-                    note: "Rows are matched on your seller SKU / product identifier. Unknown SKUs are rejected.",
-                  },
-                ]
-              ).map((m) => (
+              {[
+                {
+                  id: "create" as ImportMode,
+                  label: "Create new products",
+                  note: "Rows with an existing seller SKU are rejected as duplicates.",
+                },
+                {
+                  id: "update" as ImportMode,
+                  label: "Update existing products",
+                  note: "Rows are matched on your seller SKU / product identifier. Unknown SKUs are rejected.",
+                },
+              ].map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setMode(m.id)}
                   className={`rounded-md border p-3 text-left transition-colors ${
-                    mode === m.id ? "border-rani bg-rani/5" : "border-border bg-surface hover:border-rani/50"
+                    mode === m.id
+                      ? "border-rani bg-rani/5"
+                      : "border-border bg-surface hover:border-rani/50"
                   }`}
                 >
                   <p className="text-sm font-bold">{m.label}</p>
@@ -365,15 +378,21 @@ function BulkUpload() {
                 }}
               />
               <UploadCloud size={30} className="text-rani" />
-              <p className="mt-2 text-sm font-semibold">Drop your completed CSV or Excel file here</p>
-              <p className="mt-1 text-xs text-muted-foreground">Supports up to 1,000 rows per batch</p>
+              <p className="mt-2 text-sm font-semibold">
+                Drop your completed CSV or Excel file here
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Supports up to 1,000 rows per batch
+              </p>
             </label>
 
             {fileName && (
               <div className="mt-3 flex items-center justify-between rounded-sm border border-border bg-surface p-3 text-sm">
                 <div>
                   <p className="font-semibold">{fileName}</p>
-                  <p className="text-xs text-muted-foreground">Ready for row-by-row server validation</p>
+                  <p className="text-xs text-muted-foreground">
+                    Ready for row-by-row server validation
+                  </p>
                 </div>
                 <button
                   onClick={validate}
@@ -465,7 +484,10 @@ function BulkUpload() {
                       ))}
                       {validationResult.errors.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-4 text-center font-sans text-xs text-muted-foreground">
+                          <td
+                            colSpan={5}
+                            className="py-4 text-center font-sans text-xs text-muted-foreground"
+                          >
                             No validation errors found in parsed spreadsheet.
                           </td>
                         </tr>
@@ -538,7 +560,8 @@ function BulkUpload() {
                     Batch IMP-2026-0190 complete — {totals.ready} products published to catalog!
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    All valid rows are now live. {totals.errors} error rows were safely skipped without corrupting existing catalog data.
+                    All valid rows are now live. {totals.errors} error rows were safely skipped
+                    without corrupting existing catalog data.
                   </p>
                 </div>
               </div>
@@ -550,10 +573,28 @@ function BulkUpload() {
           <Card title="Template columns">
             <ul className="space-y-1.5 font-mono text-[11px] text-muted-foreground">
               {[
-                "seller_sku*", "product_title*", "department*", "category*", "subcategory",
-                "description*", "price*", "sale_price", "stock_qty*", "variant_group",
-                "size", "colour", "material", "weight_kg*", "length_cm", "width_cm", "height_cm",
-                "handling_days*", "image_1_url*", "image_2_url", "video_url", "return_eligible",
+                "seller_sku*",
+                "product_title*",
+                "department*",
+                "category*",
+                "subcategory",
+                "description*",
+                "price*",
+                "sale_price",
+                "stock_qty*",
+                "variant_group",
+                "size",
+                "colour",
+                "material",
+                "weight_kg*",
+                "length_cm",
+                "width_cm",
+                "height_cm",
+                "handling_days*",
+                "image_1_url*",
+                "image_2_url",
+                "video_url",
+                "return_eligible",
               ].map((c) => (
                 <li key={c}>{c}</li>
               ))}
@@ -587,7 +628,11 @@ function BulkUpload() {
                     </div>
                     <span
                       className={`text-right text-[11px] font-semibold ${
-                        b.tone === "ok" ? "text-teal" : b.tone === "bad" ? "text-rani" : "text-marigold"
+                        b.tone === "ok"
+                          ? "text-teal"
+                          : b.tone === "bad"
+                            ? "text-rani"
+                            : "text-marigold"
                       }`}
                     >
                       {b.state}

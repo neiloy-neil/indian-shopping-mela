@@ -24,12 +24,16 @@ export interface ProductVideoMetadata {
  * Server Function: Initialize Direct Video Upload (Mux or Supabase Storage)
  */
 export const createVideoDirectUploadServerFn = createServerFn({ method: "POST" })
-  .validator((data: { productId: string; sellerId: string; fileName: string; fileSize: number }) => data)
+  .validator(
+    (data: { productId: string; sellerId: string; fileName: string; fileSize: number }) => data,
+  )
   .handler(async ({ data }) => {
     // 1. Validate file constraints (Max 100MB)
     const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100MB
     if (data.fileSize > MAX_VIDEO_BYTES) {
-      throw new Error(`Video file size ${(data.fileSize / (1024 * 1024)).toFixed(1)}MB exceeds maximum 100MB limit.`);
+      throw new Error(
+        `Video file size ${(data.fileSize / (1024 * 1024)).toFixed(1)}MB exceeds maximum 100MB limit.`,
+      );
     }
 
     // 2. Check if product belongs to seller
@@ -63,14 +67,16 @@ export const createVideoDirectUploadServerFn = createServerFn({ method: "POST" }
  * Server Function: Register or Replace Uploaded Product Video
  */
 export const registerProductVideoServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    productId: string;
-    sellerId: string;
-    videoUrl: string;
-    thumbnailUrl?: string | undefined;
-    durationSeconds?: number | undefined;
-    autoApprove?: boolean | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      productId: string;
+      sellerId: string;
+      videoUrl: string;
+      thumbnailUrl?: string | undefined;
+      durationSeconds?: number | undefined;
+      autoApprove?: boolean | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     // 1. Verify seller ownership
     const { data: product, error: pErr } = await (supabaseAdmin.from("products") as any)
@@ -91,7 +97,9 @@ export const registerProductVideoServerFn = createServerFn({ method: "POST" })
     // 3. Insert canonical video record
     const moderationStatus: VideoModerationStatus = data.autoApprove ? "APPROVED" : "PENDING";
 
-    const { data: insertedMedia, error: insErr } = await (supabaseAdmin.from("product_media") as any)
+    const { data: insertedMedia, error: insErr } = await (
+      supabaseAdmin.from("product_media") as any
+    )
       .insert({
         product_id: data.productId,
         media_type: "video",
@@ -119,7 +127,13 @@ export const registerProductVideoServerFn = createServerFn({ method: "POST" })
  * Server Function: Admin Moderation of Product Video
  */
 export const moderateProductVideoServerFn = createServerFn({ method: "POST" })
-  .validator((data: { mediaId: string; status: VideoModerationStatus; rejectionReason?: string | undefined }) => data)
+  .validator(
+    (data: {
+      mediaId: string;
+      status: VideoModerationStatus;
+      rejectionReason?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { data: media, error } = await (supabaseAdmin.from("product_media") as any)
       .select("id, media_type, url, product_id")
@@ -132,9 +146,7 @@ export const moderateProductVideoServerFn = createServerFn({ method: "POST" })
 
     if (data.status === "REJECTED") {
       // Hide or remove rejected video from public display
-      await (supabaseAdmin.from("product_media") as any)
-        .delete()
-        .eq("id", data.mediaId);
+      await (supabaseAdmin.from("product_media") as any).delete().eq("id", data.mediaId);
 
       return {
         success: true,
@@ -155,7 +167,7 @@ export const moderateProductVideoServerFn = createServerFn({ method: "POST" })
 export function verifyMuxWebhookSignature(
   rawBody: string,
   signatureHeader: string | null | undefined,
-  signingSecret: string | undefined
+  signingSecret: string | undefined,
 ): boolean {
   if (!signatureHeader || !signingSecret) return false;
 

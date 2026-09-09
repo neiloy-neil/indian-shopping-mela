@@ -14,12 +14,10 @@ export interface StripeAccountStatus {
  * Server Function: Create or retrieve an existing Stripe Custom/Express connected account for an Australian seller.
  */
 export const createOrGetSellerStripeAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    email: string;
-    businessName: string;
-    abn?: string | undefined;
-  }) => data)
+  .validator(
+    (data: { sellerId: string; email: string; businessName: string; abn?: string | undefined }) =>
+      data,
+  )
   .handler(async ({ data }) => {
     return createOrGetSellerStripeAccount(data);
   });
@@ -28,12 +26,10 @@ export const createOrGetSellerStripeAccountServerFn = createServerFn({ method: "
  * Server Function: Create a Stripe Connect Onboarding Link for seller verification.
  */
 export const createSellerOnboardingLinkServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    sellerId: string;
-    stripeAccountId: string;
-    returnUrl: string;
-    refreshUrl: string;
-  }) => data)
+  .validator(
+    (data: { sellerId: string; stripeAccountId: string; returnUrl: string; refreshUrl: string }) =>
+      data,
+  )
   .handler(async ({ data }) => {
     return createSellerOnboardingLink(data);
   });
@@ -83,7 +79,8 @@ export async function createOrGetSellerStripeAccount(params: {
     business_profile: {
       name: params.businessName,
       mcc: "5691",
-      product_description: "Indian ethnic wear, jewellery, handicrafts, and home goods on Indian Shopping Mela.",
+      product_description:
+        "Indian ethnic wear, jewellery, handicrafts, and home goods on Indian Shopping Mela.",
     },
     metadata: {
       sellerId: params.sellerId,
@@ -125,7 +122,9 @@ export async function createSellerOnboardingLink(params: {
 /**
  * T120 — Sync capability and onboarding readiness flags from Stripe to Supabase seller table.
  */
-export async function syncSellerStripeAccountStatus(sellerId: string): Promise<StripeAccountStatus> {
+export async function syncSellerStripeAccountStatus(
+  sellerId: string,
+): Promise<StripeAccountStatus> {
   const { data: seller } = await (supabaseAdmin.from("sellers") as any)
     .select("stripe_account_id")
     .eq("id", sellerId)
@@ -156,7 +155,8 @@ export async function syncSellerStripeAccountStatus(sellerId: string): Promise<S
       detailsSubmitted,
       payoutsEnabled,
       chargesEnabled,
-      requiresInformation: !detailsSubmitted || (account.requirements?.currently_due?.length ?? 0) > 0,
+      requiresInformation:
+        !detailsSubmitted || (account.requirements?.currently_due?.length ?? 0) > 0,
     };
   } catch (err: any) {
     console.error("Error retrieving Stripe account details:", err);
@@ -197,7 +197,10 @@ export async function checkSellerPayoutEligibility(sellerId: string): Promise<{
   }
 
   if (!seller.stripe_account_id) {
-    return { eligible: false, reason: "Seller has not connected a Stripe account for AUD payouts." };
+    return {
+      eligible: false,
+      reason: "Seller has not connected a Stripe account for AUD payouts.",
+    };
   }
 
   return { eligible: true };

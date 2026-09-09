@@ -32,9 +32,7 @@ export function LogoMark({ compact = false, onDark = false, className = "" }: Lo
         width={1254}
         height={1254}
         className={
-          compact
-            ? "h-12 w-auto object-contain"
-            : "h-12 w-auto object-contain sm:h-14 md:h-[88px]"
+          compact ? "h-12 w-auto object-contain" : "h-12 w-auto object-contain sm:h-14 md:h-[88px]"
         }
       />
     </span>

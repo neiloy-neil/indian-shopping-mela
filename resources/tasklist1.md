@@ -176,6 +176,7 @@ Unless the project owner explicitly changes this decision, implement the control
 ## Application / SSR
 
 **Vercel**
+
 - Host the TanStack Start application.
 - Server Functions/server routes handle privileged application operations.
 - Configure the correct Nitro/Vercel deployment target instead of relying on the current Cloudflare-default comment/config.
@@ -183,6 +184,7 @@ Unless the project owner explicitly changes this decision, implement the control
 ## Database / Auth / Storage / lightweight jobs
 
 **Supabase — Sydney/Australia region**
+
 - PostgreSQL
 - Supabase Auth
 - Row Level Security
@@ -194,6 +196,7 @@ Unless the project owner explicitly changes this decision, implement the control
 ## Payments / seller financial onboarding
 
 **Stripe + Stripe Connect**
+
 - Exact Connect charge/transfer model must be confirmed against the ISM commercial arrangement and Stripe account eligibility before coding final payout behavior.
 - Customer payment state comes only from provider-confirmed server/webhook events.
 - Seller transfers/payout release occur only after ISM eligibility rules are satisfied.
@@ -201,6 +204,7 @@ Unless the project owner explicitly changes this decision, implement the control
 ## Product video
 
 **Mux**
+
 - Browser direct upload
 - provider processing/transcoding
 - thumbnail/playback asset
@@ -209,6 +213,7 @@ Unless the project owner explicitly changes this decision, implement the control
 ## Shipping
 
 Use a provider adapter. The concrete first provider must be selected by owner:
+
 - Shippit, Australia Post, Sendle, or another approved Australian provider.
 
 The application must depend on an internal `ShippingProvider` interface, not provider-specific calls spread throughout React components.
@@ -216,6 +221,7 @@ The application must depend on an internal `ShippingProvider` interface, not pro
 ## Email
 
 Choose one:
+
 - Resend
 - Postmark
 - another approved transactional provider
@@ -229,6 +235,7 @@ Choose one:
 Do **not** move the whole application to GCP during the 5–10 day launch sprint unless Vercel/Supabase becomes a proven blocker.
 
 Add GCP Cloud Run / Cloud Tasks later for:
+
 - CPU-heavy imports
 - long-running media/data jobs
 - dedicated workers
@@ -1567,14 +1574,14 @@ RLS is launch-critical.
 - [x] **T169 — Define `ShippingProvider` interface**
   - Suggested operations:
     ```ts
-    getRates()
-    createShipment()
-    getLabel()
-    requestPickup()
-    cancelShipment()
-    createReturnLabel()
-    verifyWebhook()
-    mapTrackingStatus()
+    getRates();
+    createShipment();
+    getLabel();
+    requestPickup();
+    cancelShipment();
+    createReturnLabel();
+    verifyWebhook();
+    mapTrackingStatus();
     ```
   - **Acceptance:** checkout/business logic imports interface/service, not provider SDK everywhere.
 
@@ -1794,7 +1801,6 @@ RLS is launch-critical.
   - Negative seller balance/recovery entry according to approved rules.
   - **Acceptance:** historical payout remains immutable; recovery is new adjustment.
 
-
 ---
 
 # 28. PHASE Y — BULK PRODUCT UPLOAD (LAUNCH-CRITICAL)
@@ -1977,7 +1983,6 @@ RLS is launch-critical.
 - [x] **T239 — Handle concurrent reservation**
   - Stock upload must not erase active reserved units or create negative available stock.
   - **Acceptance:** concurrency test.
-
 
 ---
 
@@ -2206,7 +2211,6 @@ RLS is launch-critical.
   - one eligible review per order item/rule.
   - product and seller ratings separate.
   - **Acceptance:** seller cannot review own product.
-
 
 ---
 
@@ -2766,11 +2770,13 @@ This is the fastest practical sequencing. Multiple developers should work in par
 ## Day 1 — Foundation
 
 Primary:
+
 - T011–T033
 - T034–T053 schema skeleton
 - T084–T100 RLS design begins
 
 Goal:
+
 - Vercel preview works.
 - Supabase staging works.
 - migrations exist.
@@ -2780,10 +2786,12 @@ Goal:
 ## Day 2 — Auth + seller + catalogue
 
 Primary:
+
 - T101–T140
 - T090–T110
 
 Goal:
+
 - real login
 - seller application
 - admin approval
@@ -2793,10 +2801,12 @@ Goal:
 ## Day 3 — Storage + cart + inventory
 
 Primary:
+
 - T141–T159
 - T054–T065
 
 Goal:
+
 - real images
 - persistent cart
 - server totals
@@ -2806,11 +2816,13 @@ Goal:
 ## Day 4 — Stripe payments
 
 Primary:
+
 - T117–T121
 - T160–T168
 - finance schema/ledger hardening
 
 Goal:
+
 - customer test payment
 - provider-confirmed paid order
 - correct inventory
@@ -2819,9 +2831,11 @@ Goal:
 ## Day 5 — Shipping + fulfilment
 
 Primary:
+
 - T169–T189
 
 Goal:
+
 - sandbox/live-ready rate
 - label
 - tracking
@@ -2831,9 +2845,11 @@ Goal:
 ## Day 6 — Returns + payouts
 
 Primary:
+
 - T190–T208
 
 Goal:
+
 - return
 - payout hold
 - refund
@@ -2843,9 +2859,11 @@ Goal:
 ## Day 7 — Bulk import
 
 Primary:
+
 - T209–T239
 
 Goal:
+
 - real CSV/XLSX
 - 1,000 rows
 - validation
@@ -2856,9 +2874,11 @@ Goal:
 ## Day 8 — Video + notifications + admin
 
 Primary:
+
 - T240–T279
 
 Goal:
+
 - Mux flow
 - transaction emails
 - admin real data
@@ -2867,9 +2887,11 @@ Goal:
 ## Day 9 — Security + tests + operations
 
 Primary:
+
 - T280–T352
 
 Goal:
+
 - monitoring
 - backup
 - rate limit
@@ -2880,9 +2902,11 @@ Goal:
 ## Day 10 — Production + controlled launch
 
 Primary:
+
 - T353–T390
 
 Goal:
+
 - production environment
 - first sellers
 - live verification
@@ -2898,6 +2922,7 @@ If 3 engineers are available:
 ## Developer A — Commerce/backend lead
 
 Own:
+
 - schema
 - inventory
 - order engine
@@ -2909,6 +2934,7 @@ Own:
 ## Developer B — Seller/catalogue/integrations
 
 Own:
+
 - seller onboarding
 - product CRUD
 - bulk imports
@@ -2919,6 +2945,7 @@ Own:
 ## Developer C — Auth/frontend integration/QA
 
 Own:
+
 - Supabase auth/RLS coordination
 - customer routes
 - cart/account
@@ -3260,53 +3287,49 @@ The AI must stop the current task and ask the owner instead of guessing if any o
 
 Update this section as work proceeds.
 
-| Date | Task | Status | Result / Blocker | Commit |
-|---|---|---|---|---|
-| 2026-09-07 | T014–T021 | Completed | Runtime Zod env validation, canonical launch config, 7-day return policy standardization, 12 gallery image limit, payment method filtering | Working tree |
-| 2026-09-07 | T024–T029, T033 | Completed | Local Supabase config, JS dependencies, browser/server/admin clients, database TypeScript types, SSR session helpers, /api/health endpoint | Working tree |
-| 2026-09-07 | T034–T042 | Completed | Phase C identity, user roles, seller entity, staff permissions, agreements audit log, KYC document metadata, auto-provision trigger | Working tree |
-| 2026-09-07 | T043–T053 | Completed | Phase D catalogue, departments, categories, attribute options, collections model, variant mapping, media, moderation audit log | Working tree |
-| 2026-09-07 | T054–T059 | Completed | Phase E transactional inventory reservation RPC, atomic hold with FOR UPDATE, sale decrement confirmation, expired hold cleanup worker | Working tree |
-| 2026-09-07 | T060–T065 | Completed | Phase F customer addresses, persistent guest/auth carts, cart lines revalidation, wishlist mapping | Working tree |
-| 2026-09-07 | T066–T074 | Completed | Phase G multi-seller orders split transaction, order items historical snapshot, order status audit, payments idempotency, immutable financial ledger entries | Working tree |
-| 2026-09-07 | T075–T083 | Completed | Phase H multi-package shipments, carrier tracking events, 7-day customer return requests, payout holds, provider refunds, seller payout batches | Working tree |
-| 2026-09-07 | T084–T089 | Completed | Phase I versioned marketplace config, structured audit logs, idempotent webhook event queue, transactional notification logs, bulk import processor | Working tree |
-| 2026-09-07 | T090–T100 | Completed | Phase J comprehensive Row Level Security policies across all database tables with role/seller membership authorization | Working tree |
-| 2026-09-07 | T101–T116 | Completed | Phase K & L Supabase Auth service & reactive hook, sign-in/up & forgot password flows, authenticated account profile, multi-step seller onboarding wizard | Working tree |
-| 2026-09-07 | T117–T121 | Completed | Phase M Stripe Connect custom/express onboarding, idempotency mapping, capability sync, payout eligibility enforcement | Working tree |
-| 2026-09-07 | T122–T132 | Completed | Phase N initial catalogue seed SQL, unified catalogue data service, live database queries across homepage, category, seller storefront, PDP, and search with fuzzy matching | Working tree |
-| 2026-09-07 | T133–T140 | Completed | Phase O Seller product form state, category-driven attributes, draft save & review submission, seller product list, update, clone, archive, admin moderation audit | Working tree |
-| 2026-09-07 | T141–T145 | Completed | Phase P Storage service, 12 gallery image slots, MIME & 10MB size validation, collision-safe paths, primary image constraint, safe removal | Working tree |
-| 2026-09-07 | T146–T152 | Completed | Phase Q Client/server cart store, multi-seller grouping, server-authoritative GST and threshold-based Australian shipping calculation | Working tree |
-| 2026-09-07 | T153–T159 | Completed | Phase R Four-step checkout address validation, multi-seller sub-order splitting, transactional order snapshots, immutable financial ledger entries | Working tree |
-| 2026-09-07 | T160–T163 | Completed | Phase S Stripe AUD PaymentIntent creation, server checkout validation, order confirmation, and payment webhook verification | Working tree |
-| 2026-09-07 | T164–T168 | Completed | Phase S Webhook idempotency, provider-driven paid confirmation, atomic inventory finalization, ledger entries, failure retry UI | Working tree |
-| 2026-09-07 | T169–T177 | Completed | Phase T Australia Post & Sendle shipping adapter interface, real quote calculation, A6 PDF label generation, carrier tracking, delivered_at triggers | Working tree |
-| 2026-09-07 | T178–T183 | Completed | Phase U Seller sub-orders live query, order lifecycle actions (Accept, Prepare, Create Label, Track), customer package tracking page | Working tree |
-| 2026-09-07 | T184–T189 | Completed | Phase V Customer cancellation eligibility, unfulfilled package cancellation with inventory release and refund triggering | Working tree |
-| 2026-09-07 | T190–T200 | Completed | Phase W 7-day change-of-mind return window, statutory review, evidence photo upload, payout hold on return creation, partial/full refunds | Working tree |
-| 2026-09-07 | T201–T208 | Completed | Phase X 14-day delivery hold maturity query, settlement batching, Stripe Connect payouts, reconciliation statement download, manual hold | Working tree |
-| 2026-09-07 | T209–T234 | Completed | Phase Y Bulk product CSV/XLSX template download, client/server file parsing, row-level schema validation, preview confirmation, error report CSV export, batch catalogue ingestion | Working tree |
-| 2026-09-07 | T235–T239 | Completed | Phase Z Bulk stock management, CSV stock sheet export, real-time inventory adjustments, protected reserved units, on-screen quick editing | Working tree |
-| 2026-09-07 | T240–T247 | Completed | Phase AA Direct-to-Mux video upload configuration, webhook signature verification, playback ID storage, video moderation status | Working tree |
-| 2026-09-07 | T248–T255 | Completed | Phase AB Brevo transactional email client, GST tax invoice templates, package dispatch notifications, return alerts, preferences | Working tree |
-| 2026-09-07 | T256–T265 | Completed | Phase AC Centralized Admin operations console, GMV & payout liability metrics, seller KYC verification, catalog moderation, audit log viewer | Working tree |
-| 2026-09-07 | T266–T269 | Completed | Phase AD Multi-member seller team access, granular permission toggles (orders, inventory, finance), staff invitation and removal | Working tree |
-| 2026-09-07 | T270–T274 | Completed | Phase AE Customer account management, verified-purchase review submission, multi-package delivery timeline tracking, wishlist persistence | Working tree |
-| 2026-09-07 | T275–T279 | Completed | Phase AF Unified webhook processing framework, event signature verification, idempotent execution, background job retries | Working tree |
-| 2026-09-07 | T280–T290 | Completed | Phase AG Security hardening, CSP & security headers, runtime Zod validation, SSRF media protections, role-based mutation guards | Working tree |
-| 2026-09-07 | T291–T298 | Completed | Phase AH Application error monitoring, health check endpoints, DB index optimization, paginated query safeguards | Working tree |
-| 2026-09-07 | T299–T303 | Completed | Phase AI Authoritative marketplace and seller analytics, finance reconciliation exports, CSV/XLSX generation | Working tree |
-| 2026-09-07 | T304–T308 | Completed | Phase AJ Automated test foundation, minor cent financial math integrity, Row Level Security cross-tenant isolation | Working tree |
-| 2026-09-07 | T309–T320 | Completed | Phase AJ Cross-seller RLS boundary testing, concurrent final-unit reservation validation, idempotent webhook replaying, return window boundary testing | Working tree |
-| 2026-09-07 | T321–T335 | Completed | Phase AK Master Plan UAT Scenarios (seller onboarding, single/bulk listing, 3-seller checkout split, mixed fulfilment, 7-day returns, 14-day payout hold maturity) | Working tree |
-| 2026-09-07 | T336–T344 | Completed | Phase AL Removed hardcoded demo cart, wiped default credentials from signin form, connected localStorage persistence, audited prototype UI labels | Working tree |
-| 2026-09-07 | T345–T352 | Completed | Phase AM Published /policies route with official Australian Terms of Service, Privacy Policy (Privacy Act 1988), 7-day returns & ACL guarantees, Seller Agreement, and GST compliance | Working tree |
-| 2026-09-07 | T363–T395 | Completed | Phase AO & Basic Risk Go-Live Gates passed, velocity limits, chargeback & fraud hold controls, payout idempotency verified | Working tree |
-
-
-
-
+| Date       | Task            | Status    | Result / Blocker                                                                                                                                                                      | Commit       |
+| ---------- | --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 2026-09-07 | T014–T021       | Completed | Runtime Zod env validation, canonical launch config, 7-day return policy standardization, 12 gallery image limit, payment method filtering                                            | Working tree |
+| 2026-09-07 | T024–T029, T033 | Completed | Local Supabase config, JS dependencies, browser/server/admin clients, database TypeScript types, SSR session helpers, /api/health endpoint                                            | Working tree |
+| 2026-09-07 | T034–T042       | Completed | Phase C identity, user roles, seller entity, staff permissions, agreements audit log, KYC document metadata, auto-provision trigger                                                   | Working tree |
+| 2026-09-07 | T043–T053       | Completed | Phase D catalogue, departments, categories, attribute options, collections model, variant mapping, media, moderation audit log                                                        | Working tree |
+| 2026-09-07 | T054–T059       | Completed | Phase E transactional inventory reservation RPC, atomic hold with FOR UPDATE, sale decrement confirmation, expired hold cleanup worker                                                | Working tree |
+| 2026-09-07 | T060–T065       | Completed | Phase F customer addresses, persistent guest/auth carts, cart lines revalidation, wishlist mapping                                                                                    | Working tree |
+| 2026-09-07 | T066–T074       | Completed | Phase G multi-seller orders split transaction, order items historical snapshot, order status audit, payments idempotency, immutable financial ledger entries                          | Working tree |
+| 2026-09-07 | T075–T083       | Completed | Phase H multi-package shipments, carrier tracking events, 7-day customer return requests, payout holds, provider refunds, seller payout batches                                       | Working tree |
+| 2026-09-07 | T084–T089       | Completed | Phase I versioned marketplace config, structured audit logs, idempotent webhook event queue, transactional notification logs, bulk import processor                                   | Working tree |
+| 2026-09-07 | T090–T100       | Completed | Phase J comprehensive Row Level Security policies across all database tables with role/seller membership authorization                                                                | Working tree |
+| 2026-09-07 | T101–T116       | Completed | Phase K & L Supabase Auth service & reactive hook, sign-in/up & forgot password flows, authenticated account profile, multi-step seller onboarding wizard                             | Working tree |
+| 2026-09-07 | T117–T121       | Completed | Phase M Stripe Connect custom/express onboarding, idempotency mapping, capability sync, payout eligibility enforcement                                                                | Working tree |
+| 2026-09-07 | T122–T132       | Completed | Phase N initial catalogue seed SQL, unified catalogue data service, live database queries across homepage, category, seller storefront, PDP, and search with fuzzy matching           | Working tree |
+| 2026-09-07 | T133–T140       | Completed | Phase O Seller product form state, category-driven attributes, draft save & review submission, seller product list, update, clone, archive, admin moderation audit                    | Working tree |
+| 2026-09-07 | T141–T145       | Completed | Phase P Storage service, 12 gallery image slots, MIME & 10MB size validation, collision-safe paths, primary image constraint, safe removal                                            | Working tree |
+| 2026-09-07 | T146–T152       | Completed | Phase Q Client/server cart store, multi-seller grouping, server-authoritative GST and threshold-based Australian shipping calculation                                                 | Working tree |
+| 2026-09-07 | T153–T159       | Completed | Phase R Four-step checkout address validation, multi-seller sub-order splitting, transactional order snapshots, immutable financial ledger entries                                    | Working tree |
+| 2026-09-07 | T160–T163       | Completed | Phase S Stripe AUD PaymentIntent creation, server checkout validation, order confirmation, and payment webhook verification                                                           | Working tree |
+| 2026-09-07 | T164–T168       | Completed | Phase S Webhook idempotency, provider-driven paid confirmation, atomic inventory finalization, ledger entries, failure retry UI                                                       | Working tree |
+| 2026-09-07 | T169–T177       | Completed | Phase T Australia Post & Sendle shipping adapter interface, real quote calculation, A6 PDF label generation, carrier tracking, delivered_at triggers                                  | Working tree |
+| 2026-09-07 | T178–T183       | Completed | Phase U Seller sub-orders live query, order lifecycle actions (Accept, Prepare, Create Label, Track), customer package tracking page                                                  | Working tree |
+| 2026-09-07 | T184–T189       | Completed | Phase V Customer cancellation eligibility, unfulfilled package cancellation with inventory release and refund triggering                                                              | Working tree |
+| 2026-09-07 | T190–T200       | Completed | Phase W 7-day change-of-mind return window, statutory review, evidence photo upload, payout hold on return creation, partial/full refunds                                             | Working tree |
+| 2026-09-07 | T201–T208       | Completed | Phase X 14-day delivery hold maturity query, settlement batching, Stripe Connect payouts, reconciliation statement download, manual hold                                              | Working tree |
+| 2026-09-07 | T209–T234       | Completed | Phase Y Bulk product CSV/XLSX template download, client/server file parsing, row-level schema validation, preview confirmation, error report CSV export, batch catalogue ingestion    | Working tree |
+| 2026-09-07 | T235–T239       | Completed | Phase Z Bulk stock management, CSV stock sheet export, real-time inventory adjustments, protected reserved units, on-screen quick editing                                             | Working tree |
+| 2026-09-07 | T240–T247       | Completed | Phase AA Direct-to-Mux video upload configuration, webhook signature verification, playback ID storage, video moderation status                                                       | Working tree |
+| 2026-09-07 | T248–T255       | Completed | Phase AB Brevo transactional email client, GST tax invoice templates, package dispatch notifications, return alerts, preferences                                                      | Working tree |
+| 2026-09-07 | T256–T265       | Completed | Phase AC Centralized Admin operations console, GMV & payout liability metrics, seller KYC verification, catalog moderation, audit log viewer                                          | Working tree |
+| 2026-09-07 | T266–T269       | Completed | Phase AD Multi-member seller team access, granular permission toggles (orders, inventory, finance), staff invitation and removal                                                      | Working tree |
+| 2026-09-07 | T270–T274       | Completed | Phase AE Customer account management, verified-purchase review submission, multi-package delivery timeline tracking, wishlist persistence                                             | Working tree |
+| 2026-09-07 | T275–T279       | Completed | Phase AF Unified webhook processing framework, event signature verification, idempotent execution, background job retries                                                             | Working tree |
+| 2026-09-07 | T280–T290       | Completed | Phase AG Security hardening, CSP & security headers, runtime Zod validation, SSRF media protections, role-based mutation guards                                                       | Working tree |
+| 2026-09-07 | T291–T298       | Completed | Phase AH Application error monitoring, health check endpoints, DB index optimization, paginated query safeguards                                                                      | Working tree |
+| 2026-09-07 | T299–T303       | Completed | Phase AI Authoritative marketplace and seller analytics, finance reconciliation exports, CSV/XLSX generation                                                                          | Working tree |
+| 2026-09-07 | T304–T308       | Completed | Phase AJ Automated test foundation, minor cent financial math integrity, Row Level Security cross-tenant isolation                                                                    | Working tree |
+| 2026-09-07 | T309–T320       | Completed | Phase AJ Cross-seller RLS boundary testing, concurrent final-unit reservation validation, idempotent webhook replaying, return window boundary testing                                | Working tree |
+| 2026-09-07 | T321–T335       | Completed | Phase AK Master Plan UAT Scenarios (seller onboarding, single/bulk listing, 3-seller checkout split, mixed fulfilment, 7-day returns, 14-day payout hold maturity)                    | Working tree |
+| 2026-09-07 | T336–T344       | Completed | Phase AL Removed hardcoded demo cart, wiped default credentials from signin form, connected localStorage persistence, audited prototype UI labels                                     | Working tree |
+| 2026-09-07 | T345–T352       | Completed | Phase AM Published /policies route with official Australian Terms of Service, Privacy Policy (Privacy Act 1988), 7-day returns & ACL guarantees, Seller Agreement, and GST compliance | Working tree |
+| 2026-09-07 | T363–T395       | Completed | Phase AO & Basic Risk Go-Live Gates passed, velocity limits, chargeback & fraud hold controls, payout idempotency verified                                                            | Working tree |
 
 ---
 
@@ -3314,23 +3337,23 @@ Update this section as work proceeds.
 
 Record major decisions so future AI sessions do not repeatedly ask the same questions.
 
-| Decision | Selected value | Date | Approved by |
-|---|---|---|---|
-| Hosting | Vercel (default) | 2026-09-07 | Architecture Plan V1 |
-| Database/Auth | Supabase Sydney (ap-southeast-2 default) | 2026-09-07 | Architecture Plan V1 |
-| Payment | Stripe + Connect (default) | 2026-09-07 | Architecture Plan V1 |
-| Payment methods | Card (Visa/Mastercard/Amex) + Apple Pay / Google Pay | 2026-09-07 | Controlled MVP Launch |
-| Shipping provider | Australia Post eParcel (Primary) + Sendle (Secondary) | 2026-09-07 | Architecture Plan V1 |
-| Video provider | Mux (default) | 2026-09-07 | Architecture Plan V1 |
-| Email provider | Brevo (Transactional Email & SMS) | 2026-09-07 | Architecture Plan V1 |
-| Return window | 7 days ordinary change-of-mind (default) | 2026-09-07 | Master Architecture Plan V1 |
-| Payout delay | 14 days after confirmed delivery (default) | 2026-09-07 | Master Architecture Plan V1 |
-| Product image limit | 12 images per listing | 2026-09-07 | Master Architecture Plan V1 |
-| Video limit | 60 seconds / 100MB per listing | 2026-09-07 | Master Architecture Plan V1 |
-| Commission | 10% standard marketplace commission | 2026-09-07 | Master Architecture Plan V1 |
-| Seller launch model | Curated / verified Indian sellers | 2026-09-07 | Controlled MVP Launch |
-| Launch seller count | 3 initial verified showcase stores | 2026-09-07 | Seed Database |
-| Launch product count | 10 departments with multi-variant catalog | 2026-09-07 | Seed Database |
+| Decision             | Selected value                                        | Date       | Approved by                 |
+| -------------------- | ----------------------------------------------------- | ---------- | --------------------------- |
+| Hosting              | Vercel (default)                                      | 2026-09-07 | Architecture Plan V1        |
+| Database/Auth        | Supabase Sydney (ap-southeast-2 default)              | 2026-09-07 | Architecture Plan V1        |
+| Payment              | Stripe + Connect (default)                            | 2026-09-07 | Architecture Plan V1        |
+| Payment methods      | Card (Visa/Mastercard/Amex) + Apple Pay / Google Pay  | 2026-09-07 | Controlled MVP Launch       |
+| Shipping provider    | Australia Post eParcel (Primary) + Sendle (Secondary) | 2026-09-07 | Architecture Plan V1        |
+| Video provider       | Mux (default)                                         | 2026-09-07 | Architecture Plan V1        |
+| Email provider       | Brevo (Transactional Email & SMS)                     | 2026-09-07 | Architecture Plan V1        |
+| Return window        | 7 days ordinary change-of-mind (default)              | 2026-09-07 | Master Architecture Plan V1 |
+| Payout delay         | 14 days after confirmed delivery (default)            | 2026-09-07 | Master Architecture Plan V1 |
+| Product image limit  | 12 images per listing                                 | 2026-09-07 | Master Architecture Plan V1 |
+| Video limit          | 60 seconds / 100MB per listing                        | 2026-09-07 | Master Architecture Plan V1 |
+| Commission           | 10% standard marketplace commission                   | 2026-09-07 | Master Architecture Plan V1 |
+| Seller launch model  | Curated / verified Indian sellers                     | 2026-09-07 | Controlled MVP Launch       |
+| Launch seller count  | 3 initial verified showcase stores                    | 2026-09-07 | Seed Database               |
+| Launch product count | 10 departments with multi-variant catalog             | 2026-09-07 | Seed Database               |
 
 ---
 

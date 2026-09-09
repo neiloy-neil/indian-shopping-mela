@@ -52,7 +52,13 @@ export const getSellerPayoutEligibilityServerFn = createServerFn({ method: "POST
  * Requires Finance Admin role and verified MFA.
  */
 export const executeSellerPayoutTransferServerFn = createServerFn({ method: "POST" })
-  .validator((data: { sellerId: string; isMfaVerified?: boolean | undefined; adminId?: string | undefined }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      isMfaVerified?: boolean | undefined;
+      adminId?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return executeSellerPayoutTransfer(data.sellerId, data.isMfaVerified ?? false, data.adminId);
   });
@@ -70,7 +76,9 @@ export const getSellerPayoutStatementServerFn = createServerFn({ method: "POST" 
  * Server Function: Apply manual finance hold on a sub-order
  */
 export const setManualFinanceHoldServerFn = createServerFn({ method: "POST" })
-  .validator((data: { subOrderId: string; holdReason: string; adminId?: string | undefined }) => data)
+  .validator(
+    (data: { subOrderId: string; holdReason: string; adminId?: string | undefined }) => data,
+  )
   .handler(async ({ data }) => {
     return setManualFinanceHold(data.subOrderId, data.holdReason, data.adminId);
   });
@@ -81,7 +89,9 @@ export const setManualFinanceHoldServerFn = createServerFn({ method: "POST" })
  * 2. Fetches delivered sub-orders where delivered_at + 14 days <= NOW().
  * 3. Excludes sub-orders with active return requests or dispute holds.
  */
-export async function getSellerPayoutEligibility(sellerId: string): Promise<PayoutEligibilityResult> {
+export async function getSellerPayoutEligibility(
+  sellerId: string,
+): Promise<PayoutEligibilityResult> {
   // 1. Fetch seller record
   const { data: seller, error: sellerErr } = await (supabaseAdmin.from("sellers") as any)
     .select("id, status, stripe_account_id, payouts_enabled, business_name")
@@ -102,7 +112,8 @@ export async function getSellerPayoutEligibility(sellerId: string): Promise<Payo
     };
   }
 
-  const isApproved = seller.status === "approved" || seller.status === "APPROVED" || seller.status === "ACTIVE";
+  const isApproved =
+    seller.status === "approved" || seller.status === "APPROVED" || seller.status === "ACTIVE";
   if (!isApproved) {
     return {
       sellerId,
@@ -134,7 +145,8 @@ export async function getSellerPayoutEligibility(sellerId: string): Promise<Payo
 
   // 2. Fetch all sub-orders for this seller
   const { data: subOrders, error: subOrdersErr } = await (supabaseAdmin.from("sub_orders") as any)
-    .select(`
+    .select(
+      `
       id,
       subtotal,
       shipping_cost,
@@ -145,7 +157,8 @@ export async function getSellerPayoutEligibility(sellerId: string): Promise<Payo
       payout_items (
         id
       )
-    `)
+    `,
+    )
     .eq("seller_id", sellerId);
 
   if (subOrdersErr) {
@@ -206,7 +219,9 @@ export async function getSellerPayoutEligibility(sellerId: string): Promise<Payo
   return {
     sellerId,
     isEligibleForPayout: isEligible,
-    ineligibilityReason: isEligible ? undefined : "No matured delivery records available for settlement.",
+    ineligibilityReason: isEligible
+      ? undefined
+      : "No matured delivery records available for settlement.",
     eligibleSubOrderIds,
     heldSubOrderIds,
     totalEligibleGrossCents,
@@ -223,13 +238,13 @@ export async function getSellerPayoutEligibility(sellerId: string): Promise<Payo
 export async function executeSellerPayoutTransfer(
   sellerId: string,
   isMfaVerified: boolean = false,
-  adminId?: string | undefined
+  adminId?: string | undefined,
 ): Promise<PayoutTransferResult> {
   // 1. Verify eligibility
   const eligibility = await getSellerPayoutEligibility(sellerId);
   if (!eligibility.isEligibleForPayout || eligibility.totalNetPayoutCents <= 0) {
     throw new Error(
-      `Seller ${sellerId} is not eligible for payout transfer: ${eligibility.ineligibilityReason}`
+      `Seller ${sellerId} is not eligible for payout transfer: ${eligibility.ineligibilityReason}`,
     );
   }
 
@@ -286,7 +301,9 @@ export async function executeSellerPayoutTransfer(
       })
       .eq("id", payoutId);
 
-    throw new Error(`Cannot execute payout for seller ${sellerId}: Missing active Stripe Connect account.`);
+    throw new Error(
+      `Cannot execute payout for seller ${sellerId}: Missing active Stripe Connect account.`,
+    );
   }
 
   let transferId = `tr_demo_${Date.now()}`;
@@ -307,7 +324,7 @@ export async function executeSellerPayoutTransfer(
         },
         {
           idempotencyKey: `payout_transfer_${payoutId}`,
-        }
+        },
       );
       transferId = transfer.id;
     } catch (stripeErr: any) {
@@ -378,7 +395,8 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
   csvExport: string;
 }> {
   const { data: payouts } = await (supabaseAdmin.from("payouts") as any)
-    .select(`
+    .select(
+      `
       id,
       amount,
       status,
@@ -390,7 +408,8 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
         commission_amount,
         net_amount
       )
-    `)
+    `,
+    )
     .eq("seller_id", sellerId)
     .order("created_at", { ascending: false });
 
@@ -402,7 +421,10 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
   for (const po of payouts || []) {
     const items = po.payout_items || [];
     const gross = items.reduce((acc: number, i: any) => acc + (Number(i.gross_amount) || 0), 0);
-    const commission = items.reduce((acc: number, i: any) => acc + (Number(i.commission_amount) || 0), 0);
+    const commission = items.reduce(
+      (acc: number, i: any) => acc + (Number(i.commission_amount) || 0),
+      0,
+    );
     const net = Number(po.amount) || 0;
 
     totalPaidAud += net;
@@ -411,7 +433,9 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
 
     statementItems.push({
       payoutId: po.id,
-      date: po.paid_at ? new Date(po.paid_at).toLocaleDateString("en-AU") : new Date(po.created_at).toLocaleDateString("en-AU"),
+      date: po.paid_at
+        ? new Date(po.paid_at).toLocaleDateString("en-AU")
+        : new Date(po.created_at).toLocaleDateString("en-AU"),
       grossAud: Number(gross.toFixed(2)),
       commissionAud: Number(commission.toFixed(2)),
       netAud: Number(net.toFixed(2)),
@@ -422,10 +446,11 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
   }
 
   // Generate CSV Content
-  const csvHeader = "Payout ID,Date,Gross AUD,Commission AUD (12%),Net Transferred AUD,Status,Stripe Transfer ID,Sub-Orders\n";
+  const csvHeader =
+    "Payout ID,Date,Gross AUD,Commission AUD (12%),Net Transferred AUD,Status,Stripe Transfer ID,Sub-Orders\n";
   const csvRows = statementItems.map(
     (item) =>
-      `"${item.payoutId}","${item.date}",${item.grossAud},${item.commissionAud},${item.netAud},"${item.status}","${item.transferId ?? ""}","${item.subOrderCount}"`
+      `"${item.payoutId}","${item.date}",${item.grossAud},${item.commissionAud},${item.netAud},"${item.status}","${item.transferId ?? ""}","${item.subOrderCount}"`,
   );
   const csvExport = csvHeader + csvRows.join("\n");
 
@@ -444,7 +469,7 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
 export async function setManualFinanceHold(
   subOrderId: string,
   holdReason: string,
-  adminId?: string | undefined
+  adminId?: string | undefined,
 ): Promise<{ success: boolean }> {
   const { data: subOrder } = await (supabaseAdmin.from("sub_orders") as any)
     .select("master_order_id, seller_id, net_seller_amount")
@@ -487,7 +512,7 @@ export async function handlePostPayoutRefundRecovery(
   sellerId: string,
   subOrderId: string,
   refundAmountAud: number,
-  reason: string = "Post-settlement customer return recovery"
+  reason: string = "Post-settlement customer return recovery",
 ): Promise<{ success: boolean; debitAmountCents: number }> {
   const debitAmountCents = Math.round(refundAmountAud * 100);
 

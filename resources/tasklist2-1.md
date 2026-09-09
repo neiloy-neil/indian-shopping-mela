@@ -11,6 +11,7 @@
 ## 📅 Day 1 — Database Consolidation, Clean Schema & Generated Types
 
 ### Canonical Schema Unification
+
 - [x] **T2-001**: Consolidate all 6 fragmented migrations into a single, unified `supabase/migrations/20260907_canonical_schema.sql`.
 - [x] **T2-002**: Unify order identifiers as `TEXT` across all related tables (`orders`, `sub_orders`, `order_items`, `order_status_history`, `payments`, `payout_ledger`, `shipments`, `returns`, `refunds`).
 - [x] **T2-003**: Standardize all enum types in snake_case (`return_status`, `payout_status`, `order_status`, `sub_order_status`, `order_payment_status`, `ledger_entry_type`, `bulk_import_status`).
@@ -26,6 +27,7 @@
 ## 📅 Day 2 — Server Execution Boundaries (`createServerFn`), Auth & Security Guards
 
 ### Server Function Boundaries
+
 - [x] **T2-010**: Audit all backend modules in `src/lib/api/` and wrap privileged mutations in TanStack Start `createServerFn({ method: 'POST' })`.
 - [x] **T2-011**: Isolate server secrets (`SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `BREVO_API_KEY`, `AUSPOST_API_KEY`) so they are never imported into client bundles.
 - [x] **T2-012**: Implement Supabase SSR cookie session handling in `@/lib/supabase/server.ts` using `@supabase/ssr`.
@@ -38,6 +40,7 @@
 ## 📅 Day 3 — Live Catalogue, Seller Onboarding & Storage
 
 ### Catalogue Integration
+
 - [x] **T2-016**: Wire homepage (`src/routes/index.tsx`) to consume live data via `Route.useLoaderData()` instead of static fixtures.
 - [x] **T2-017**: Align `mapDbProductToIsm` with canonical schema columns (`price`, `sale_price`, `stock_quantity`, `media`, `category`).
 - [x] **T2-018**: Connect category (`/category/$slug`), seller (`/seller/$slug`), search (`/search`), and PDP (`/product/$id`) to live database queries with fail-closed error handling.
@@ -49,6 +52,7 @@
 ## 📅 Day 4 — Persisted Cart, Inventory Concurrency & Transactional Orders
 
 ### Cart & Concurrency
+
 - [x] **T2-021**: Persist cart lines to database `carts` and `cart_lines` for authenticated users; use secure guest cart session for guests.
 - [x] **T2-022**: Fix guest cart RLS vulnerability by restricting guest cart queries to cryptographically signed token verification.
 - [x] **T2-023**: Connect checkout flow to atomic inventory reservation RPC (`reserve_inventory_atomic`) with timeout expiration.
@@ -60,6 +64,7 @@
 ## 📅 Day 5 — Stripe Payment Element, Webhook Engine & Immutable Ledger
 
 ### Payments & Ledger
+
 - [x] **T2-026**: Replace prototype credit card input with live `@stripe/react-stripe-js` Payment Element in `/checkout`.
 - [x] **T2-027**: Create real server route `src/routes/api.webhooks.stripe.ts` for Stripe webhook handling.
 - [x] **T2-028**: Implement Stripe webhook signature verification, idempotency checking against `webhook_events`, and payment logging in `payments`.
@@ -72,6 +77,7 @@
 ## 📅 Day 6 — Carrier Shipping Integration, Labels & Tracking
 
 ### Shipping Engine
+
 - [x] **T2-032**: Integrate live Australia Post Shipping & Tracking API for real-time rating and consignment creation.
 - [x] **T2-033**: Generate carrier shipping labels and save tracking numbers to `shipments`.
 - [x] **T2-034**: Implement carrier webhook receiver for delivery status transitions (`in_transit`, `out_for_delivery`, `delivered`).
@@ -82,6 +88,7 @@
 ## 📅 Day 7 — Seller Fulfilment, Cancellations, Returns & Stripe Refunds
 
 ### Fulfilment & Returns
+
 - [x] **T2-036**: Wire seller fulfilment portal (`/sell`) to live `sub_orders`, allowing sellers to accept orders, print labels, and mark dispatched.
 - [x] **T2-037**: Connect customer order view (`/orders/$id`) to live order state and real tracking timeline.
 - [x] **T2-038**: Wire return request portal (`/returns/new`) to create records in `returns` and `return_items`.
@@ -92,6 +99,7 @@
 ## 📅 Day 8 — Seller Payout Engine & Bulk Product Import
 
 ### Payouts & Bulk Data
+
 - [x] **T2-040**: Implement 14-day post-delivery payout maturity calculation in `reconcileAndUnlockEligiblePayouts`.
 - [x] **T2-041**: Connect Stripe Connect transfers (`stripe.transfers.create`) for unlocked seller payouts.
 - [x] **T2-042**: Implement true XLSX and RFC 4180 compliant CSV parser in `/sell/bulk-upload` using `xlsx` library.
@@ -102,6 +110,7 @@
 ## 📅 Day 9 — Transactional Emails, Admin Console & Live Monitoring
 
 ### Operations & Communications
+
 - [x] **T2-044**: Connect Brevo transactional email triggers for order confirmation, shipping dispatch, return updates, and payout summaries.
 - [x] **T2-045**: Connect admin console (`/admin`) to live marketplace analytics, seller verification queue, dispute resolution, and finance ledger.
 - [x] **T2-046**: Implement real health check endpoint `/api/health` verifying Supabase DB ping, storage, and key configuration.
@@ -112,6 +121,7 @@
 ## 📅 Day 10 — Automated Test Suites, Security Audit & Production Launch
 
 ### Quality & Launch Gate
+
 - [x] **T2-048**: Set up Vitest and create automated unit/integration tests for RLS policies, inventory concurrency, and order creation.
 - [x] **T2-049**: Create Playwright E2E tests for auth, catalogue navigation, cart persistence, and checkout.
 - [x] **T2-050**: Configure GitHub Actions CI workflow for lint, typecheck, test, and build.
@@ -122,6 +132,7 @@
 ---
 
 ## 🏆 Final Verification Results
+
 - **`npm test`**: **20/20 PASSED** (0 failures)
 - **`npx tsc --noEmit`**: **0 errors**
 - **`npm run build`**: **0 errors** (Nitro SSR worker + client bundles cleanly generated)

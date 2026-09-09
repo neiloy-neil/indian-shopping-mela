@@ -40,7 +40,9 @@ function BulkStockPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, number>>({});
   const [fileName, setFileName] = useState<string | null>(null);
-  const [uploadedUpdates, setUploadedUpdates] = useState<Array<{ sku: string; newStock: number; rowNumber?: number }>>([]);
+  const [uploadedUpdates, setUploadedUpdates] = useState<
+    Array<{ sku: string; newStock: number; rowNumber?: number }>
+  >([]);
   const [batchErrors, setBatchErrors] = useState<BulkStockUpdateError[]>([]);
 
   const loadStock = async () => {
@@ -62,18 +64,25 @@ function BulkStockPage() {
 
   const totalSKUs = stockItems.length;
   const totalReserved = stockItems.reduce((acc, item) => acc + item.reservedUnits, 0);
-  const lowStockCount = stockItems.filter((item) => item.availableStock > 0 && item.availableStock <= 5).length;
+  const lowStockCount = stockItems.filter(
+    (item) => item.availableStock > 0 && item.availableStock <= 5,
+  ).length;
   const outOfStockCount = stockItems.filter((item) => item.availableStock === 0).length;
 
   const handleDownloadStockCsv = async () => {
     try {
-      const res = await generateSellerStockTemplateServerFn({ data: { sellerId: user?.id, format: "csv" } });
+      const res = await generateSellerStockTemplateServerFn({
+        data: { sellerId: user?.id, format: "csv" },
+      });
       if (res?.csvContent) {
         const blob = new Blob([res.csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `ISM_Stock_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute(
+          "download",
+          `ISM_Stock_Export_${new Date().toISOString().slice(0, 10)}.csv`,
+        );
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -102,7 +111,8 @@ function BulkStockPage() {
         const r = rawRows[i] as any;
         const rowNumber = i + 2; // header is row 1
         const sku = String(r.seller_sku || r.sku || r.SKU || "").trim();
-        const stockStr = r.new_stock_quantity ?? r.stock_on_hand ?? r.stock_qty ?? r.stock ?? r.Stock;
+        const stockStr =
+          r.new_stock_quantity ?? r.stock_on_hand ?? r.stock_qty ?? r.stock ?? r.Stock;
 
         if (!sku) continue;
 
@@ -119,7 +129,9 @@ function BulkStockPage() {
       }
 
       if (updates.length === 0 && batchErrors.length === 0) {
-        toast.error("No valid rows matching 'seller_sku' and 'new_stock_quantity' / 'stock_on_hand' found.");
+        toast.error(
+          "No valid rows matching 'seller_sku' and 'new_stock_quantity' / 'stock_on_hand' found.",
+        );
         return;
       }
 
@@ -261,7 +273,9 @@ function BulkStockPage() {
                 Download template
               </Button>
             </div>
-            {fileName && <p className="mt-2 text-xs text-primary font-medium">Selected: {fileName}</p>}
+            {fileName && (
+              <p className="mt-2 text-xs text-primary font-medium">Selected: {fileName}</p>
+            )}
           </div>
 
           {validated && (
@@ -275,11 +289,7 @@ function BulkStockPage() {
 
           {validated && (
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                disabled={isSaving}
-                onClick={handleApplyUploadedBatch}
-              >
+              <Button variant="primary" disabled={isSaving} onClick={handleApplyUploadedBatch}>
                 {isSaving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
                 Apply {uploadedUpdates.length} valid rows
               </Button>
@@ -383,5 +393,3 @@ function BulkStockPage() {
     </SellerShell>
   );
 }
-
-

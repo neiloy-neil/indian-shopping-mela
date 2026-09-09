@@ -86,9 +86,7 @@ export function ProductCard({ product, className }: { product: Product; classNam
                 </span>
               )}
             </div>
-            {off > 0 && (
-              <span className="text-[10.5px] font-bold text-teal">{off}% off today</span>
-            )}
+            {off > 0 && <span className="text-[10.5px] font-bold text-teal">{off}% off today</span>}
           </div>
           <button
             type="button"
@@ -103,9 +101,7 @@ export function ProductCard({ product, className }: { product: Product; classNam
         </div>
         <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
           <Truck size={11} className="shrink-0 text-teal" />
-          {product.readyToShip
-            ? "Dispatch in 1–2 days"
-            : "Made to order · dispatch in 5–7 days"}
+          {product.readyToShip ? "Dispatch in 1–2 days" : "Made to order · dispatch in 5–7 days"}
         </p>
         <p className="text-[10px] text-muted-foreground">
           Ships from {seller?.city}, {seller?.state}

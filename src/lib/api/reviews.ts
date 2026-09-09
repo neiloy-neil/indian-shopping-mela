@@ -21,7 +21,8 @@ export const getProductReviewsServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<ProductReviewDto[]> => {
     const { data: rows } = await (supabaseAdmin as any)
       .from("product_reviews")
-      .select(`
+      .select(
+        `
         id,
         product_id,
         user_id,
@@ -33,7 +34,8 @@ export const getProductReviewsServerFn = createServerFn({ method: "POST" })
         profiles (
           full_name
         )
-      `)
+      `,
+      )
       .eq("product_id", data.productId)
       .eq("status", "APPROVED")
       .order("created_at", { ascending: false });
@@ -59,13 +61,10 @@ export const getProductReviewsServerFn = createServerFn({ method: "POST" })
  * Server Function: Submit a verified purchase review
  */
 export const submitProductReviewServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    userId: string;
-    productId: string;
-    rating: number;
-    title: string;
-    body: string;
-  }) => data)
+  .validator(
+    (data: { userId: string; productId: string; rating: number; title: string; body: string }) =>
+      data,
+  )
   .handler(async ({ data }) => {
     // 1. Prevent duplicate review by same user on same product
     const { data: existingReview } = await (supabaseAdmin as any)
@@ -144,17 +143,16 @@ export const submitProductReviewServerFn = createServerFn({ method: "POST" })
 /**
  * Server Function: Get Admin review moderation queue
  */
-export const getAdminReviewsServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: reviews, error } = await (supabaseAdmin as any)
-      .from("product_reviews")
-      .select("*, product:products(id, title, seller_id), user:profiles(full_name, email)")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminReviewsServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: reviews, error } = await (supabaseAdmin as any)
+    .from("product_reviews")
+    .select("*, product:products(id, title, seller_id), user:profiles(full_name, email)")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !reviews) return [];
-    return reviews;
-  });
+  if (error || !reviews) return [];
+  return reviews;
+});
 
 /**
  * Server Function: Moderate review (APPROVE, REJECT, DELETE)
@@ -163,10 +161,7 @@ export const moderateReviewServerFn = createServerFn({ method: "POST" })
   .validator((data: { reviewId: string; status: "APPROVED" | "REJECTED" | "DELETED" }) => data)
   .handler(async ({ data }) => {
     if (data.status === "DELETED") {
-      await (supabaseAdmin as any)
-        .from("product_reviews")
-        .delete()
-        .eq("id", data.reviewId);
+      await (supabaseAdmin as any).from("product_reviews").delete().eq("id", data.reviewId);
     } else {
       await (supabaseAdmin as any)
         .from("product_reviews")

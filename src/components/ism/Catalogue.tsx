@@ -57,7 +57,11 @@ const SORTS = [
   { id: "discount", label: "Biggest Discount" },
 ] as const;
 
-type ActiveChip = { key: keyof Filters | "price" | "rating" | "minDiscount"; value: string; onRemove: () => void };
+type ActiveChip = {
+  key: keyof Filters | "price" | "rating" | "minDiscount";
+  value: string;
+  onRemove: () => void;
+};
 
 export function Catalogue({
   title,
@@ -93,7 +97,15 @@ export function Catalogue({
       const seller = sellerBySlug(p.seller);
       const discount = p.compareAt ? ((p.compareAt - p.price) / p.compareAt) * 100 : 0;
       if (q) {
-        const hay = [p.name, p.subcategory, p.category, p.region, p.festival, p.occasion, seller?.name]
+        const hay = [
+          p.name,
+          p.subcategory,
+          p.category,
+          p.region,
+          p.festival,
+          p.occasion,
+          seller?.name,
+        ]
           .join(" ")
           .toLowerCase();
         if (!hay.includes(q)) return false;
@@ -164,22 +176,61 @@ export function Catalogue({
   const activeChips: ActiveChip[] = useMemo(() => {
     const chips: ActiveChip[] = [];
     if (f.price < 1500)
-      chips.push({ key: "price", value: `Up to ${formatAUD(f.price)}`, onRemove: () => setF({ ...f, price: 1500 }) });
+      chips.push({
+        key: "price",
+        value: `Up to ${formatAUD(f.price)}`,
+        onRemove: () => setF({ ...f, price: 1500 }),
+      });
     if (!lockedCategory)
       f.categories.forEach((c) =>
-        chips.push({ key: "categories", value: CATEGORIES.find((x) => x.slug === c)?.name ?? c, onRemove: () => toggle("categories", c) }),
+        chips.push({
+          key: "categories",
+          value: CATEGORIES.find((x) => x.slug === c)?.name ?? c,
+          onRemove: () => toggle("categories", c),
+        }),
       );
-    f.subcategories.forEach((c) => chips.push({ key: "subcategories", value: c, onRemove: () => toggle("subcategories", c) }));
-    f.sizes.forEach((c) => chips.push({ key: "sizes", value: c, onRemove: () => toggle("sizes", c) }));
-    f.colours.forEach((c) => chips.push({ key: "colours", value: c, onRemove: () => toggle("colours", c) }));
-    f.fabrics.forEach((c) => chips.push({ key: "fabrics", value: c, onRemove: () => toggle("fabrics", c) }));
-    f.materials.forEach((c) => chips.push({ key: "materials", value: c, onRemove: () => toggle("materials", c) }));
-    f.locations.forEach((c) => chips.push({ key: "locations", value: c, onRemove: () => toggle("locations", c) }));
-    f.festivals.forEach((c) => chips.push({ key: "festivals", value: c, onRemove: () => toggle("festivals", c) }));
-    f.occasions.forEach((c) => chips.push({ key: "occasions", value: c, onRemove: () => toggle("occasions", c) }));
-    if (f.rating) chips.push({ key: "rating", value: `${f.rating}★ & up`, onRemove: () => setF({ ...f, rating: 0 }) });
-    if (f.readyToShip) chips.push({ key: "sizes", value: "Ready to Ship", onRemove: () => setF({ ...f, readyToShip: false }) });
-    if (f.minDiscount) chips.push({ key: "minDiscount", value: `${f.minDiscount}% or more`, onRemove: () => setF({ ...f, minDiscount: 0 }) });
+    f.subcategories.forEach((c) =>
+      chips.push({ key: "subcategories", value: c, onRemove: () => toggle("subcategories", c) }),
+    );
+    f.sizes.forEach((c) =>
+      chips.push({ key: "sizes", value: c, onRemove: () => toggle("sizes", c) }),
+    );
+    f.colours.forEach((c) =>
+      chips.push({ key: "colours", value: c, onRemove: () => toggle("colours", c) }),
+    );
+    f.fabrics.forEach((c) =>
+      chips.push({ key: "fabrics", value: c, onRemove: () => toggle("fabrics", c) }),
+    );
+    f.materials.forEach((c) =>
+      chips.push({ key: "materials", value: c, onRemove: () => toggle("materials", c) }),
+    );
+    f.locations.forEach((c) =>
+      chips.push({ key: "locations", value: c, onRemove: () => toggle("locations", c) }),
+    );
+    f.festivals.forEach((c) =>
+      chips.push({ key: "festivals", value: c, onRemove: () => toggle("festivals", c) }),
+    );
+    f.occasions.forEach((c) =>
+      chips.push({ key: "occasions", value: c, onRemove: () => toggle("occasions", c) }),
+    );
+    if (f.rating)
+      chips.push({
+        key: "rating",
+        value: `${f.rating}★ & up`,
+        onRemove: () => setF({ ...f, rating: 0 }),
+      });
+    if (f.readyToShip)
+      chips.push({
+        key: "sizes",
+        value: "Ready to Ship",
+        onRemove: () => setF({ ...f, readyToShip: false }),
+      });
+    if (f.minDiscount)
+      chips.push({
+        key: "minDiscount",
+        value: `${f.minDiscount}% or more`,
+        onRemove: () => setF({ ...f, minDiscount: 0 }),
+      });
     return chips;
   }, [f, lockedCategory]);
 
@@ -233,13 +284,23 @@ export function Catalogue({
 
       <FilterGroup title="Colour" chips>
         {ALL_COLOURS.map((c) => (
-          <Chip key={c} label={c} active={f.colours.includes(c)} onClick={() => toggle("colours", c)} />
+          <Chip
+            key={c}
+            label={c}
+            active={f.colours.includes(c)}
+            onClick={() => toggle("colours", c)}
+          />
         ))}
       </FilterGroup>
 
       <FilterGroup title="Fabric">
         {ALL_FABRICS.map((c) => (
-          <Check key={c} label={c} checked={f.fabrics.includes(c)} onChange={() => toggle("fabrics", c)} />
+          <Check
+            key={c}
+            label={c}
+            checked={f.fabrics.includes(c)}
+            onChange={() => toggle("fabrics", c)}
+          />
         ))}
       </FilterGroup>
 
@@ -480,7 +541,9 @@ function FilterGroup({
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
-        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">{title}</span>
+        <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground">
+          {title}
+        </span>
         <ChevronDown
           size={14}
           className={`shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
@@ -512,7 +575,12 @@ function Check({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2 text-[13px] text-muted-foreground hover:text-foreground">
-      <input type="checkbox" checked={checked} onChange={onChange} className="size-3.5 accent-rani" />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="size-3.5 accent-rani"
+      />
       {label}
     </label>
   );

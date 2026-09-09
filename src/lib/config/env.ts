@@ -8,7 +8,10 @@ export const clientEnvSchema = z.object({
   VITE_SUPABASE_URL: z.string().url().optional(),
   VITE_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   VITE_STRIPE_PUBLISHABLE_KEY: z.string().startsWith("pk_").optional(),
-  VITE_DEMO_MODE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  VITE_DEMO_MODE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 /**
@@ -25,7 +28,10 @@ export const serverEnvSchema = z.object({
   AUSPOST_API_SECRET: z.string().optional(),
   SENDLE_API_ID: z.string().optional(),
   SENDLE_API_KEY: z.string().optional(),
-  SENDLE_SANDBOX: z.string().default("true").transform((v) => v === "true"),
+  SENDLE_SANDBOX: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true"),
   BREVO_API_KEY: z.string().optional(),
   BREVO_SENDER_EMAIL: z.string().email().optional(),
   BREVO_SENDER_NAME: z.string().default("Indian Shopping Mela"),
@@ -42,10 +48,22 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
  */
 export function getClientEnv(): ClientEnv {
   const env = {
-    VITE_SUPABASE_URL: typeof import.meta !== "undefined" && import.meta.env ? import.meta.env["VITE_SUPABASE_URL"] : undefined,
-    VITE_SUPABASE_ANON_KEY: typeof import.meta !== "undefined" && import.meta.env ? import.meta.env["VITE_SUPABASE_ANON_KEY"] : undefined,
-    VITE_STRIPE_PUBLISHABLE_KEY: typeof import.meta !== "undefined" && import.meta.env ? import.meta.env["VITE_STRIPE_PUBLISHABLE_KEY"] : undefined,
-    VITE_DEMO_MODE: typeof import.meta !== "undefined" && import.meta.env ? import.meta.env["VITE_DEMO_MODE"] : "false",
+    VITE_SUPABASE_URL:
+      typeof import.meta !== "undefined" && import.meta.env
+        ? import.meta.env["VITE_SUPABASE_URL"]
+        : undefined,
+    VITE_SUPABASE_ANON_KEY:
+      typeof import.meta !== "undefined" && import.meta.env
+        ? import.meta.env["VITE_SUPABASE_ANON_KEY"]
+        : undefined,
+    VITE_STRIPE_PUBLISHABLE_KEY:
+      typeof import.meta !== "undefined" && import.meta.env
+        ? import.meta.env["VITE_STRIPE_PUBLISHABLE_KEY"]
+        : undefined,
+    VITE_DEMO_MODE:
+      typeof import.meta !== "undefined" && import.meta.env
+        ? import.meta.env["VITE_DEMO_MODE"]
+        : "false",
   };
 
   const parsed = clientEnvSchema.safeParse(env);

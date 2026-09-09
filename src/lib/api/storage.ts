@@ -14,27 +14,25 @@ export async function uploadProductImage(file: File, sellerId: string): Promise<
 
   const maxSizeBytes = 10 * 1024 * 1024; // 10 MB
   if (file.size > maxSizeBytes) {
-    throw new Error(`File size ${(file.size / (1024 * 1024)).toFixed(1)}MB exceeds maximum 10MB limit.`);
+    throw new Error(
+      `File size ${(file.size / (1024 * 1024)).toFixed(1)}MB exceeds maximum 10MB limit.`,
+    );
   }
 
   const fileExt = file.name.split(".").pop() || "jpg";
   const filePath = `${sellerId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
-    .from("product-images")
-    .upload(filePath, file, {
-      cacheControl: "31536000",
-      upsert: false,
-    });
+  const { data, error } = await supabase.storage.from("product-images").upload(filePath, file, {
+    cacheControl: "31536000",
+    upsert: false,
+  });
 
   if (error) {
     console.error("Product image upload error:", error);
     throw error;
   }
 
-  const { data: publicUrlData } = supabase.storage
-    .from("product-images")
-    .getPublicUrl(data.path);
+  const { data: publicUrlData } = supabase.storage.from("product-images").getPublicUrl(data.path);
 
   return publicUrlData.publicUrl;
 }
@@ -56,11 +54,9 @@ export async function uploadSellerVerificationDoc(file: File, sellerId: string):
   const fileExt = file.name.split(".").pop() || "pdf";
   const filePath = `${sellerId}/kyc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
-    .from("seller-documents")
-    .upload(filePath, file, {
-      upsert: false,
-    });
+  const { data, error } = await supabase.storage.from("seller-documents").upload(filePath, file, {
+    upsert: false,
+  });
 
   if (error) {
     console.error("Seller doc upload error:", error);
@@ -77,11 +73,9 @@ export async function uploadReturnEvidenceMedia(file: File, returnId: string): P
   const fileExt = file.name.split(".").pop() || "jpg";
   const filePath = `${returnId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
-    .from("return-evidence")
-    .upload(filePath, file, {
-      upsert: false,
-    });
+  const { data, error } = await supabase.storage.from("return-evidence").upload(filePath, file, {
+    upsert: false,
+  });
 
   if (error) {
     console.error("Return evidence upload error:", error);
@@ -97,9 +91,7 @@ export async function uploadReturnEvidenceMedia(file: File, returnId: string): P
 export async function deleteProductImageSafe(storagePath: string): Promise<void> {
   if (!storagePath || storagePath.startsWith("http")) return;
 
-  const { error } = await supabase.storage
-    .from("product-media")
-    .remove([storagePath]);
+  const { error } = await supabase.storage.from("product-media").remove([storagePath]);
 
   if (error) {
     console.warn("Storage removal warning:", error.message);
@@ -113,33 +105,32 @@ export async function deleteProductImageSafe(storagePath: string): Promise<void>
 export async function uploadProductVideo(file: File, sellerId: string): Promise<string> {
   const allowedMimeTypes = ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"];
   if (!allowedMimeTypes.includes(file.type)) {
-    throw new Error(`Unsupported video format: ${file.type}. Please upload MP4, QuickTime, or WebM.`);
+    throw new Error(
+      `Unsupported video format: ${file.type}. Please upload MP4, QuickTime, or WebM.`,
+    );
   }
 
   const maxSizeBytes = 100 * 1024 * 1024; // 100MB
   if (file.size > maxSizeBytes) {
-    throw new Error(`Video file size ${(file.size / (1024 * 1024)).toFixed(1)}MB exceeds maximum 100MB limit.`);
+    throw new Error(
+      `Video file size ${(file.size / (1024 * 1024)).toFixed(1)}MB exceeds maximum 100MB limit.`,
+    );
   }
 
   const fileExt = file.name.split(".").pop() || "mp4";
   const filePath = `videos/${sellerId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
-    .from("product-media")
-    .upload(filePath, file, {
-      cacheControl: "31536000",
-      upsert: false,
-    });
+  const { data, error } = await supabase.storage.from("product-media").upload(filePath, file, {
+    cacheControl: "31536000",
+    upsert: false,
+  });
 
   if (error) {
     console.error("Product video upload error:", error);
     throw new Error(`Video upload failed: ${error.message}`);
   }
 
-  const { data: publicUrlData } = supabase.storage
-    .from("product-media")
-    .getPublicUrl(data.path);
+  const { data: publicUrlData } = supabase.storage.from("product-media").getPublicUrl(data.path);
 
   return publicUrlData.publicUrl;
 }
-

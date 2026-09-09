@@ -40,7 +40,9 @@ const MAX_BREADCRUMBS = 50;
  * Appends an operational breadcrumb with automatic secret/PII redaction.
  */
 export function addBreadcrumb(breadcrumb: Breadcrumb): void {
-  const sanitizedData = breadcrumb.data ? (redactSensitiveData(breadcrumb.data) as Record<string, unknown>) : undefined;
+  const sanitizedData = breadcrumb.data
+    ? (redactSensitiveData(breadcrumb.data) as Record<string, unknown>)
+    : undefined;
   recentBreadcrumbs.push({
     ...breadcrumb,
     timestamp: breadcrumb.timestamp ?? Date.now(),
@@ -74,7 +76,12 @@ export function captureServerException(
   level: SeverityLevel = "error",
 ): CapturedEvent {
   const eventId = `err_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown server error";
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "Unknown server error";
   const stack = error instanceof Error ? error.stack : undefined;
 
   const sanitizedContext: ErrorContext = context
@@ -86,7 +93,9 @@ export function captureServerException(
         method: context.method,
         requestId: context.requestId,
         correlationId: context.correlationId,
-        extra: context.extra ? (redactSensitiveData(context.extra) as Record<string, unknown>) : undefined,
+        extra: context.extra
+          ? (redactSensitiveData(context.extra) as Record<string, unknown>)
+          : undefined,
       }
     : {};
 
@@ -126,13 +135,21 @@ export function captureClientException(
   level: SeverityLevel = "error",
 ): CapturedEvent {
   const eventId = `cli_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown client error";
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "Unknown client error";
   const stack = error instanceof Error ? error.stack : undefined;
 
   const sanitizedContext: ErrorContext = context
     ? {
-        route: context.route || (typeof window !== "undefined" ? window.location.pathname : undefined),
-        extra: context.extra ? (redactSensitiveData(context.extra) as Record<string, unknown>) : undefined,
+        route:
+          context.route || (typeof window !== "undefined" ? window.location.pathname : undefined),
+        extra: context.extra
+          ? (redactSensitiveData(context.extra) as Record<string, unknown>)
+          : undefined,
       }
     : {};
 

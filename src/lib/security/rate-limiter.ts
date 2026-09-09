@@ -4,12 +4,7 @@
  */
 
 export type RateLimitAction =
-  | "login"
-  | "signup"
-  | "password_reset"
-  | "checkout"
-  | "returns"
-  | "uploads";
+  "login" | "signup" | "password_reset" | "checkout" | "returns" | "uploads";
 
 export interface RateLimitConfig {
   maxRequests: number;
@@ -55,7 +50,7 @@ const rateLimitStore = new Map<string, RateLimitRecord>();
  */
 export function checkRateLimit(
   action: RateLimitAction,
-  identifier: string
+  identifier: string,
 ): {
   allowed: boolean;
   remaining: number;
@@ -108,7 +103,7 @@ export function assertRateLimit(action: RateLimitAction, identifier: string): vo
   const result = checkRateLimit(action, identifier);
   if (!result.allowed) {
     const error = new Error(
-      `Too many requests for ${action}. Please retry after ${result.retryAfterSeconds} seconds.`
+      `Too many requests for ${action}. Please retry after ${result.retryAfterSeconds} seconds.`,
     );
     (error as any).status = 429;
     (error as any).retryAfterSeconds = result.retryAfterSeconds;

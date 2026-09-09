@@ -15,26 +15,29 @@ export interface FinanceSummaryMetrics {
 /**
  * Server Function: Get finance summary metrics from authoritative ledger_entries
  */
-export const getMarketplaceFinanceMetricsServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
+export const getMarketplaceFinanceMetricsServerFn = createServerFn({ method: "GET" }).handler(
+  async () => {
     return getMarketplaceFinanceMetrics();
-  });
+  },
+);
 
 /**
  * Server Function: Reconcile and unlock eligible payouts
  */
-export const reconcileAndUnlockEligiblePayoutsServerFn = createServerFn({ method: "POST" })
-  .handler(async () => {
+export const reconcileAndUnlockEligiblePayoutsServerFn = createServerFn({ method: "POST" }).handler(
+  async () => {
     return reconcileAndUnlockEligiblePayouts();
-  });
+  },
+);
 
 /**
  * Server Function: Generate payout batch CSV
  */
-export const generateSellerPayoutBatchCsvServerFn = createServerFn({ method: "POST" })
-  .handler(async () => {
+export const generateSellerPayoutBatchCsvServerFn = createServerFn({ method: "POST" }).handler(
+  async () => {
     return generateSellerPayoutBatchCsv();
-  });
+  },
+);
 
 export async function generateSellerPayoutBatchCsv(): Promise<{
   csvContent: string;
@@ -56,12 +59,13 @@ export async function generateSellerPayoutBatchCsv(): Promise<{
     if (eligibility.isEligibleForPayout) {
       totalPayoutAud += eligibility.totalNetPayoutAud;
       rows.push(
-        `"${seller.id}","${seller.business_name}","${seller.stripe_account_id ?? ""}",${eligibility.totalNetPayoutAud.toFixed(2)},"ISM-${batchId}","${eligibility.eligibleSubOrderIds.length} sub-orders"`
+        `"${seller.id}","${seller.business_name}","${seller.stripe_account_id ?? ""}",${eligibility.totalNetPayoutAud.toFixed(2)},"ISM-${batchId}","${eligibility.eligibleSubOrderIds.length} sub-orders"`,
       );
     }
   }
 
-  const csvHeader = "Seller ID,Business Name,Stripe Connected Account,Net Payout (AUD),Batch Reference,Matured Orders\n";
+  const csvHeader =
+    "Seller ID,Business Name,Stripe Connected Account,Net Payout (AUD),Batch Reference,Matured Orders\n";
   const csvContent = csvHeader + rows.join("\n");
 
   return {
@@ -76,7 +80,13 @@ export async function generateSellerPayoutBatchCsv(): Promise<{
  * Server Function: Moderate seller status (APPROVED, REJECTED, SUSPENDED, INFO_REQUIRED)
  */
 export const moderateSellerStatusServerFn = createServerFn({ method: "POST" })
-  .validator((data: { sellerId: string; status: "APPROVED" | "REJECTED" | "SUSPENDED" | "INFO_REQUIRED"; reason?: string | undefined }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      status: "APPROVED" | "REJECTED" | "SUSPENDED" | "INFO_REQUIRED";
+      reason?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("sellers") as any)
       .update({
@@ -101,7 +111,13 @@ export const moderateSellerStatusServerFn = createServerFn({ method: "POST" })
  * Server Function: Moderate product status (LIVE, REJECTED, ARCHIVED)
  */
 export const moderateProductStatusServerFn = createServerFn({ method: "POST" })
-  .validator((data: { productId: string; status: "LIVE" | "REJECTED" | "ARCHIVED"; notes?: string | undefined }) => data)
+  .validator(
+    (data: {
+      productId: string;
+      status: "LIVE" | "REJECTED" | "ARCHIVED";
+      notes?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("products") as any)
       .update({
@@ -126,7 +142,13 @@ export const moderateProductStatusServerFn = createServerFn({ method: "POST" })
  * Server Function: Moderate return request
  */
 export const moderateReturnServerFn = createServerFn({ method: "POST" })
-  .validator((data: { returnId: string; action: "APPROVE" | "REJECT" | "REFUND"; notes?: string | undefined }) => data)
+  .validator(
+    (data: {
+      returnId: string;
+      action: "APPROVE" | "REJECT" | "REFUND";
+      notes?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { data: returnReq, error: fetchErr } = await (supabaseAdmin.from("returns") as any)
       .select("id, sub_order_id, refund_amount, status")
@@ -162,7 +184,9 @@ export const moderateReturnServerFn = createServerFn({ method: "POST" })
  * Fetch marketplace financial aggregates from immutable ledger_entries.
  */
 export async function getMarketplaceFinanceMetrics(): Promise<FinanceSummaryMetrics> {
-  const { data: ledgerEntries, error } = await (supabaseAdmin.from("ledger_entries") as any).select("*");
+  const { data: ledgerEntries, error } = await (supabaseAdmin.from("ledger_entries") as any).select(
+    "*",
+  );
 
   if (error || !ledgerEntries || ledgerEntries.length === 0) {
     return {
@@ -179,10 +203,12 @@ export async function getMarketplaceFinanceMetrics(): Promise<FinanceSummaryMetr
   let totalHoldCents = 0;
   let totalPaidCents = 0;
 
-  for (const entry of (ledgerEntries as any[])) {
+  for (const entry of ledgerEntries as any[]) {
     const amount = Number(entry.amount_cents) || 0;
-    if (entry.entry_type === "CUSTOMER_PAYMENT" || entry.entry_type === "CUSTOMER_CHARGE") totalGmvCents += amount;
-    if (entry.entry_type === "PLATFORM_COMMISSION" || entry.entry_type === "ISM_COMMISSION") totalCommissionCents += amount;
+    if (entry.entry_type === "CUSTOMER_PAYMENT" || entry.entry_type === "CUSTOMER_CHARGE")
+      totalGmvCents += amount;
+    if (entry.entry_type === "PLATFORM_COMMISSION" || entry.entry_type === "ISM_COMMISSION")
+      totalCommissionCents += amount;
     if (entry.entry_type === "DISPUTE_HOLD") totalHoldCents += amount;
     if (entry.entry_type === "SELLER_PAYOUT") totalPaidCents += amount;
   }
@@ -191,7 +217,11 @@ export async function getMarketplaceFinanceMetrics(): Promise<FinanceSummaryMetr
     totalGmvAud: Number((totalGmvCents / 100).toFixed(2)),
     totalPlatformCommissionAud: Number((totalCommissionCents / 100).toFixed(2)),
     totalPendingHoldAud: Number((totalHoldCents / 100).toFixed(2)),
-    totalEligiblePayoutsAud: Number((Math.max(0, totalGmvCents - totalCommissionCents - totalHoldCents - totalPaidCents) / 100).toFixed(2)),
+    totalEligiblePayoutsAud: Number(
+      (
+        Math.max(0, totalGmvCents - totalCommissionCents - totalHoldCents - totalPaidCents) / 100
+      ).toFixed(2),
+    ),
     totalPaidToSellersAud: Number((totalPaidCents / 100).toFixed(2)),
   };
 }
@@ -228,7 +258,13 @@ export async function reconcileAndUnlockEligiblePayouts(): Promise<{
  * Server Function: Execute Stripe Connect payout transfer for matured sub-orders
  */
 export const executeSellerStripePayoutServerFn = createServerFn({ method: "POST" })
-  .validator((data: { sellerId: string; isMfaVerified?: boolean | undefined; adminId?: string | undefined }) => data)
+  .validator(
+    (data: {
+      sellerId: string;
+      isMfaVerified?: boolean | undefined;
+      adminId?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return executeSellerPayoutTransfer(data.sellerId, data.isMfaVerified ?? false, data.adminId);
   });
@@ -236,83 +272,78 @@ export const executeSellerStripePayoutServerFn = createServerFn({ method: "POST"
 /**
  * Server Function: Get sellers for Admin console
  */
-export const getAdminSellersServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: sellers, error } = await (supabaseAdmin.from("sellers") as any)
-      .select("*")
-      .order("created_at", { ascending: false });
+export const getAdminSellersServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: sellers, error } = await (supabaseAdmin.from("sellers") as any)
+    .select("*")
+    .order("created_at", { ascending: false });
 
-    if (error || !sellers) return [];
-    return sellers;
-  });
+  if (error || !sellers) return [];
+  return sellers;
+});
 
 /**
  * Server Function: Get products for Admin moderation
  */
-export const getAdminProductsServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: products, error } = await (supabaseAdmin.from("products") as any)
-      .select("*, seller:sellers(business_name, store_name, slug)")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminProductsServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: products, error } = await (supabaseAdmin.from("products") as any)
+    .select("*, seller:sellers(business_name, store_name, slug)")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !products) return [];
-    return products;
-  });
+  if (error || !products) return [];
+  return products;
+});
 
 /**
  * Server Function: Get orders and sub-orders for Admin operations
  */
-export const getAdminOrdersServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: orders, error } = await (supabaseAdmin.from("orders") as any)
-      .select("*, sub_orders(*, seller:sellers(business_name, store_name))")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminOrdersServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: orders, error } = await (supabaseAdmin.from("orders") as any)
+    .select("*, sub_orders(*, seller:sellers(business_name, store_name))")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !orders) return [];
-    return orders;
-  });
+  if (error || !orders) return [];
+  return orders;
+});
 
 /**
  * Server Function: Get return requests for Admin moderation
  */
-export const getAdminReturnsServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: returns, error } = await (supabaseAdmin.from("returns") as any)
-      .select("*, sub_order:sub_orders(*), seller:sellers(business_name)")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminReturnsServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: returns, error } = await (supabaseAdmin.from("returns") as any)
+    .select("*, sub_order:sub_orders(*), seller:sellers(business_name)")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !returns) return [];
-    return returns;
-  });
+  if (error || !returns) return [];
+  return returns;
+});
 
 /**
  * Server Function: Get audit logs for Admin compliance
  */
-export const getAdminAuditLogsServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: logs, error } = await (supabaseAdmin.from("audit_logs") as any)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminAuditLogsServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: logs, error } = await (supabaseAdmin.from("audit_logs") as any)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !logs) return [];
-    return logs;
-  });
+  if (error || !logs) return [];
+  return logs;
+});
 
 /**
  * Server Function: Get marketplace settings / configurations
  */
-export const getMarketplaceConfigServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: configs, error } = await (supabaseAdmin.from("marketplace_configs") as any)
-      .select("*");
+export const getMarketplaceConfigServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: configs, error } = await (supabaseAdmin.from("marketplace_configs") as any).select(
+    "*",
+  );
 
-    if (error || !configs) return [];
-    return configs;
-  });
+  if (error || !configs) return [];
+  return configs;
+});
 
 /**
  * Server Function: Update marketplace settings / configuration item
@@ -320,13 +351,15 @@ export const getMarketplaceConfigServerFn = createServerFn({ method: "GET" })
 export const updateMarketplaceConfigServerFn = createServerFn({ method: "POST" })
   .validator((data: { key: string; value: any; description?: string | undefined }) => data)
   .handler(async ({ data }) => {
-    const { error } = await (supabaseAdmin.from("marketplace_configs") as any)
-      .upsert({
+    const { error } = await (supabaseAdmin.from("marketplace_configs") as any).upsert(
+      {
         key: data.key,
         value: data.value,
         description: data.description ?? null,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "key" });
+      },
+      { onConflict: "key" },
+    );
 
     if (error) throw new Error(`Failed to update marketplace config: ${error.message}`);
 
@@ -343,22 +376,33 @@ export const updateMarketplaceConfigServerFn = createServerFn({ method: "POST" }
 /**
  * Server Function: Get users & roles for Admin management
  */
-export const getAdminUsersServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: users, error } = await (supabaseAdmin.from("profiles") as any)
-      .select("id, email, full_name, role, created_at, phone")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminUsersServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: users, error } = await (supabaseAdmin.from("profiles") as any)
+    .select("id, email, full_name, role, created_at, phone")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !users) return [];
-    return users;
-  });
+  if (error || !users) return [];
+  return users;
+});
 
 /**
  * Server Function: Update user role (Customer, Seller, Admin, Super Admin)
  */
 export const updateUserRoleServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string; newRole: "customer" | "seller_owner" | "seller_staff" | "admin_support" | "admin_catalogue" | "admin_finance" | "admin_super" }) => data)
+  .validator(
+    (data: {
+      userId: string;
+      newRole:
+        | "customer"
+        | "seller_owner"
+        | "seller_staff"
+        | "admin_support"
+        | "admin_catalogue"
+        | "admin_finance"
+        | "admin_super";
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("profiles") as any)
       .update({
@@ -382,22 +426,21 @@ export const updateUserRoleServerFn = createServerFn({ method: "POST" })
 /**
  * Server Function: Get immutable ledger records
  */
-export const getAdminLedgerServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { data: ledger, error } = await (supabaseAdmin.from("ledger_entries") as any)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100);
+export const getAdminLedgerServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { data: ledger, error } = await (supabaseAdmin.from("ledger_entries") as any)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-    if (error || !ledger) return [];
-    return ledger;
-  });
+  if (error || !ledger) return [];
+  return ledger;
+});
 
 /**
  * Server Function: Get shipping exceptions & delayed packages
  */
-export const getAdminShippingExceptionsServerFn = createServerFn({ method: "GET" })
-  .handler(async () => {
+export const getAdminShippingExceptionsServerFn = createServerFn({ method: "GET" }).handler(
+  async () => {
     const { data: shipments, error } = await (supabaseAdmin.from("shipments") as any)
       .select("*, sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))")
       .order("created_at", { ascending: false })
@@ -405,4 +448,5 @@ export const getAdminShippingExceptionsServerFn = createServerFn({ method: "GET"
 
     if (error || !shipments) return [];
     return shipments;
-  });
+  },
+);

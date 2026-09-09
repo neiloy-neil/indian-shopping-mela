@@ -13,7 +13,10 @@ export const Route = createFileRoute("/cart")({
         content: "Multi-seller cart grouped by Indian seller with one combined AUD checkout.",
       },
       { property: "og:title", content: "Your Cart — Indian Shopping Mela" },
-      { property: "og:description", content: "One checkout across multiple Indian sellers in Australia." },
+      {
+        property: "og:description",
+        content: "One checkout across multiple Indian sellers in Australia.",
+      },
     ],
   }),
   component: CartPage,
@@ -98,7 +101,10 @@ function CartPage() {
                           >
                             {g.seller.name}
                           </Link>
-                          <span className="text-primary-foreground/70"> · {g.seller.city}, {g.seller.state}</span>
+                          <span className="text-primary-foreground/70">
+                            {" "}
+                            · {g.seller.city}, {g.seller.state}
+                          </span>
                         </div>
                       </header>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-cream/70 px-4 py-2 text-[11px] text-muted-foreground">
@@ -116,7 +122,11 @@ function CartPage() {
                       <div className="divide-y divide-border">
                         {g.items.map(({ product, line }) => (
                           <div key={product.id} className="flex gap-4 p-4">
-                            <Link to="/product/$id" params={{ id: product.id }} className="shrink-0">
+                            <Link
+                              to="/product/$id"
+                              params={{ id: product.id }}
+                              className="shrink-0"
+                            >
                               <img
                                 src={IMAGES[product.image]}
                                 alt={product.name}
@@ -146,7 +156,9 @@ function CartPage() {
                                   >
                                     −
                                   </button>
-                                  <span className="w-8 text-center text-xs font-semibold">{line.qty}</span>
+                                  <span className="w-8 text-center text-xs font-semibold">
+                                    {line.qty}
+                                  </span>
                                   <button
                                     className="px-2.5 py-1 text-sm"
                                     onClick={() => setQty(product.id, line.qty + 1)}
@@ -186,12 +198,17 @@ function CartPage() {
                 <span className="mt-2 block h-px w-full gold-hairline" aria-hidden />
                 <dl className="mt-4 space-y-2 text-sm">
                   <Row label="Subtotal" value={formatAUD(subtotal)} />
-                  <Row label={`Shipping (${groups.length} package${groups.length === 1 ? "" : "s"})`} value={formatAUD(shipping)} />
+                  <Row
+                    label={`Shipping (${groups.length} package${groups.length === 1 ? "" : "s"})`}
+                    value={formatAUD(shipping)}
+                  />
                   <Row label="GST included" value={formatAUD(Math.round(subtotal / 11))} muted />
                 </dl>
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
                   <span className="text-sm font-bold uppercase tracking-wide">Total</span>
-                  <span className="text-xl font-bold text-foreground">{formatAUD(subtotal + shipping)}</span>
+                  <span className="text-xl font-bold text-foreground">
+                    {formatAUD(subtotal + shipping)}
+                  </span>
                 </div>
                 <Link
                   to="/checkout"

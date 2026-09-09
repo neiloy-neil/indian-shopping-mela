@@ -15,7 +15,8 @@ export const Route = createFileRoute("/policies")({
       { property: "og:title", content: "Legal & Marketplace Policies — Indian Shopping Mela" },
       {
         property: "og:description",
-        content: "Transparent terms, GST tax compliance, privacy standards and return policies for Australian buyers and sellers.",
+        content:
+          "Transparent terms, GST tax compliance, privacy standards and return policies for Australian buyers and sellers.",
       },
     ],
   }),
@@ -32,9 +33,13 @@ function PoliciesPage() {
       <div className="bg-cream">
         <div className="ism-container py-10">
           <div className="max-w-3xl">
-            <h1 className="font-display text-3xl font-bold text-foreground">Marketplace Policies & Legal Terms</h1>
+            <h1 className="font-display text-3xl font-bold text-foreground">
+              Marketplace Policies & Legal Terms
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Indian Shopping Mela Pty Ltd (ABN 00 000 000 000) operates an Australian multi-vendor marketplace connecting verified Australian-based Indian boutiques, artisans, and sellers with Australian consumers.
+              Indian Shopping Mela Pty Ltd (ABN 00 000 000 000) operates an Australian multi-vendor
+              marketplace connecting verified Australian-based Indian boutiques, artisans, and
+              sellers with Australian consumers.
             </p>
           </div>
 
@@ -122,27 +127,57 @@ function PoliciesPage() {
                     <RotateCcw size={16} />
                     <span>Version 1.2 — Effective September 2026</span>
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">7-Day Change of Mind & Australian Consumer Law</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">
+                    7-Day Change of Mind & Australian Consumer Law
+                  </h2>
                   <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
                     <p>
-                      At Indian Shopping Mela, we strive for complete satisfaction with every purchase from our Indian boutiques. All eligible orders come with our <strong>7-Day Change-of-Mind Return Window</strong> in addition to your statutory rights under the <strong>Australian Consumer Law (ACL)</strong>.
+                      At Indian Shopping Mela, we strive for complete satisfaction with every
+                      purchase from our Indian boutiques. All eligible orders come with our{" "}
+                      <strong>7-Day Change-of-Mind Return Window</strong> in addition to your
+                      statutory rights under the <strong>Australian Consumer Law (ACL)</strong>.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">1. 7-Day Change of Mind Eligibility</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      1. 7-Day Change of Mind Eligibility
+                    </h3>
                     <ul className="list-disc pl-5 space-y-1.5 text-xs text-muted-foreground">
-                      <li>Return request must be logged within 7 calendar days of courier delivery confirmation.</li>
-                      <li>Item must be unworn, unwashed, in its original packaging with all boutique tags intact.</li>
-                      <li>Custom-stitched blouses, altered sarees, and perishable pooja goods/sweets are excluded from change-of-mind returns.</li>
-                      <li>Customer is responsible for standard return postage back to the seller's Australian return address.</li>
+                      <li>
+                        Return request must be logged within 7 calendar days of courier delivery
+                        confirmation.
+                      </li>
+                      <li>
+                        Item must be unworn, unwashed, in its original packaging with all boutique
+                        tags intact.
+                      </li>
+                      <li>
+                        Custom-stitched blouses, altered sarees, and perishable pooja goods/sweets
+                        are excluded from change-of-mind returns.
+                      </li>
+                      <li>
+                        Customer is responsible for standard return postage back to the seller's
+                        Australian return address.
+                      </li>
                     </ul>
 
-                    <h3 className="font-bold text-base text-foreground mt-4">2. Statutory Rights (ACL Consumer Guarantees)</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      2. Statutory Rights (ACL Consumer Guarantees)
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      If an item arrives damaged, materially defective, counterfeit, or differs significantly from the listing description, you are entitled to a replacement or full refund under the Australian Consumer Law. Statutory claims can be submitted beyond the 7-day change-of-mind period and return shipping is covered by the seller.
+                      If an item arrives damaged, materially defective, counterfeit, or differs
+                      significantly from the listing description, you are entitled to a replacement
+                      or full refund under the Australian Consumer Law. Statutory claims can be
+                      submitted beyond the 7-day change-of-mind period and return shipping is
+                      covered by the seller.
                     </p>
 
-                    <h3 className="font-bold text-base text-foreground mt-4">3. Refund Processing & Payout Holds</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      3. Refund Processing & Payout Holds
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      Once a return request is opened, the affected seller payout balance is automatically placed on financial hold. Upon item inspection and seller approval, funds are refunded to your original payment method (Stripe card/Apple Pay) within 3-5 business days.
+                      Once a return request is opened, the affected seller payout balance is
+                      automatically placed on financial hold. Upon item inspection and seller
+                      approval, funds are refunded to your original payment method (Stripe
+                      card/Apple Pay) within 3-5 business days.
                     </p>
 
                     <div className="mt-6 pt-4 border-t border-border">
@@ -163,22 +198,40 @@ function PoliciesPage() {
                     <FileText size={16} />
                     <span>Version 1.0 — Effective September 2026</span>
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">Marketplace Terms of Service</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">
+                    Marketplace Terms of Service
+                  </h2>
                   <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
                     <p>
-                      Welcome to Indian Shopping Mela. By browsing, creating an account, or placing an order on our platform, you agree to be bound by these Terms of Service.
+                      Welcome to Indian Shopping Mela. By browsing, creating an account, or placing
+                      an order on our platform, you agree to be bound by these Terms of Service.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">1. Marketplace Operation</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      1. Marketplace Operation
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      Indian Shopping Mela operates as an intermediary marketplace platform. When you purchase goods, your contract of sale is directly with the individual verified seller listed on the product page. ISM facilitates payment processing, order splitting, seller communication, dispute mediation, and courier integration.
+                      Indian Shopping Mela operates as an intermediary marketplace platform. When
+                      you purchase goods, your contract of sale is directly with the individual
+                      verified seller listed on the product page. ISM facilitates payment
+                      processing, order splitting, seller communication, dispute mediation, and
+                      courier integration.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">2. Multi-Vendor Orders & Shipping</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      2. Multi-Vendor Orders & Shipping
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      When your cart contains products from multiple sellers, your order will be automatically split into individual seller packages. Each seller packages and dispatches their items independently. Shipping fees and thresholds ($99 free delivery) apply per seller package.
+                      When your cart contains products from multiple sellers, your order will be
+                      automatically split into individual seller packages. Each seller packages and
+                      dispatches their items independently. Shipping fees and thresholds ($99 free
+                      delivery) apply per seller package.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">3. Pricing and Payments</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      3. Pricing and Payments
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      All prices are quoted in Australian Dollars (AUD) and are inclusive of Australian Goods and Services Tax (GST) where applicable. Payments are securely processed via Stripe Payments Australia.
+                      All prices are quoted in Australian Dollars (AUD) and are inclusive of
+                      Australian Goods and Services Tax (GST) where applicable. Payments are
+                      securely processed via Stripe Payments Australia.
                     </p>
                   </div>
                 </div>
@@ -190,20 +243,40 @@ function PoliciesPage() {
                     <ShieldCheck size={16} />
                     <span>Privacy Act 1988 (Cth) Compliant</span>
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">Privacy Policy & Data Security</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">
+                    Privacy Policy & Data Security
+                  </h2>
                   <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
                     <p>
-                      Indian Shopping Mela respects your privacy and is committed to protecting your personal information in accordance with the Australian Privacy Principles (APPs) set out in the Privacy Act 1988 (Cth).
+                      Indian Shopping Mela respects your privacy and is committed to protecting your
+                      personal information in accordance with the Australian Privacy Principles
+                      (APPs) set out in the Privacy Act 1988 (Cth).
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">1. Information We Collect</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      1. Information We Collect
+                    </h3>
                     <ul className="list-disc pl-5 space-y-1.5 text-xs text-muted-foreground">
-                      <li><strong>Customer details:</strong> Name, delivery address, phone number, email address for order fulfillment and tracking.</li>
-                      <li><strong>Seller verification:</strong> ABN, legal entity name, identity documentation, Australian dispatch and return address.</li>
-                      <li><strong>Financial security:</strong> We never store raw credit card numbers or banking passwords. All payment tokens are handled by PCI-DSS Level 1 compliant Stripe.</li>
+                      <li>
+                        <strong>Customer details:</strong> Name, delivery address, phone number,
+                        email address for order fulfillment and tracking.
+                      </li>
+                      <li>
+                        <strong>Seller verification:</strong> ABN, legal entity name, identity
+                        documentation, Australian dispatch and return address.
+                      </li>
+                      <li>
+                        <strong>Financial security:</strong> We never store raw credit card numbers
+                        or banking passwords. All payment tokens are handled by PCI-DSS Level 1
+                        compliant Stripe.
+                      </li>
                     </ul>
-                    <h3 className="font-bold text-base text-foreground mt-4">2. Use of Information</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      2. Use of Information
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      Personal delivery information is shared only with the specific sellers fulfilling your items and authorized courier partners (Australia Post / Sendle) strictly to complete shipping and delivery.
+                      Personal delivery information is shared only with the specific sellers
+                      fulfilling your items and authorized courier partners (Australia Post /
+                      Sendle) strictly to complete shipping and delivery.
                     </p>
                   </div>
                 </div>
@@ -215,22 +288,38 @@ function PoliciesPage() {
                     <Building2 size={16} />
                     <span>Seller Master Terms v1.1</span>
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">Seller Master Marketplace Agreement</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">
+                    Seller Master Marketplace Agreement
+                  </h2>
                   <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
                     <p>
-                      This Agreement outlines the operational, fulfillment, and financial obligations required of all approved boutique sellers on Indian Shopping Mela.
+                      This Agreement outlines the operational, fulfillment, and financial
+                      obligations required of all approved boutique sellers on Indian Shopping Mela.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">1. Commission & Fee Schedule</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      1. Commission & Fee Schedule
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      ISM charges a flat 10% marketplace commission on the item value of completed orders. No monthly subscription fee is required for standard boutique listings.
+                      ISM charges a flat 10% marketplace commission on the item value of completed
+                      orders. No monthly subscription fee is required for standard boutique
+                      listings.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">2. 14-Day Delivery Payout Hold</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      2. 14-Day Delivery Payout Hold
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      To safeguard buyers and accommodate our 7-day return policy, seller net earnings mature and become eligible for payout exactly <strong>14 calendar days after courier delivery confirmation</strong>. Payouts are transferred automatically to your verified Australian Stripe Connect account.
+                      To safeguard buyers and accommodate our 7-day return policy, seller net
+                      earnings mature and become eligible for payout exactly{" "}
+                      <strong>14 calendar days after courier delivery confirmation</strong>. Payouts
+                      are transferred automatically to your verified Australian Stripe Connect
+                      account.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">3. Dispatch Standards & Packaging</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      3. Dispatch Standards & Packaging
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      Sellers must accept and dispatch orders within their declared handling time (maximum 2-3 business days) using tracked Australia Post or Sendle services.
+                      Sellers must accept and dispatch orders within their declared handling time
+                      (maximum 2-3 business days) using tracked Australia Post or Sendle services.
                     </p>
                   </div>
                 </div>
@@ -242,16 +331,32 @@ function PoliciesPage() {
                     <AlertTriangle size={16} />
                     <span>Catalogue Compliance Policy</span>
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">Prohibited & Restricted Items</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">
+                    Prohibited & Restricted Items
+                  </h2>
                   <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
                     <p>
-                      To maintain trust and adhere to Australian safety and customs laws, the following items are strictly prohibited from listing on Indian Shopping Mela:
+                      To maintain trust and adhere to Australian safety and customs laws, the
+                      following items are strictly prohibited from listing on Indian Shopping Mela:
                     </p>
                     <ul className="list-disc pl-5 space-y-1.5 text-xs text-muted-foreground">
-                      <li><strong>Counterfeits & Replica Designer Goods:</strong> Unauthorized copies of designer ethnic brands.</li>
-                      <li><strong>Unapproved Medicines:</strong> Prescription pharmaceuticals or Ayurvedic medicines making unapproved therapeutic claims without TGA registration.</li>
-                      <li><strong>Perishable & Hazardous Goods:</strong> Fresh unsealed perishable foods, hazardous fireworks, or uncertified flammable items.</li>
-                      <li><strong>Precious Metals without Hallmark:</strong> Gold/silver jewellery without clear purity hallmarking specifications.</li>
+                      <li>
+                        <strong>Counterfeits & Replica Designer Goods:</strong> Unauthorized copies
+                        of designer ethnic brands.
+                      </li>
+                      <li>
+                        <strong>Unapproved Medicines:</strong> Prescription pharmaceuticals or
+                        Ayurvedic medicines making unapproved therapeutic claims without TGA
+                        registration.
+                      </li>
+                      <li>
+                        <strong>Perishable & Hazardous Goods:</strong> Fresh unsealed perishable
+                        foods, hazardous fireworks, or uncertified flammable items.
+                      </li>
+                      <li>
+                        <strong>Precious Metals without Hallmark:</strong> Gold/silver jewellery
+                        without clear purity hallmarking specifications.
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -263,18 +368,27 @@ function PoliciesPage() {
                     <Receipt size={16} />
                     <span>Australian Taxation Office (ATO) Standards</span>
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">GST & Invoicing Compliance</h2>
+                  <h2 className="font-display text-2xl font-bold text-foreground">
+                    GST & Invoicing Compliance
+                  </h2>
                   <div className="space-y-3 text-sm text-foreground/90 leading-relaxed">
                     <p>
-                      Indian Shopping Mela complies with Australian GST regulations for electronic distribution platforms (EDPs) and marketplace operators.
+                      Indian Shopping Mela complies with Australian GST regulations for electronic
+                      distribution platforms (EDPs) and marketplace operators.
                     </p>
-                    <h3 className="font-bold text-base text-foreground mt-4">1. Inclusive Pricing</h3>
+                    <h3 className="font-bold text-base text-foreground mt-4">
+                      1. Inclusive Pricing
+                    </h3>
                     <p className="text-xs text-muted-foreground">
-                      All item prices and shipping rates displayed on the marketplace include 10% Australian Goods and Services Tax (GST).
+                      All item prices and shipping rates displayed on the marketplace include 10%
+                      Australian Goods and Services Tax (GST).
                     </p>
                     <h3 className="font-bold text-base text-foreground mt-4">2. Tax Invoices</h3>
                     <p className="text-xs text-muted-foreground">
-                      Itemized GST tax invoices showing seller ABNs, item descriptions, GST components (total / 11), and delivery breakdowns are generated automatically and sent with order confirmation emails. Tax invoices are also downloadable at any time from your customer account portal.
+                      Itemized GST tax invoices showing seller ABNs, item descriptions, GST
+                      components (total / 11), and delivery breakdowns are generated automatically
+                      and sent with order confirmation emails. Tax invoices are also downloadable at
+                      any time from your customer account portal.
                     </p>
                   </div>
                 </div>

@@ -58,9 +58,13 @@ export const postLedgerEntryServerFn = createServerFn({ method: "POST" })
     return postLedgerEntry(data);
   });
 
-export async function postLedgerEntry(entry: LedgerEntryInput): Promise<{ id: string; success: boolean }> {
+export async function postLedgerEntry(
+  entry: LedgerEntryInput,
+): Promise<{ id: string; success: boolean }> {
   if (!Number.isInteger(entry.amountCents) || entry.amountCents < 0) {
-    throw new Error(`Ledger entry amount must be a positive integer in cents. Received: ${entry.amountCents}`);
+    throw new Error(
+      `Ledger entry amount must be a positive integer in cents. Received: ${entry.amountCents}`,
+    );
   }
 
   const { data, error } = await (supabaseAdmin.from("ledger_entries") as any)
@@ -167,7 +171,8 @@ export const getSellerLedgerBalanceServerFn = createServerFn({ method: "POST" })
 
 export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLedgerBalance> {
   const { data: entries, error } = await (supabaseAdmin.from("ledger_entries") as any)
-    .select(`
+    .select(
+      `
       id,
       amount_cents,
       entry_type,
@@ -179,7 +184,8 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
         delivered_at,
         created_at
       )
-    `)
+    `,
+    )
     .eq("seller_id", sellerId);
 
   if (error) {

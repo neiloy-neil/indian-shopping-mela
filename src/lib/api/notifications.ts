@@ -26,7 +26,7 @@ const processedNotificationKeys = new Set<string>();
  * Brevo / Transactional Email Dispatcher with Idempotency, Retry Backoff & Fail-Closed Guards
  */
 export async function sendTransactionalNotification(
-  payload: TransactionalEmailPayload
+  payload: TransactionalEmailPayload,
 ): Promise<NotificationSendResult> {
   const env = typeof process !== "undefined" && process.env ? process.env : {};
   const apiKey = env["BREVO_API_KEY"];
@@ -78,7 +78,9 @@ export async function sendTransactionalNotification(
       };
     }
     // Local / development logging only
-    console.log(`[Brevo Email Dev] To: ${payload.toEmail} | Subject: ${payload.subject} | Key: ${key}`);
+    console.log(
+      `[Brevo Email Dev] To: ${payload.toEmail} | Subject: ${payload.subject} | Key: ${key}`,
+    );
     processedNotificationKeys.add(key);
     return {
       success: true,
@@ -277,7 +279,8 @@ export async function sendDispatchDeadlineReminderEmail(params: {
     toName: params.sellerBusinessName,
     subject: `Urgent: ${params.hoursRemaining}h Remaining to Dispatch Order #${params.subOrderId}`,
     htmlContent,
-    idempotencyKey: params.idempotencyKey || `deadline_remind_${params.subOrderId}_${params.hoursRemaining}h`,
+    idempotencyKey:
+      params.idempotencyKey || `deadline_remind_${params.subOrderId}_${params.hoursRemaining}h`,
     notificationType: "DISPATCH_DEADLINE_REMINDER",
   });
 }
@@ -497,29 +500,33 @@ export const markNotificationReadServerFn = createServerFn({ method: "POST" })
 
 // Compatibility export
 export const sendOrderConfirmationEmailServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    customerEmail: string;
-    customerName: string;
-    masterOrderId: string;
-    totalAmountAud: number;
-    gstTotalAud: number;
-    packageCount: number;
-  }) => data)
+  .validator(
+    (data: {
+      customerEmail: string;
+      customerName: string;
+      masterOrderId: string;
+      totalAmountAud: number;
+      gstTotalAud: number;
+      packageCount: number;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const res = await sendOrderConfirmationEmail(data);
     return res.success;
   });
 
 export const sendPackageDispatchedEmailServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    customerEmail: string;
-    customerName: string;
-    subOrderId: string;
-    sellerBusinessName: string;
-    carrier: string;
-    trackingNumber: string;
-    trackingUrl: string;
-  }) => data)
+  .validator(
+    (data: {
+      customerEmail: string;
+      customerName: string;
+      subOrderId: string;
+      sellerBusinessName: string;
+      carrier: string;
+      trackingNumber: string;
+      trackingUrl: string;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const res = await sendPackageDispatchedEmail(data);
     return res.success;

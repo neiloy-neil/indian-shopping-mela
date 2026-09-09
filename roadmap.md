@@ -2,6 +2,7 @@
 
 > **Master Plan Reference**: [Developer Architecture Master Plan (V1)](file:///C:/Users/USER/Downloads/gmmg/Indian_Shopping_Mela_Developer_Architecture_Master_Plan_V1.pdf)  
 > **Master Documentation in `/resources/`**:
+>
 > - 📋 **Full Tasklist & Audit**: [resources/tasklist.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/tasklist.md)
 > - ⏱️ **Phased 5–10 Day Delivery Plan**: [resources/phase.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/phase.md)
 > - 🗺️ **Comprehensive Roadmap**: [resources/roadmap.md](file:///d:/AI/Indian%20Shopping%20Mela/resources/roadmap.md)

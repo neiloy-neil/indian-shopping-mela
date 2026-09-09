@@ -33,7 +33,8 @@ const FORBIDDEN_RULES: Array<{
   {
     name: "Demo Customer Fallback in Routes",
     regex: /["']cust_demo["']/,
-    reason: "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
+    reason:
+      "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
     excludeFiles: ["ism-ops.ts"],
   },
   {
@@ -44,7 +45,8 @@ const FORBIDDEN_RULES: Array<{
   {
     name: "Fake Australia Post Consignment Generator",
     regex: /AP-AU-\${Math\.random/,
-    reason: "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
+    reason:
+      "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
   },
   {
     name: "Optimistic Return Swallow in Production",
@@ -115,7 +117,9 @@ function runFallbackAudit(): boolean {
   }
 
   console.log(`✅ Scanned ${files.length} source files — 0 forbidden production fallbacks found.`);
-  console.log("   Zero-trust checkout, live order fulfillment, and fail-closed transactions verified.\n");
+  console.log(
+    "   Zero-trust checkout, live order fulfillment, and fail-closed transactions verified.\n",
+  );
   return true;
 }
 

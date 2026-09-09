@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -7,6 +8,7 @@
 >
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
+
 <!-- LOVABLE:END -->
 
 # AGENTS.md — Indian Shopping Mela AI & Developer Guidelines
@@ -61,6 +63,7 @@ This repository contains the full-stack codebase for **Indian Shopping Mela (ISM
 ## 3. Mandatory Pre-Commit Validation
 
 Before submitting changes or marking tasks complete:
+
 1. Run `npm test` to run automated test assertions (GST arithmetic, commission, return windows, payout maturation, bulk upload validation).
 2. Run `npx tsc --noEmit` to verify type safety.
 3. Run `npm run build` to ensure SSR and client bundles compile cleanly with zero server secret leaks.

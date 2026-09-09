@@ -80,7 +80,13 @@ export const markReturnInTransitServerFn = createServerFn({ method: "POST" })
  * Server Function: Mark return received and inspected.
  */
 export const markReturnReceivedServerFn = createServerFn({ method: "POST" })
-  .validator((data: { returnId: string; condition: "PERFECT" | "DAMAGED" | "UNACCEPTABLE"; notes?: string | undefined }) => data)
+  .validator(
+    (data: {
+      returnId: string;
+      condition: "PERFECT" | "DAMAGED" | "UNACCEPTABLE";
+      notes?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return markReturnReceived(data.returnId, data.condition, data.notes);
   });
@@ -89,7 +95,13 @@ export const markReturnReceivedServerFn = createServerFn({ method: "POST" })
  * Server Function: Execute Stripe refund and ledger reconciliation upon return inspection.
  */
 export const executeReturnRefundServerFn = createServerFn({ method: "POST" })
-  .validator((data: { returnId: string; refundAmount?: number | undefined; restockItems?: boolean | undefined }) => data)
+  .validator(
+    (data: {
+      returnId: string;
+      refundAmount?: number | undefined;
+      restockItems?: boolean | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return executeReturnRefund(data.returnId, data.refundAmount, data.restockItems ?? true);
   });
@@ -107,7 +119,8 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
 }> {
   // 1. Fetch sub-order delivery and items
   const { data: subOrder, error: subOrderErr } = await (supabaseAdmin.from("sub_orders") as any)
-    .select(`
+    .select(
+      `
       id,
       master_order_id,
       seller_id,
@@ -118,7 +131,8 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
         id,
         payment_intent_id
       )
-    `)
+    `,
+    )
     .eq("id", payload.subOrderId)
     .single();
 
@@ -149,18 +163,21 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const isPast7Days = now.getTime() - deliveredAt.getTime() > SEVEN_DAYS_MS;
 
-  const isChangeOfMind = payload.reasonCode === "CHANGED_MIND" || payload.reasonCode === "WRONG_SIZE";
+  const isChangeOfMind =
+    payload.reasonCode === "CHANGED_MIND" || payload.reasonCode === "WRONG_SIZE";
 
   if (isChangeOfMind && isPast7Days) {
     throw new Error(
-      "The 7-day change-of-mind return window has expired for this package. Statutory claims under Australian Consumer Law require a valid fault or damage reason."
+      "The 7-day change-of-mind return window has expired for this package. Statutory claims under Australian Consumer Law require a valid fault or damage reason.",
     );
   }
 
   // 4. For statutory claims, require reason and evidence
   if (!isChangeOfMind) {
     if (!payload.customerNotes && !payload.reason) {
-      throw new Error("Statutory warranty and damage claims require a description of the defect or issue.");
+      throw new Error(
+        "Statutory warranty and damage claims require a description of the defect or issue.",
+      );
     }
   }
 
@@ -239,7 +256,7 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
  */
 export async function approveReturn(
   returnId: string,
-  adminNotes?: string | undefined
+  adminNotes?: string | undefined,
 ): Promise<{ success: boolean; returnTrackingNumber: string }> {
   const returnTrackingNumber = `RET-AP-${Date.now().toString().slice(-8)}`;
 
@@ -273,7 +290,7 @@ export async function approveReturn(
  */
 export async function rejectReturn(
   returnId: string,
-  rejectionReason: string
+  rejectionReason: string,
 ): Promise<{ success: boolean }> {
   const { data: ret, error: fetchErr } = await (supabaseAdmin.from("returns") as any)
     .select("id, sub_order_id, seller_id, refund_amount")
@@ -315,7 +332,7 @@ export async function rejectReturn(
  */
 export async function markReturnInTransit(
   returnId: string,
-  trackingNumber: string
+  trackingNumber: string,
 ): Promise<{ success: boolean }> {
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
@@ -338,7 +355,7 @@ export async function markReturnInTransit(
 export async function markReturnReceived(
   returnId: string,
   condition: "PERFECT" | "DAMAGED" | "UNACCEPTABLE",
-  notes?: string | undefined
+  notes?: string | undefined,
 ): Promise<{ success: boolean }> {
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
@@ -354,9 +371,7 @@ export async function markReturnReceived(
   }
 
   // Update return items condition
-  await (supabaseAdmin.from("return_items") as any)
-    .update({ condition })
-    .eq("return_id", returnId);
+  await (supabaseAdmin.from("return_items") as any).update({ condition }).eq("return_id", returnId);
 
   return { success: true };
 }
@@ -367,11 +382,12 @@ export async function markReturnReceived(
 export async function executeReturnRefund(
   returnId: string,
   customRefundAmount?: number | undefined,
-  restockItems: boolean = true
+  restockItems: boolean = true,
 ): Promise<{ success: boolean; refundId: string; refundAmount: number }> {
   // 1. Fetch return details and order
   const { data: ret, error: retErr } = await (supabaseAdmin.from("returns") as any)
-    .select(`
+    .select(
+      `
       id,
       sub_order_id,
       seller_id,
@@ -385,7 +401,8 @@ export async function executeReturnRefund(
           payment_intent_id
         )
       )
-    `)
+    `,
+    )
     .eq("id", returnId)
     .single();
 
@@ -401,7 +418,9 @@ export async function executeReturnRefund(
   // 2. Trigger Stripe Refund if payment intent exists
   const isProduction = process.env["NODE_ENV"] === "production";
   if ((!paymentIntentId || paymentIntentId.startsWith("pi_demo")) && isProduction) {
-    throw new Error(`Cannot process refund for return ${returnId}: Order ${masterOrderId} lacks an active production Stripe PaymentIntent.`);
+    throw new Error(
+      `Cannot process refund for return ${returnId}: Order ${masterOrderId} lacks an active production Stripe PaymentIntent.`,
+    );
   }
 
   let stripeRefundId = `re_demo_${Date.now()}`;
@@ -420,7 +439,7 @@ export async function executeReturnRefund(
         },
         {
           idempotencyKey: `return_refund_${returnId}`,
-        }
+        },
       );
       stripeRefundId = stripeRefund.id;
     } catch (stripeErr: any) {

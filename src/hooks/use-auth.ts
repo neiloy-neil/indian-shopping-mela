@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { getCurrentUser, signIn, signUp, signOut, resetPassword, type AuthSessionUser } from "@/lib/api/auth";
+import {
+  getCurrentUser,
+  signIn,
+  signUp,
+  signOut,
+  resetPassword,
+  type AuthSessionUser,
+} from "@/lib/api/auth";
 
 export function useAuth() {
   const [user, setUser] = useState<AuthSessionUser | null>(null);

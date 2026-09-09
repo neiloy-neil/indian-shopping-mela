@@ -19,7 +19,13 @@ export interface ReservationResult {
  * for this session are immediately rolled back/released, and an error is thrown.
  */
 export const reserveInventoryLinesServerFn = createServerFn({ method: "POST" })
-  .validator((data: { items: InventoryReservationItem[]; sessionId: string; ttlMinutes?: number | undefined }) => data)
+  .validator(
+    (data: {
+      items: InventoryReservationItem[];
+      sessionId: string;
+      ttlMinutes?: number | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return reserveInventoryLines(data.items, data.sessionId, data.ttlMinutes ?? 15);
   });
@@ -27,7 +33,7 @@ export const reserveInventoryLinesServerFn = createServerFn({ method: "POST" })
 export async function reserveInventoryLines(
   items: InventoryReservationItem[],
   sessionId: string,
-  ttlMinutes: number = 15
+  ttlMinutes: number = 15,
 ): Promise<ReservationResult[]> {
   if (!items || items.length === 0) {
     return [];
@@ -42,16 +48,21 @@ export async function reserveInventoryLines(
       throw new Error(`Invalid requested quantity: ${item.quantity} for variant ${item.variantId}`);
     }
 
-    const { data: rpcResult, error: rpcError } = await (supabaseAdmin.rpc as any)("reserve_inventory_atomic", {
-      p_variant_id: item.variantId,
-      p_quantity: item.quantity,
-      p_session_id: sessionId,
-      p_ttl_minutes: ttlMinutes,
-    });
+    const { data: rpcResult, error: rpcError } = await (supabaseAdmin.rpc as any)(
+      "reserve_inventory_atomic",
+      {
+        p_variant_id: item.variantId,
+        p_quantity: item.quantity,
+        p_session_id: sessionId,
+        p_ttl_minutes: ttlMinutes,
+      },
+    );
 
     if (rpcError) {
       await rollbackReservations(acquiredReservations);
-      throw new Error(`Inventory reservation system error for variant ${item.variantId}: ${rpcError.message}`);
+      throw new Error(
+        `Inventory reservation system error for variant ${item.variantId}: ${rpcError.message}`,
+      );
     }
 
     const res = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
@@ -60,7 +71,7 @@ export async function reserveInventoryLines(
       await rollbackReservations(acquiredReservations);
       const available = res?.available ?? 0;
       throw new Error(
-        `Insufficient stock for item (${item.variantId}). Requested: ${item.quantity}, Available: ${available}. Checkout cannot proceed.`
+        `Insufficient stock for item (${item.variantId}). Requested: ${item.quantity}, Available: ${available}. Checkout cannot proceed.`,
       );
     }
 
@@ -101,7 +112,7 @@ export const commitInventoryReservationsServerFn = createServerFn({ method: "POS
 
 export async function commitInventoryReservations(
   sessionId: string,
-  orderId: string
+  orderId: string,
 ): Promise<{ committed: number }> {
   // Find all active reservations for this session
   const { data: reservations, error } = await (supabaseAdmin.from("inventory_reservations") as any)
@@ -121,7 +132,7 @@ export async function commitInventoryReservations(
         {
           p_reservation_id: res.id,
           p_order_id: orderId,
-        }
+        },
       );
 
       if (!rpcErr) {
@@ -148,7 +159,9 @@ export const releaseInventoryReservationsServerFn = createServerFn({ method: "PO
     return releaseInventoryReservations(data.sessionId);
   });
 
-export async function releaseInventoryReservations(sessionId: string): Promise<{ released: number }> {
+export async function releaseInventoryReservations(
+  sessionId: string,
+): Promise<{ released: number }> {
   const { data: reservations } = await (supabaseAdmin.from("inventory_reservations") as any)
     .select("id")
     .eq("session_id", sessionId)
@@ -176,14 +189,15 @@ export async function releaseInventoryReservations(sessionId: string): Promise<{
 /**
  * Server Function: Periodic or cron job to release expired inventory holds
  */
-export const releaseExpiredReservationsServerFn = createServerFn({ method: "POST" })
-  .handler(async () => {
+export const releaseExpiredReservationsServerFn = createServerFn({ method: "POST" }).handler(
+  async () => {
     const { data: count, error } = await (supabaseAdmin.rpc as any)("release_expired_reservations");
     if (error) {
       throw new Error(`Failed to release expired reservations: ${error.message}`);
     }
     return { expiredCount: Number(count) || 0 };
-  });
+  },
+);
 
 /**
  * Restock variant inventory on return or order cancellation
@@ -227,7 +241,7 @@ export async function restockVariantInventory(data: {
 
   const totalProductStock = (allVariants || []).reduce(
     (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
-    0
+    0,
   );
 
   await (supabaseAdmin.from("products") as any)
@@ -257,15 +271,16 @@ export async function restockVariantInventory(data: {
  * Server Function: Restock variant inventory on return or order cancellation
  */
 export const restockVariantInventoryServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    variantId: string;
-    quantity: number;
-    reason: "RETURN_RESTOCK" | "CANCELLED_ORDER" | "MANUAL_ADJUSTMENT";
-    referenceId?: string | undefined;
-    actorId?: string | undefined;
-    note?: string | undefined;
-  }) => data)
+  .validator(
+    (data: {
+      variantId: string;
+      quantity: number;
+      reason: "RETURN_RESTOCK" | "CANCELLED_ORDER" | "MANUAL_ADJUSTMENT";
+      referenceId?: string | undefined;
+      actorId?: string | undefined;
+      note?: string | undefined;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     return restockVariantInventory(data);
   });
-

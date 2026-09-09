@@ -4,7 +4,6 @@ Use these prompts **one at a time, in order**. Every prompt below contains the *
 
 Do not send all prompts to the coding AI at once. Complete each step, verify the acceptance criteria, update `tasklist3.md`, then move to the next prompt.
 
-
 ---
 
 # PROMPT 0 — Baseline and verify the current repo before further work
@@ -94,7 +93,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -104,7 +103,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -131,12 +130,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -145,7 +146,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -172,6 +173,7 @@ Do the implementation. Do not only explain what should be done.
 Execute the repository baseline phase.
 
 Required actions:
+
 - Read `AGENTS.md`, `tasklist3.md`, `roadmap.md`, `README.md`.
 - Run `git status`.
 - Record branch and latest commit.
@@ -277,7 +279,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -287,7 +289,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -314,12 +316,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -328,7 +332,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -488,7 +492,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -498,7 +502,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -525,12 +529,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -539,7 +545,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -566,6 +572,7 @@ Do the implementation. Do not only explain what should be done.
 Execute the staging-schema verification phase.
 
 Required actions:
+
 - Use a clean staging Supabase project.
 - Link Supabase CLI.
 - Apply canonical migration from scratch.
@@ -676,7 +683,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -686,7 +693,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -713,12 +720,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -727,7 +736,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -754,6 +763,7 @@ Do the implementation. Do not only explain what should be done.
 Execute infrastructure hardening.
 
 Required actions:
+
 - Make production-critical env vars required.
 - Remove:
   - placeholder service-role key;
@@ -770,6 +780,7 @@ Required actions:
 - Add safe release metadata.
 
 Verify on Vercel preview:
+
 - SSR;
 - dynamic route refresh;
 - server functions;
@@ -865,7 +876,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -875,7 +886,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -902,12 +913,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -916,7 +929,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -943,6 +956,7 @@ Do the implementation. Do not only explain what should be done.
 Execute auth and authorization.
 
 Required actions:
+
 - Verify Supabase SSR cookies/session across hard refresh.
 - Make Supabase session the only auth authority.
 - Complete:
@@ -1059,7 +1073,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -1069,7 +1083,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -1096,12 +1110,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -1110,7 +1126,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -1137,6 +1153,7 @@ Do the implementation. Do not only explain what should be done.
 Execute catalogue cleanup.
 
 Required actions:
+
 - Align catalogue queries to generated DB types.
 - Remove fabricated mapper defaults.
 - Disable fixture fallback in production.
@@ -1243,7 +1260,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -1253,7 +1270,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -1280,12 +1297,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -1294,7 +1313,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -1321,6 +1340,7 @@ Do the implementation. Do not only explain what should be done.
 Execute seller onboarding.
 
 Required actions:
+
 - Align seller APIs to canonical schema/types.
 - Never assume seller ID equals auth user ID.
 - Persist onboarding draft.
@@ -1428,7 +1448,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -1438,7 +1458,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -1465,12 +1485,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -1479,7 +1501,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -1506,6 +1528,7 @@ Do the implementation. Do not only explain what should be done.
 Execute product backend completion.
 
 Required actions:
+
 - Align product APIs to generated types.
 - Remove hard-coded seller/category IDs.
 - Build category-driven attributes from DB.
@@ -1618,7 +1641,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -1628,7 +1651,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -1655,12 +1678,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -1669,7 +1694,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -1696,6 +1721,7 @@ Do the implementation. Do not only explain what should be done.
 Execute cart/wishlist backend.
 
 Required actions:
+
 - Database becomes source of truth.
 - LocalStorage may cache only, never override DB authority.
 - Implement authenticated cart.
@@ -1803,7 +1829,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -1813,7 +1839,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -1840,12 +1866,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -1854,7 +1882,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -1881,6 +1909,7 @@ Do the implementation. Do not only explain what should be done.
 Execute inventory completion.
 
 Required actions:
+
 - Align RPCs to canonical schema.
 - Remove any `catch(console.warn)` that lets checkout continue after reservation failure.
 - Reserve all lines atomically.
@@ -1985,7 +2014,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -1995,7 +2024,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -2022,12 +2051,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -2036,7 +2067,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -2063,6 +2094,7 @@ Do the implementation. Do not only explain what should be done.
 Execute checkout hardening.
 
 Required actions:
+
 - Client sends only:
   - variant IDs;
   - quantities;
@@ -2180,7 +2212,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -2190,7 +2222,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -2217,12 +2249,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -2231,7 +2265,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -2258,6 +2292,7 @@ Do the implementation. Do not only explain what should be done.
 Execute Stripe payment completion.
 
 Required actions:
+
 - Keep Payment Element.
 - Remove fake `pi_...` fallback.
 - Create PaymentIntent only with real Stripe test/live secret.
@@ -2373,7 +2408,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -2383,7 +2418,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -2410,12 +2445,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -2424,7 +2461,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -2451,6 +2488,7 @@ Do the implementation. Do not only explain what should be done.
 Execute ledger cleanup.
 
 Required actions:
+
 - Make application ledger enums exactly match DB enum values.
 - Make amount field names exactly match DB schema.
 - Remove old conflicting `payout_ledger` path.
@@ -2557,7 +2595,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -2567,7 +2605,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -2594,12 +2632,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -2608,7 +2648,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -2635,6 +2675,7 @@ Do the implementation. Do not only explain what should be done.
 Execute shipping.
 
 Required actions:
+
 - Use one selected provider.
 - Remove fake rates/tracking/labels.
 - Real:
@@ -2745,7 +2786,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -2755,7 +2796,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -2782,12 +2823,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -2796,7 +2839,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -2823,6 +2866,7 @@ Do the implementation. Do not only explain what should be done.
 Execute fulfilment.
 
 Required actions:
+
 - Remove `INITIAL_ORDERS`.
 - Query seller orders from authenticated seller membership.
 - Implement:
@@ -2927,7 +2971,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -2937,7 +2981,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -2964,12 +3008,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -2978,7 +3024,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -3005,6 +3051,7 @@ Do the implementation. Do not only explain what should be done.
 Execute cancellations.
 
 Required actions:
+
 - Define eligibility by state.
 - Implement customer/seller/admin cancellation.
 - Release stock idempotently.
@@ -3103,7 +3150,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -3113,7 +3160,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -3140,12 +3187,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -3154,7 +3203,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -3181,6 +3230,7 @@ Do the implementation. Do not only explain what should be done.
 Execute returns/refunds.
 
 Required actions:
+
 - Use canonical `returns` + `return_items`.
 - Remove any legacy `return_requests` usage.
 - Load eligible delivered items only.
@@ -3288,7 +3338,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -3298,7 +3348,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -3325,12 +3375,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -3339,7 +3391,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -3366,6 +3418,7 @@ Do the implementation. Do not only explain what should be done.
 Execute payouts only after owner confirms Stripe Connect is the chosen architecture.
 
 Required actions:
+
 - Remove manual ABA payout as active primary flow.
 - Remove demo transfer IDs.
 - Avoid raw bank data where unnecessary.
@@ -3473,7 +3526,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -3483,7 +3536,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -3510,12 +3563,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -3524,7 +3579,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -3551,6 +3606,7 @@ Do the implementation. Do not only explain what should be done.
 Execute bulk import.
 
 Required actions:
+
 - Remove demo counts/timers.
 - Generate versioned CSV and real XLSX templates.
 - Use maintained CSV/XLSX parsers.
@@ -3662,7 +3718,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -3672,7 +3728,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -3699,12 +3755,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -3713,7 +3771,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -3740,6 +3798,7 @@ Do the implementation. Do not only explain what should be done.
 Execute bulk stock.
 
 Required actions:
+
 - Remove static metrics.
 - Generate stock template.
 - Validate seller ownership.
@@ -3838,7 +3897,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -3848,7 +3907,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -3875,12 +3934,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -3889,7 +3950,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -3916,6 +3977,7 @@ Do the implementation. Do not only explain what should be done.
 Execute video.
 
 If Mux:
+
 - direct upload;
 - processing;
 - signed webhook;
@@ -3927,6 +3989,7 @@ If Mux:
 - no simulation.
 
 If direct Supabase MP4:
+
 - document limitations;
 - validate MP4/size/duration;
 - canonical bucket;
@@ -4025,7 +4088,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -4035,7 +4098,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -4062,12 +4125,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -4076,7 +4141,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -4103,6 +4168,7 @@ Do the implementation. Do not only explain what should be done.
 Execute notifications.
 
 Required actions:
+
 - Configure provider/domain.
 - Create outbox/notification record.
 - Idempotency.
@@ -4209,7 +4275,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -4219,7 +4285,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -4246,12 +4312,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -4260,7 +4328,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -4287,6 +4355,7 @@ Do the implementation. Do not only explain what should be done.
 Execute admin/team/account integration.
 
 ADMIN:
+
 - real metrics;
 - seller approval;
 - moderation;
@@ -4304,6 +4373,7 @@ ADMIN:
 - remove demo toasts/data.
 
 SELLER TEAM:
+
 - real members;
 - invite;
 - accept;
@@ -4313,6 +4383,7 @@ SELLER TEAM:
 - immediate access removal.
 
 CUSTOMER:
+
 - real orders;
 - packages/tracking;
 - addresses;
@@ -4411,7 +4482,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -4421,7 +4492,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -4448,12 +4519,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -4462,7 +4535,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -4489,6 +4562,7 @@ Do the implementation. Do not only explain what should be done.
 Execute background processing.
 
 Required actions:
+
 - shared webhook processing convention;
 - correlation IDs;
 - background job abstraction;
@@ -4590,7 +4664,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -4600,7 +4674,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -4627,12 +4701,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -4641,7 +4717,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -4668,6 +4744,7 @@ Do the implementation. Do not only explain what should be done.
 Execute security phase.
 
 Required actions:
+
 - CSP;
 - security headers;
 - CSRF strategy;
@@ -4774,7 +4851,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -4784,7 +4861,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -4811,12 +4888,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -4825,7 +4904,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -4852,6 +4931,7 @@ Do the implementation. Do not only explain what should be done.
 Execute operations phase.
 
 Required actions:
+
 - Sentry/approved monitoring;
 - server/client capture;
 - PII redaction;
@@ -4956,7 +5036,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -4966,7 +5046,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -4993,12 +5073,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -5007,7 +5089,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -5034,6 +5116,7 @@ Do the implementation. Do not only explain what should be done.
 Execute test phase.
 
 Required actions:
+
 - proper unit/integration runner;
 - Playwright;
 - pinned test tooling;
@@ -5146,7 +5229,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -5156,7 +5239,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -5183,12 +5266,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -5197,7 +5282,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -5224,6 +5309,7 @@ Do the implementation. Do not only explain what should be done.
 Execute performance phase.
 
 Required actions:
+
 - DB indexes;
 - pagination;
 - eliminate N+1;
@@ -5326,7 +5412,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -5336,7 +5422,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -5363,12 +5449,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -5377,7 +5465,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -5407,6 +5495,7 @@ Repository-wide search for:
 `demo`, `prototype`, `mock`, `fallback`, `offline`, `fake`, `INITIAL_`, `setTimeout`, `setInterval`, `4242 4242`, `sk_test_placeholder`, `placeholder-service-key`, `tr_demo`, `re_demo`, `pi_`.
 
 Remove/isolate development-only:
+
 - fake products;
 - fake PaymentIntent;
 - fake refunds;
@@ -5514,7 +5603,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -5524,7 +5613,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -5551,12 +5640,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -5565,7 +5656,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -5592,6 +5683,7 @@ Do the implementation. Do not only explain what should be done.
 Execute legal/config integration.
 
 Use only owner/legal-approved text:
+
 - Privacy;
 - Terms;
 - Returns;
@@ -5695,7 +5787,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -5705,7 +5797,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -5732,12 +5824,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -5746,7 +5840,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -5773,6 +5867,7 @@ Do the implementation. Do not only explain what should be done.
 Execute full staging UAT.
 
 Run actual scenarios:
+
 - onboarding;
 - seller approval;
 - product listing;
@@ -5886,7 +5981,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -5896,7 +5991,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -5923,12 +6018,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -5937,7 +6034,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -5964,6 +6061,7 @@ Do the implementation. Do not only explain what should be done.
 Execute production deployment only after staging UAT is green.
 
 Required:
+
 - production Supabase;
 - canonical migrations;
 - production config;
@@ -6074,7 +6172,7 @@ The latest audit found these important unresolved issues:
    - inventory;
    - refund amount;
    - payout amount.
-   Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
+     Browser sends only IDs/quantity/address/service choices/idempotency key. The server loads all authoritative business data.
 
 7. **Fail closed.**
    Forbidden production behavior:
@@ -6084,7 +6182,7 @@ The latest audit found these important unresolved issues:
    - shipping failure → fake label/tracking;
    - upload failure → fake/local success;
    - unsigned webhook accepted because secret is missing.
-   Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
+     Development fixtures are allowed only behind an explicit development-only flag that cannot silently activate in production.
 
 8. **Financial correctness.**
    - Use one canonical monetary representation across DB and code.
@@ -6111,12 +6209,14 @@ The latest audit found these important unresolved issues:
     - Do not make unrelated changes.
 
 12. **Before marking any task `[x]`, run applicable checks:**
+
     ```bash
     bun run lint
     npx tsc --noEmit
     bun run build
     bun run test
     ```
+
     Also run any DB/provider/E2E test required for the task.
 
 13. **Update `resources/tasklist3.md` accurately.**
@@ -6125,7 +6225,7 @@ The latest audit found these important unresolved issues:
     - `[x]` verified
     - `[!]` blocked
     - `[-]` intentionally deferred
-    Update the Progress Log with evidence and commit hash.
+      Update the Progress Log with evidence and commit hash.
 
 14. **If an external decision/credential is missing, mark only that task `[!]`.**
     State exactly what is needed. Continue only with independent tasks whose dependencies are already satisfied.
@@ -6152,6 +6252,7 @@ Do the implementation. Do not only explain what should be done.
 Execute controlled pilot and final gate.
 
 Recommended:
+
 - 5–10 approved sellers;
 - limited real catalogue;
 - one shipping provider;
@@ -6159,6 +6260,7 @@ Recommended:
 - controlled traffic.
 
 Verify:
+
 - seller readiness;
 - payout readiness;
 - addresses;

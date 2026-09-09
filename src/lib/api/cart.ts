@@ -26,7 +26,10 @@ export interface CartSummaryDto {
 /**
  * Helper to ensure or fetch cart ID for user or guest
  */
-async function resolveOrCreateCartId(userId?: string | null, guestToken?: string | null): Promise<string | null> {
+async function resolveOrCreateCartId(
+  userId?: string | null,
+  guestToken?: string | null,
+): Promise<string | null> {
   if (userId) {
     const { data: userCart } = await (supabaseAdmin.from("carts") as any)
       .select("id")
@@ -78,7 +81,8 @@ export const getCartServerFn = createServerFn({ method: "POST" })
     }
 
     const { data: lines, error } = await (supabaseAdmin.from("cart_lines") as any)
-      .select(`
+      .select(
+        `
         id,
         quantity,
         variant_id,
@@ -109,7 +113,8 @@ export const getCartServerFn = createServerFn({ method: "POST" })
             )
           )
         )
-      `)
+      `,
+      )
       .eq("cart_id", cartId);
 
     if (error || !lines || lines.length === 0) {
@@ -122,11 +127,13 @@ export const getCartServerFn = createServerFn({ method: "POST" })
         const variant = l.variant;
         const product = variant.product;
         const seller = product?.seller;
-        const primaryMedia = (product?.media || []).find((m: any) => m.is_primary) ?? product?.media?.[0];
+        const primaryMedia =
+          (product?.media || []).find((m: any) => m.is_primary) ?? product?.media?.[0];
         const rawPrice = variant.price ?? variant.sale_price ?? 0;
         const priceAud = Number(rawPrice);
         const availableStock = Math.max(0, Number(variant.stock_quantity) || 0);
-        const fallbackImg = (variant.images && variant.images.length > 0) ? variant.images[0] : undefined;
+        const fallbackImg =
+          variant.images && variant.images.length > 0 ? variant.images[0] : undefined;
         const imageUrl = primaryMedia?.url ?? fallbackImg ?? undefined;
         const weightKg = Number(variant.weight_kg_override ?? product?.weight_kg ?? 0.5);
 
@@ -147,7 +154,9 @@ export const getCartServerFn = createServerFn({ method: "POST" })
         };
       });
 
-    const subtotalAud = Number(items.reduce((sum, item) => sum + item.priceAud * item.quantity, 0).toFixed(2));
+    const subtotalAud = Number(
+      items.reduce((sum, item) => sum + item.priceAud * item.quantity, 0).toFixed(2),
+    );
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
     return {
@@ -161,12 +170,14 @@ export const getCartServerFn = createServerFn({ method: "POST" })
  * Server Function: Add item to cart (with authoritative stock and price validation)
  */
 export const addToCartServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    userId?: string | undefined;
-    guestToken?: string | undefined;
-    variantId: string;
-    quantity: number;
-  }) => data)
+  .validator(
+    (data: {
+      userId?: string | undefined;
+      guestToken?: string | undefined;
+      variantId: string;
+      quantity: number;
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const qtyToAdd = Math.max(1, data.quantity || 1);
     const cartId = await resolveOrCreateCartId(data.userId, data.guestToken);
@@ -281,7 +292,8 @@ export const mergeGuestCartServerFn = createServerFn({ method: "POST" })
     if (!targetCartId) throw new Error("Could not create user cart.");
 
     const { data: guestLines } = await (supabaseAdmin.from("cart_lines") as any)
-      .select(`
+      .select(
+        `
         id,
         variant_id,
         quantity,
@@ -289,7 +301,8 @@ export const mergeGuestCartServerFn = createServerFn({ method: "POST" })
           stock_quantity,
           product:products(status)
         )
-      `)
+      `,
+      )
       .eq("cart_id", guestCart.id);
 
     let mergedCount = 0;
@@ -366,9 +379,7 @@ export const toggleWishlistServerFn = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (existing) {
-      await (supabaseAdmin.from("wishlists") as any)
-        .delete()
-        .eq("id", existing.id);
+      await (supabaseAdmin.from("wishlists") as any).delete().eq("id", existing.id);
       return { wishlisted: false };
     } else {
       await (supabaseAdmin.from("wishlists") as any).insert({

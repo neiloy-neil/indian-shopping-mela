@@ -12,12 +12,7 @@ import {
   type SellerSection,
 } from "@/components/ism/SellerShell";
 import { IMAGES, formatAUD, productsBySeller } from "@/lib/ism-data";
-import {
-  DEMO_NOTE,
-  PAYOUT_RULE,
-  PAYOUT_STAGES,
-  BACKEND_REQUIRED_NOTES,
-} from "@/lib/ism-ops";
+import { DEMO_NOTE, PAYOUT_RULE, PAYOUT_STAGES, BACKEND_REQUIRED_NOTES } from "@/lib/ism-ops";
 import {
   acceptSubOrderServerFn,
   generateShippingLabelServerFn,
@@ -160,8 +155,8 @@ function SellerDashboard() {
           prev.map((o) =>
             o.id === orderId
               ? { ...o, status: "Preparing", tone: "prep", action: "Mark Ready to Ship" }
-              : o
-          )
+              : o,
+          ),
         );
         toast.success(`Order ${orderId} accepted`, {
           description: "Status changed to Preparing. Package deadline started.",
@@ -179,8 +174,8 @@ function SellerDashboard() {
           prev.map((o) =>
             o.id === orderId
               ? { ...o, status: "Ready To Ship", tone: "ready", action: "Create Shipping Label" }
-              : o
-          )
+              : o,
+          ),
         );
         toast.success(`Order ${orderId} marked Ready to Ship`, {
           description: "Generate courier shipping label to finalize dispatch.",
@@ -210,8 +205,8 @@ function SellerDashboard() {
                   trackingNumber: res.trackingNumber,
                   labelPdfUrl: res.labelPdfUrl,
                 }
-              : o
-          )
+              : o,
+          ),
         );
 
         toast.success(`Australia Post Label Created: ${res.trackingNumber}`, {
@@ -226,7 +221,8 @@ function SellerDashboard() {
         description: "Carrier: Australia Post eParcel (Domestic Standard)",
         action: {
           label: "Open Tracker",
-          onClick: () => window.open(`https://auspost.com.au/mypost/track/#/details/${track}`, "_blank"),
+          onClick: () =>
+            window.open(`https://auspost.com.au/mypost/track/#/details/${track}`, "_blank"),
         },
       });
     }
@@ -236,11 +232,16 @@ function SellerDashboard() {
     const csvContent =
       "data:text/csv;charset=utf-8," +
       "Order,Date,Gross AUD,Marketplace Fee AUD,Net AUD,Payout Status\n" +
-      TRANSACTIONS.map((t) => `${t.order},${t.date},${t.gross},${t.fee},${t.net},"${t.status}"`).join("\n");
+      TRANSACTIONS.map(
+        (t) => `${t.order},${t.date},${t.gross},${t.fee},${t.net},"${t.status}"`,
+      ).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `ISM_Seller_Payout_Statement_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute(
+      "download",
+      `ISM_Seller_Payout_Statement_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -275,8 +276,18 @@ function SellerDashboard() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Metric label="Today's Orders" value="7" note="2 new since 9am" />
             <Metric label="Orders To Ship" value="5" note="2 past deadline risk" tone="marigold" />
-            <Metric label="Sales (30 days)" value="$18,420" note="+12.4% vs last month" tone="rani" />
-            <Metric label="Pending Payout" value="$2,905.10" note="clears over 14 days" tone="teal" />
+            <Metric
+              label="Sales (30 days)"
+              value="$18,420"
+              note="+12.4% vs last month"
+              tone="rani"
+            />
+            <Metric
+              label="Pending Payout"
+              value="$2,905.10"
+              note="clears over 14 days"
+              tone="teal"
+            />
             <Metric label="Low Stock" value="12 SKUs" note="restock recommended" tone="rani" />
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
@@ -370,7 +381,10 @@ function SellerDashboard() {
                     <td>{formatAUD(p.price)}</td>
                     <td>{p.stock}</td>
                     <td>
-                      <Pill label={p.stock > 5 ? "Live" : "Low stock"} tone={p.stock > 5 ? "ship" : "prep"} />
+                      <Pill
+                        label={p.stock > 5 ? "Live" : "Low stock"}
+                        tone={p.stock > 5 ? "ship" : "prep"}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -405,7 +419,10 @@ function SellerDashboard() {
       )}
 
       {section === "orders" && (
-        <Card title="Orders" action={<span className="text-xs text-muted-foreground">{orders.length} orders</span>}>
+        <Card
+          title="Orders"
+          action={<span className="text-xs text-muted-foreground">{orders.length} orders</span>}
+        >
           <OrdersTable rows={orders} onAction={handleOrderAction} />
         </Card>
       )}
@@ -432,8 +449,9 @@ function SellerDashboard() {
             <div className="flex items-start gap-3 rounded-sm border border-border bg-muted/40 p-3">
               <Truck size={18} className="mt-0.5 shrink-0 text-primary" />
               <p className="text-sm text-muted-foreground">
-                Australia Post eParcel integration generates live A6 PDF shipping labels and consignment
-                tracking numbers upon dispatch. Standard dispatch SLA is 1–2 business days from Harris Park, NSW.
+                Australia Post eParcel integration generates live A6 PDF shipping labels and
+                consignment tracking numbers upon dispatch. Standard dispatch SLA is 1–2 business
+                days from Harris Park, NSW.
               </p>
             </div>
           </Card>
@@ -475,7 +493,9 @@ function SellerDashboard() {
                     <td className="py-2.5 font-semibold">{r[0]}</td>
                     <td className="text-muted-foreground">{r[1]}</td>
                     <td className="text-xs">{r[2]}</td>
-                    <td className="text-right"><Pill label={r[3]!} tone={r[3] === "Live" ? "ship" : "ready"} /></td>
+                    <td className="text-right">
+                      <Pill label={r[3]!} tone={r[3] === "Live" ? "ship" : "ready"} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -484,7 +504,11 @@ function SellerDashboard() {
           <Card title="Marketplace campaigns">
             <ul className="space-y-3 text-sm">
               {[
-                ["Diwali Mela · 1–20 Oct", "Platform funded discount, seller funds shipping", "Opted in"],
+                [
+                  "Diwali Mela · 1–20 Oct",
+                  "Platform funded discount, seller funds shipping",
+                  "Opted in",
+                ],
                 ["Wedding Season · 1 Nov – 15 Feb", "Category banner placement", "Not opted in"],
                 ["Free Shipping Weekend · 13–15 Sep", "Shipping cost shared 50/50", "Not opted in"],
               ].map((r) => (
@@ -492,7 +516,9 @@ function SellerDashboard() {
                   <p className="font-semibold">{r[0]}</p>
                   <p className="text-xs text-muted-foreground">{r[1]}</p>
                   <button
-                    onClick={() => toast.success("Campaign preference saved", { description: r[0] })}
+                    onClick={() =>
+                      toast.success("Campaign preference saved", { description: r[0] })
+                    }
                     className="mt-2 text-[11px] font-bold uppercase tracking-wide text-rani"
                   >
                     {r[2] === "Opted in" ? "Manage opt-in" : "Opt in"}
@@ -520,8 +546,12 @@ function SellerDashboard() {
             <div className="grid gap-2 sm:grid-cols-5">
               {PAYOUT_STAGES.map((p) => (
                 <div key={p.stage} className="rounded-sm border border-border p-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{p.stage}</p>
-                  <p className="mt-1 font-display text-lg font-bold text-primary">{formatAUD(p.amount)}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {p.stage}
+                  </p>
+                  <p className="mt-1 font-display text-lg font-bold text-primary">
+                    {formatAUD(p.amount)}
+                  </p>
                   <p className="text-[11px] text-muted-foreground">{p.note}</p>
                 </div>
               ))}
@@ -536,7 +566,10 @@ function SellerDashboard() {
               </button>
             </div>
           </Card>
-          <Card title="Order transaction history" action={<span className="text-xs text-muted-foreground">4 of 328 shown</span>}>
+          <Card
+            title="Order transaction history"
+            action={<span className="text-xs text-muted-foreground">4 of 328 shown</span>}
+          >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-sm">
                 <thead className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -615,42 +648,51 @@ function SellerDashboard() {
         <div className="grid gap-4 lg:grid-cols-3">
           <Card title="Top categories">
             <ul className="space-y-2 text-sm">
-              {[["Sarees", "42%"], ["Lehengas", "26%"], ["Kurta Sets", "18%"], ["Dupattas", "14%"]].map(
-                ([l, v]) => (
-                  <li key={l} className="flex items-center gap-3">
-                    <span className="w-24 shrink-0">{l}</span>
-                    <span className="h-2 flex-1 rounded-full bg-muted">
-                      <span className="block h-2 rounded-full bg-rani" style={{ width: v }} />
-                    </span>
-                    <span className="text-xs text-muted-foreground">{v}</span>
-                  </li>
-                ),
-              )}
+              {[
+                ["Sarees", "42%"],
+                ["Lehengas", "26%"],
+                ["Kurta Sets", "18%"],
+                ["Dupattas", "14%"],
+              ].map(([l, v]) => (
+                <li key={l} className="flex items-center gap-3">
+                  <span className="w-24 shrink-0">{l}</span>
+                  <span className="h-2 flex-1 rounded-full bg-muted">
+                    <span className="block h-2 rounded-full bg-rani" style={{ width: v }} />
+                  </span>
+                  <span className="text-xs text-muted-foreground">{v}</span>
+                </li>
+              ))}
             </ul>
           </Card>
           <Card title="Sales by state">
             <ul className="space-y-2 text-sm text-muted-foreground">
-              {[["NSW", "$7,410"], ["VIC", "$5,280"], ["QLD", "$2,940"], ["WA", "$1,610"], ["SA", "$1,180"]].map(
-                ([l, v]) => (
-                  <li key={l} className="flex justify-between">
-                    <span>{l}</span>
-                    <span className="font-semibold text-foreground">{v}</span>
-                  </li>
-                ),
-              )}
+              {[
+                ["NSW", "$7,410"],
+                ["VIC", "$5,280"],
+                ["QLD", "$2,940"],
+                ["WA", "$1,610"],
+                ["SA", "$1,180"],
+              ].map(([l, v]) => (
+                <li key={l} className="flex justify-between">
+                  <span>{l}</span>
+                  <span className="font-semibold text-foreground">{v}</span>
+                </li>
+              ))}
             </ul>
           </Card>
           <Card title="Downloads">
             <div className="space-y-2 text-sm">
-              {["Sales report (CSV)", "Payout statement (PDF)", "Inventory snapshot (XLSX)"].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => toast.success(`Generated ${d}`)}
-                  className="w-full rounded-sm border border-border px-3 py-2 text-left hover:border-rani hover:text-rani"
-                >
-                  {d}
-                </button>
-              ))}
+              {["Sales report (CSV)", "Payout statement (PDF)", "Inventory snapshot (XLSX)"].map(
+                (d) => (
+                  <button
+                    key={d}
+                    onClick={() => toast.success(`Generated ${d}`)}
+                    className="w-full rounded-sm border border-border px-3 py-2 text-left hover:border-rani hover:text-rani"
+                  >
+                    {d}
+                  </button>
+                ),
+              )}
             </div>
           </Card>
         </div>
@@ -660,14 +702,19 @@ function SellerDashboard() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card title="Business details">
             <div className="space-y-3 text-sm">
-              {[["Trading name", "Mumbai Mirror Boutique"], ["ABN", "58 123 456 789"], ["GST registered", "Yes"], ["Warehouse", "Harris Park NSW 2150"]].map(
-                ([l, v]) => (
-                  <div key={l}>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{l}</p>
-                    <p>{v}</p>
-                  </div>
-                ),
-              )}
+              {[
+                ["Trading name", "Mumbai Mirror Boutique"],
+                ["ABN", "58 123 456 789"],
+                ["GST registered", "Yes"],
+                ["Warehouse", "Harris Park NSW 2150"],
+              ].map(([l, v]) => (
+                <div key={l}>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {l}
+                  </p>
+                  <p>{v}</p>
+                </div>
+              ))}
             </div>
           </Card>
           <Card title="Payout account">

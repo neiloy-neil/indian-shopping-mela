@@ -106,12 +106,14 @@ export const getSellerProductsServerFn = createServerFn({ method: "GET" })
   .validator((data: { sellerId: string; status?: ProductStatus | undefined }) => data)
   .handler(async ({ data }) => {
     let query = (supabaseAdmin.from("products") as any)
-      .select(`
+      .select(
+        `
         *,
         variants:product_variants(*),
         media:product_media(*),
         seller:sellers(business_name, slug, dispatch_address)
-      `)
+      `,
+      )
       .eq("seller_id", data.sellerId)
       .order("created_at", { ascending: false });
 
@@ -213,11 +215,9 @@ export const archiveProductServerFn = createServerFn({ method: "POST" })
  * Server Function: Admin catalogue moderation action
  */
 export const moderateProductServerFn = createServerFn({ method: "POST" })
-  .validator((data: {
-    productId: string;
-    toStatus: ProductStatus;
-    reason?: string | undefined;
-  }) => data)
+  .validator(
+    (data: { productId: string; toStatus: ProductStatus; reason?: string | undefined }) => data,
+  )
   .handler(async ({ data }) => {
     const { data: currentProduct, error: fetchErr } = await (supabaseAdmin.from("products") as any)
       .select("status, title, seller_id")
@@ -267,10 +267,12 @@ export const getCategoryAttributesServerFn = createServerFn({ method: "GET" })
   .validator((data: { categoryId: string }) => data)
   .handler(async ({ data }) => {
     const { data: attrs, error } = await (supabaseAdmin.from("category_attributes") as any)
-      .select(`
+      .select(
+        `
         *,
         options:attribute_options(*)
-      `)
+      `,
+      )
       .eq("category_id", data.categoryId)
       .order("sort_order", { ascending: true });
 
@@ -373,19 +375,20 @@ export async function saveProductTransactional(payload: SaveProductInput): Promi
   const productId = savedProduct.id as string;
 
   // 3. Upsert Variants
-  const variantsToPersist = payload.variants && payload.variants.length > 0
-    ? payload.variants
-    : [
-        {
-          title: "Standard",
-          sku: payload.sku || `SKU-${Date.now()}`,
-          price: payload.price,
-          salePrice: payload.salePrice,
-          stockQuantity: payload.stockQuantity ?? 1,
-          weightKgOverride: payload.weightKg,
-          attributes: {},
-        },
-      ];
+  const variantsToPersist =
+    payload.variants && payload.variants.length > 0
+      ? payload.variants
+      : [
+          {
+            title: "Standard",
+            sku: payload.sku || `SKU-${Date.now()}`,
+            price: payload.price,
+            salePrice: payload.salePrice,
+            stockQuantity: payload.stockQuantity ?? 1,
+            weightKgOverride: payload.weightKg,
+            attributes: {},
+          },
+        ];
 
   for (const v of variantsToPersist) {
     const variantData: any = {
@@ -402,21 +405,16 @@ export async function saveProductTransactional(payload: SaveProductInput): Promi
     };
 
     if (v.id) {
-      await (supabaseAdmin.from("product_variants") as any)
-        .update(variantData)
-        .eq("id", v.id);
+      await (supabaseAdmin.from("product_variants") as any).update(variantData).eq("id", v.id);
     } else {
-      await (supabaseAdmin.from("product_variants") as any)
-        .insert(variantData);
+      await (supabaseAdmin.from("product_variants") as any).insert(variantData);
     }
   }
 
   // 4. Save Media with primary image enforcement
   if (payload.media && payload.media.length > 0) {
     // Delete existing media to maintain clean order
-    await (supabaseAdmin.from("product_media") as any)
-      .delete()
-      .eq("product_id", productId);
+    await (supabaseAdmin.from("product_media") as any).delete().eq("product_id", productId);
 
     let hasPrimary = false;
     const mediaInserts = payload.media.map((m, idx) => {
@@ -447,8 +445,7 @@ export async function saveProductTransactional(payload: SaveProductInput): Promi
 export async function getProductByIdOrSlug(idOrSlug: string): Promise<FullProduct | null> {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
 
-  const query = (supabase.from("products") as any)
-    .select(`
+  const query = (supabase.from("products") as any).select(`
       *,
       variants:product_variants(*),
       media:product_media(*),
@@ -493,7 +490,8 @@ export async function createProductWithVariants(payload: {
   media?: ProductMediaInput[] | undefined;
 }): Promise<FullProduct> {
   const basePrice = payload.price ?? (payload.variants[0]?.price || 199);
-  const baseStock = payload.stockQuantity ?? (payload.variants.reduce((acc, v) => acc + v.stockQuantity, 0) || 1);
+  const baseStock =
+    payload.stockQuantity ?? (payload.variants.reduce((acc, v) => acc + v.stockQuantity, 0) || 1);
 
   return saveProductTransactional({
     sellerId: payload.sellerId,
@@ -506,7 +504,9 @@ export async function createProductWithVariants(payload: {
     salePrice: payload.salePrice,
     stockQuantity: baseStock,
     status: payload.status ?? "DRAFT",
-    media: payload.media ?? (payload.variants[0]?.images?.map((url, i) => ({ url, isPrimary: i === 0 })) || []),
+    media:
+      payload.media ??
+      (payload.variants[0]?.images?.map((url, i) => ({ url, isPrimary: i === 0 })) || []),
     variants: payload.variants.map((v) => ({
       title: v.title,
       sku: v.sku,
@@ -540,21 +540,17 @@ export async function uploadProductMedia(file: File, sellerId: string): Promise<
   const fileExt = file.name.split(".").pop() || (isVideo ? "mp4" : "jpg");
   const fileName = `${sellerId}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
-    .from("product-media")
-    .upload(fileName, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+  const { data, error } = await supabase.storage.from("product-media").upload(fileName, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
 
   if (error) {
     console.error("Error uploading product media:", error);
     throw error;
   }
 
-  const { data: publicUrlData } = supabase.storage
-    .from("product-media")
-    .getPublicUrl(data.path);
+  const { data: publicUrlData } = supabase.storage.from("product-media").getPublicUrl(data.path);
 
   return publicUrlData.publicUrl;
 }
@@ -562,7 +558,9 @@ export async function uploadProductMedia(file: File, sellerId: string): Promise<
 /**
  * Fetch active store departments for navigation
  */
-export async function getDepartments(): Promise<Database["public"]["Tables"]["departments"]["Row"][]> {
+export async function getDepartments(): Promise<
+  Database["public"]["Tables"]["departments"]["Row"][]
+> {
   const { data, error } = await supabase
     .from("departments")
     .select("*")
@@ -579,7 +577,9 @@ export async function getDepartments(): Promise<Database["public"]["Tables"]["de
 /**
  * Fetch curated product collections
  */
-export async function getCollections(): Promise<Database["public"]["Tables"]["collections"]["Row"][]> {
+export async function getCollections(): Promise<
+  Database["public"]["Tables"]["collections"]["Row"][]
+> {
   const { data, error } = await supabase
     .from("collections")
     .select("*")

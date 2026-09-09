@@ -40,7 +40,6 @@ export function sanitizeForLogging(value: string): string {
   return cleaned;
 }
 
-
 /**
  * Recursively redact sensitive fields from an object or array
  */

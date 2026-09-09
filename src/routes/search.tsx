@@ -27,7 +27,8 @@ export const Route = createFileRoute("/search")({
       { property: "og:title", content: "Search the Mela — Indian Shopping Mela" },
       {
         property: "og:description",
-        content: "Filter thousands of Indian products by price, size, colour, fabric and seller location.",
+        content:
+          "Filter thousands of Indian products by price, size, colour, fabric and seller location.",
       },
     ],
   }),
@@ -39,7 +40,6 @@ function SearchPage() {
   const { products, total } = Route.useLoaderData();
   const category = cat ? CATEGORIES.find((c) => c.slug === cat) : undefined;
   const resultCount = total;
-
 
   return (
     <ShopLayout>
@@ -56,9 +56,13 @@ function SearchPage() {
           <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               {q ? (
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-rani">Search results</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-rani">
+                  Search results
+                </p>
               ) : (
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-rani">Browse the mela</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-rani">
+                  Browse the mela
+                </p>
               )}
               <h1 className="mt-1 font-display text-3xl font-bold uppercase tracking-tight text-primary md:text-4xl">
                 {q ? `“${q}”` : "All products"}

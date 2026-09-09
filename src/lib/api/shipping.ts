@@ -24,7 +24,8 @@ export interface ShippingLabelResult {
   carrier: string;
 }
 
-export type TrackingStatus = "MANIFESTED" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "EXCEPTION";
+export type TrackingStatus =
+  "MANIFESTED" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED" | "EXCEPTION";
 
 export interface TrackingEvent {
   timestamp: string;
@@ -51,7 +52,7 @@ export interface IShippingProvider {
     destination: Address,
     parcel: ParcelDetails,
     customerName: string,
-    customerPhone?: string
+    customerPhone?: string,
   ): Promise<ShippingLabelResult>;
   getTracking(trackingNumber: string): Promise<TrackingInfo>;
   cancelShipment(consignmentId: string): Promise<boolean>;
@@ -72,7 +73,11 @@ export class AusPostShippingProvider implements IShippingProvider {
     this.accountNumber = env["AUSPOST_ACCOUNT_NUMBER"] ?? "";
   }
 
-  async getQuote(origin: Address, destination: Address, parcel: ParcelDetails): Promise<ShippingQuote[]> {
+  async getQuote(
+    origin: Address,
+    destination: Address,
+    parcel: ParcelDetails,
+  ): Promise<ShippingQuote[]> {
     if (!this.apiKey) {
       // Domestic Australian postage rate calculation based on weight brackets
       const weight = Math.max(parcel.weightKg, 0.5);
@@ -99,7 +104,7 @@ export class AusPostShippingProvider implements IShippingProvider {
         `https://digitalapi.auspost.com.au/postage/parcel/domestic/calculate.json?from_postcode=${origin.postcode}&to_postcode=${destination.postcode}&length=${parcel.lengthCm ?? 20}&width=${parcel.widthCm ?? 15}&height=${parcel.heightCm ?? 10}&weight=${parcel.weightKg}&service_code=AUS_PARCEL_REGULAR`,
         {
           headers: { "AUTH-KEY": this.apiKey },
-        }
+        },
       );
 
       if (!response.ok) throw new Error(`AusPost API returned status ${response.status}`);
@@ -134,7 +139,7 @@ export class AusPostShippingProvider implements IShippingProvider {
     destination: Address,
     parcel: ParcelDetails,
     customerName: string,
-    customerPhone?: string
+    customerPhone?: string,
   ): Promise<ShippingLabelResult> {
     const trackingNumber = `AP-AU-${Date.now().toString().slice(-8)}`;
     return {
@@ -177,8 +182,13 @@ export class AusPostShippingProvider implements IShippingProvider {
  * Main Shipping Service: Calculates quotes per seller package
  */
 export async function calculateMultiSellerShippingQuotes(
-  sellerOrigins: { sellerId: string; address: Address; parcel: ParcelDetails; itemsTotal: number }[],
-  destination: Address
+  sellerOrigins: {
+    sellerId: string;
+    address: Address;
+    parcel: ParcelDetails;
+    itemsTotal: number;
+  }[],
+  destination: Address,
 ): Promise<{ sellerId: string; quote: ShippingQuote }[]> {
   const provider = new AusPostShippingProvider();
   const results: { sellerId: string; quote: ShippingQuote }[] = [];
@@ -226,4 +236,3 @@ export const getShipmentTrackingServerFn = createServerFn({ method: "POST" })
     const provider = new AusPostShippingProvider();
     return provider.getTracking(data.trackingNumber);
   });
-

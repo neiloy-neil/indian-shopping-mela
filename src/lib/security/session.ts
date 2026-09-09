@@ -17,7 +17,12 @@ export interface SessionRevocationResult {
  */
 export async function revokeUserSessions(
   userId: string,
-  reason: "PASSWORD_CHANGED" | "ROLE_CHANGED" | "ACCOUNT_SUSPENDED" | "SECURITY_BREACH_SUSPECTED" | "MANUAL_ADMIN_REVOCATION"
+  reason:
+    | "PASSWORD_CHANGED"
+    | "ROLE_CHANGED"
+    | "ACCOUNT_SUSPENDED"
+    | "SECURITY_BREACH_SUSPECTED"
+    | "MANUAL_ADMIN_REVOCATION",
 ): Promise<SessionRevocationResult> {
   const revokedAt = new Date().toISOString();
 
@@ -25,7 +30,9 @@ export async function revokeUserSessions(
   try {
     const { error } = await (supabaseAdmin.auth.admin as any).signOut(userId, "all");
     if (error) {
-      console.warn(`[Security] Could not complete admin auth signout for user ${userId}: ${error.message}`);
+      console.warn(
+        `[Security] Could not complete admin auth signout for user ${userId}: ${error.message}`,
+      );
     }
   } catch (err: any) {
     console.warn(`[Security] Exception during session signOut: ${err.message}`);

@@ -64,7 +64,7 @@ export default {
               "content-type": "application/json",
               "X-Content-Type-Options": "nosniff",
             },
-          }
+          },
         );
       }
 

@@ -17,7 +17,12 @@ export const Route = createFileRoute("/seller/$slug")({
   },
   head: ({ loaderData }) => {
     if (!loaderData || !loaderData.seller) {
-      return { meta: [{ title: "Seller unavailable — Indian Shopping Mela" }, { name: "robots", content: "noindex" }] };
+      return {
+        meta: [
+          { title: "Seller unavailable — Indian Shopping Mela" },
+          { name: "robots", content: "noindex" },
+        ],
+      };
     }
     const s = loaderData.seller;
     const t = `${s.name} — Indian Shopping Mela Seller`;
@@ -35,9 +40,21 @@ export const Route = createFileRoute("/seller/$slug")({
 });
 
 const REVIEWS = [
-  { name: "Anjali M., Melbourne", rating: 5, text: "Beautiful quality and it arrived in three days. Packaging was gorgeous." },
-  { name: "Ravi K., Perth", rating: 4, text: "Great range and honest sizing help over chat. Will order again for Diwali." },
-  { name: "Simran D., Sydney", rating: 5, text: "Exactly like the photos. Loved that it shipped from within Australia." },
+  {
+    name: "Anjali M., Melbourne",
+    rating: 5,
+    text: "Beautiful quality and it arrived in three days. Packaging was gorgeous.",
+  },
+  {
+    name: "Ravi K., Perth",
+    rating: 4,
+    text: "Great range and honest sizing help over chat. Will order again for Diwali.",
+  },
+  {
+    name: "Simran D., Sydney",
+    rating: 5,
+    text: "Exactly like the photos. Loved that it shipped from within Australia.",
+  },
 ];
 
 function SellerPage() {
@@ -45,8 +62,6 @@ function SellerPage() {
   const [following, setFollowing] = useState(false);
 
   if (!seller) return null;
-
-
 
   const chips = Array.from(new Set(products.map((p) => p.subcategory))).slice(0, 6);
 
@@ -60,7 +75,6 @@ function SellerPage() {
     });
   };
 
-
   return (
     <ShopLayout>
       <div className="relative h-32 overflow-hidden bg-primary mandala sm:h-40 md:h-56">
@@ -72,7 +86,10 @@ function SellerPage() {
           height={900}
           className="size-full object-cover object-center opacity-35"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/30 via-primary/10 to-primary/80" aria-hidden />
+        <div
+          className="absolute inset-0 bg-gradient-to-b from-primary/30 via-primary/10 to-primary/80"
+          aria-hidden
+        />
       </div>
 
       <div className="ism-container">
@@ -82,7 +99,6 @@ function SellerPage() {
               <Store size={28} className="text-primary md:hidden" />
               <Store size={32} className="hidden text-primary md:block" />
             </div>
-
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -94,12 +110,9 @@ function SellerPage() {
                 </div>
                 <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
                   <button
-
                     onClick={toggleFollow}
                     className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-sm px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide transition-colors sm:flex-none sm:px-5 sm:text-xs ${
-                      following
-                        ? "border border-rani text-rani"
-                        : "bg-rani text-rani-foreground"
+                      following ? "border border-rani text-rani" : "bg-rani text-rani-foreground"
                     }`}
                   >
                     <Heart size={13} className={following ? "fill-rani" : ""} />
@@ -113,7 +126,6 @@ function SellerPage() {
                     Search store
                   </Link>
                 </div>
-
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -164,7 +176,10 @@ function SellerPage() {
         </div>
 
         <div className="border-t border-border py-10">
-          <SectionHead title="Store reviews" subtitle={`${seller.reviews} verified customer reviews`} />
+          <SectionHead
+            title="Store reviews"
+            subtitle={`${seller.reviews} verified customer reviews`}
+          />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {REVIEWS.map((r) => (
               <div key={r.name} className="rounded-md border border-border bg-card p-4">

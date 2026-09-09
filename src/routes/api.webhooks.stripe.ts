@@ -150,7 +150,10 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
                 .eq("id", payment.order_id)
                 .maybeSingle();
 
-              const customerEmail = orderDetails?.customer_email || paymentIntent.receipt_email || paymentIntent.metadata?.["customer_email"];
+              const customerEmail =
+                orderDetails?.customer_email ||
+                paymentIntent.receipt_email ||
+                paymentIntent.metadata?.["customer_email"];
               const customerName = orderDetails?.shipping_address?.full_name || "Valued Customer";
 
               if (customerEmail) {
@@ -166,7 +169,10 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
                 });
               }
             } catch (emailErr: any) {
-              console.warn("[Stripe Webhook] Order confirmation email non-blocking notice:", emailErr.message);
+              console.warn(
+                "[Stripe Webhook] Order confirmation email non-blocking notice:",
+                emailErr.message,
+              );
             }
           }
           break;
@@ -294,4 +300,3 @@ export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
 export const Route = createFileRoute("/api/webhooks/stripe")({
   component: () => null,
 });
-

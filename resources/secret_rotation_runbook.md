@@ -1,9 +1,11 @@
 # Indian Shopping Mela — Production Secret Rotation Runbook
 
 ## 1. Overview & Scope
+
 This runbook provides emergency and routine operational procedures for rotating critical credentials, API keys, and signing secrets across all production integrations of Indian Shopping Mela (ISM).
 
 Target Secrets:
+
 1. **Supabase Service Role Key & Database Password**
 2. **Stripe Secret Key & Webhook Signing Secret (`whsec_...`)**
 3. **Brevo Email API Key (`BREVO_API_KEY`)**
@@ -13,6 +15,7 @@ Target Secrets:
 ---
 
 ## 2. Pre-Rotation Checklist
+
 - [ ] Schedule rotation during low-traffic maintenance window (e.g. 02:00–04:00 AEST).
 - [ ] Confirm access to Cloudflare Workers / Nitro deployment dashboard and environment variable manager.
 - [ ] Notify On-Call Operations and Release Owner.
@@ -23,6 +26,7 @@ Target Secrets:
 ## 3. Secret Rotation Procedures
 
 ### 3.1 Stripe Secret Key & Webhook Signing Secret
+
 1. **Generate New Webhook Secret**:
    - Navigate to Stripe Dashboard → Developers → Webhooks → Endpoint `https://indianshoppingmela.com.au/api/webhooks/stripe`.
    - Click "Roll Secret" with a 24-hour expiration window for the old secret.
@@ -42,6 +46,7 @@ Target Secrets:
 ---
 
 ### 3.2 Supabase Service Role Key & JWT Secret
+
 1. **Rotate Service Role Key**:
    - Navigate to Supabase Project Settings → API.
    - Click "Generate new Service Role key".
@@ -56,6 +61,7 @@ Target Secrets:
 ---
 
 ### 3.3 Brevo (Sendinblue) Email API Key
+
 1. **Create New API Key**:
    - Log in to Brevo Dashboard → SMTP & API → API Keys → Generate a new API key (`ISM_PROD_BREVO_KEY_YYYYMMDD`).
 2. **Deploy Updated Secret**:
@@ -69,6 +75,7 @@ Target Secrets:
 ---
 
 ### 3.4 Australia Post Shipping Credentials
+
 1. **Generate New API Credentials**:
    - Access Australia Post Developer Portal → Manage Apps → Generate New Key/Secret.
 2. **Update Environment**:
@@ -81,6 +88,7 @@ Target Secrets:
 ---
 
 ## 4. Post-Rotation Audit & Sign-off
+
 - [ ] Check server logs for unauthorized API exceptions (`401`, `403`).
 - [ ] Confirm no plaintext secrets or credentials leaked into Git history or logs.
 - [ ] Record rotation event, timestamp, and operator in security audit log.

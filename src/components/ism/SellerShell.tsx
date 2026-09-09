@@ -1,4 +1,10 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useEffect, useState } from "react";
+import {
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
 import { Link } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -42,7 +48,9 @@ function SidebarBrand() {
   return (
     <div className="rounded-sm bg-sidebar-accent p-3">
       <Logo compact onDark />
-      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-gold">Seller Centre</p>
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
+        Seller Centre
+      </p>
       <p className="mt-1 text-sm font-semibold text-sidebar-foreground">Mumbai Mirror Boutique</p>
       <p className="text-[11px] text-sidebar-foreground/70">Harris Park, NSW · Verified</p>
     </div>
@@ -109,7 +117,11 @@ function SidebarNav({
         <Link to="/sell/team" onClick={onNavigate} className={itemCls(active === "team")}>
           <Users size={15} /> Team & Permissions
         </Link>
-        <Link to="/sell/onboarding" onClick={onNavigate} className={itemCls(active === "onboarding")}>
+        <Link
+          to="/sell/onboarding"
+          onClick={onNavigate}
+          className={itemCls(active === "onboarding")}
+        >
           <UserPlus size={15} /> Become a Seller
         </Link>
       </div>
@@ -176,7 +188,11 @@ export function SellerShell({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <SidebarNav active={active} onSelect={onSelect} onNavigate={() => setDrawerOpen(false)} />
+              <SidebarNav
+                active={active}
+                onSelect={onSelect}
+                onNavigate={() => setDrawerOpen(false)}
+              />
             </div>
             <Link
               to="/"
@@ -351,7 +367,9 @@ export function Pill({
     done: "bg-muted text-muted-foreground",
   } as const;
   return (
-    <span className={`inline-block rounded-sm px-2 py-1 text-[10px] font-bold uppercase ${map[tone]}`}>
+    <span
+      className={`inline-block rounded-sm px-2 py-1 text-[10px] font-bold uppercase ${map[tone]}`}
+    >
       {label}
     </span>
   );
@@ -372,7 +390,9 @@ export function Badge({
     primary: "bg-primary/10 text-primary",
   } as const;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${map[tone]}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${map[tone]}`}
+    >
       {children}
     </span>
   );
@@ -417,7 +437,12 @@ export function Field({
   return (
     <div className={className}>
       <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-        {label} {required ? <span className="text-rani">*</span> : <span className="normal-case text-muted-foreground/60">(optional)</span>}
+        {label}{" "}
+        {required ? (
+          <span className="text-rani">*</span>
+        ) : (
+          <span className="normal-case text-muted-foreground/60">(optional)</span>
+        )}
       </label>
       <input
         {...rest}

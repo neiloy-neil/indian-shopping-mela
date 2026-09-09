@@ -32,7 +32,10 @@ export interface SsrfValidationResult {
 /**
  * Validate a remote URL to prevent SSRF vulnerabilities
  */
-export function validateRemoteUrl(rawUrl: string, allowHttpForTesting: boolean = false): SsrfValidationResult {
+export function validateRemoteUrl(
+  rawUrl: string,
+  allowHttpForTesting: boolean = false,
+): SsrfValidationResult {
   if (!rawUrl || typeof rawUrl !== "string") {
     return { safe: false, reason: "Missing or invalid URL parameter" };
   }
