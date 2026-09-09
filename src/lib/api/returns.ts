@@ -443,7 +443,10 @@ export async function executeReturnRefund(
       );
       stripeRefundId = stripeRefund.id;
     } catch (stripeErr: any) {
-      if (!isProduction && (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))) {
+      if (
+        !isProduction &&
+        (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))
+      ) {
         stripeRefundId = `re_dev_${Date.now()}`;
       } else {
         console.error("Stripe refund error:", stripeErr.message);

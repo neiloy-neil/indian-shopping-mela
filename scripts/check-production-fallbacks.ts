@@ -33,7 +33,8 @@ const FORBIDDEN_RULES: Array<{
   {
     name: "Demo Customer Fallback in Routes",
     regex: /["']cust_demo["']/,
-    reason: "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
+    reason:
+      "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
     excludeFiles: ["ism-ops.ts"],
   },
   {
@@ -44,7 +45,8 @@ const FORBIDDEN_RULES: Array<{
   {
     name: "Fake Australia Post Consignment Generator",
     regex: /AP-AU-\${Math\.random/,
-    reason: "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
+    reason:
+      "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
   },
   {
     name: "Optimistic Return Swallow in Production",
@@ -64,7 +66,8 @@ const FORBIDDEN_RULES: Array<{
   {
     name: "Fake Payout Transfer Simulation",
     regex: /tr_demo|tr_mock|tr_fake/i,
-    reason: "Payout transfers must be generated through real Stripe Connect API with real transfer IDs.",
+    reason:
+      "Payout transfers must be generated through real Stripe Connect API with real transfer IDs.",
   },
   {
     name: "Fake Refund Transaction ID",

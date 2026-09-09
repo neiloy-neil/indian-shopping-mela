@@ -476,7 +476,9 @@ console.log("\n18. Testing Database Cart Ownership & Guest Isolation (T125-T135)
 }
 
 // 19. ATOMIC ORDER PREPARATION ROLLBACK ON FAILURE (T139, T157)
-console.log("\n19. Testing Atomic Order Preparation Rollback on Mid-Transaction Failure (T139, T157)...");
+console.log(
+  "\n19. Testing Atomic Order Preparation Rollback on Mid-Transaction Failure (T139, T157)...",
+);
 {
   const ordersState: Array<{ id: string }> = [];
   const subOrdersState: Array<{ id: string; masterOrderId: string }> = [];
@@ -572,7 +574,10 @@ console.log("\n20. Testing Stripe Webhook Recovery & Browser Drop-off (T177, T17
   }
 
   const attempt1 = processWebhookWithRetry("evt_retry_test_999");
-  assert(attempt1.status === "DB_TRANSIENT_ERROR", "First webhook attempt fails gracefully on DB error");
+  assert(
+    attempt1.status === "DB_TRANSIENT_ERROR",
+    "First webhook attempt fails gracefully on DB error",
+  );
 
   const attempt2 = processWebhookWithRetry("evt_retry_test_999");
   assert(
@@ -589,7 +594,7 @@ console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T1
   const totalCustomerPaidCents = 25895; // $258.95
   const commissionRate = 0.12; // 12%
   const commissionCents = Math.round(orderAmountCents * commissionRate); // 2988 cents ($29.88)
-  const netSellerCreditCents = (orderAmountCents + shippingCents) - commissionCents; // 22907 cents ($229.07)
+  const netSellerCreditCents = orderAmountCents + shippingCents - commissionCents; // 22907 cents ($229.07)
   const gstCents = Math.round(totalCustomerPaidCents / 11); // 2354 cents ($23.54)
 
   const ledgerEntries = [
@@ -602,15 +607,15 @@ console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T1
   const totalCredits = netSellerCreditCents + commissionCents;
   const isBalanced = totalCustomerPaidCents === totalCredits;
 
-  assert(isBalanced, "Order double-entry ledger balances exactly (Customer Payment = Seller Credit + Commission)");
+  assert(
+    isBalanced,
+    "Order double-entry ledger balances exactly (Customer Payment = Seller Credit + Commission)",
+  );
   assert(
     totalCustomerPaidCents === 25895,
     "Integer cents arithmetic eliminates floating-point rounding errors",
   );
-  assert(
-    gstCents === 2354,
-    "1/11th Australian GST component is accurately recorded in ledger",
-  );
+  assert(gstCents === 2354, "1/11th Australian GST component is accurately recorded in ledger");
 }
 
 // 22. MULTI-SELLER SHIPPING & DELIVERY CLOCK ANCHORING (T193-T211)
@@ -628,7 +633,10 @@ console.log("\n22. Testing Multi-Seller Shipping Rates & Delivery Clock Anchorin
 
   assert(pkgSydney === 0.0, "Package exceeding $100 unlocks free shipping");
   assert(pkgMelbourne === 9.95, "Standard parcel post under 1kg is $9.95 AUD");
-  assert(pkgBrisbaneHeavy === 13.45, "Heavy parcel (2.0kg) calculates weight bracket addition ($13.45 AUD)");
+  assert(
+    pkgBrisbaneHeavy === 13.45,
+    "Heavy parcel (2.0kg) calculates weight bracket addition ($13.45 AUD)",
+  );
 
   // Delivery Event Clock Anchoring
   const deliveryDate = new Date("2026-09-01T12:00:00Z");
@@ -638,12 +646,17 @@ console.log("\n22. Testing Multi-Seller Shipping Rates & Delivery Clock Anchorin
   const checkReturnDate = new Date("2026-09-07T12:00:00Z"); // Day 6
   const checkPayoutDate = new Date("2026-09-16T12:00:00Z"); // Day 15
 
-  assert(checkReturnDate <= returnWindowExpiry, "Customer within 7-day delivery window is eligible for change-of-mind return");
+  assert(
+    checkReturnDate <= returnWindowExpiry,
+    "Customer within 7-day delivery window is eligible for change-of-mind return",
+  );
   assert(checkPayoutDate >= payoutMaturation, "Seller payout matures 14 days post-delivery");
 }
 
 // 23. MULTI-SELLER FULFILMENT, DISPATCH SLA & TENANT ISOLATION (T212-T227)
-console.log("\n23. Testing Multi-Seller Fulfilment, SLA Deadlines & Tenant Isolation (T212-T227)...");
+console.log(
+  "\n23. Testing Multi-Seller Fulfilment, SLA Deadlines & Tenant Isolation (T212-T227)...",
+);
 {
   interface MockSubOrder {
     id: string;
@@ -683,22 +696,34 @@ console.log("\n23. Testing Multi-Seller Fulfilment, SLA Deadlines & Tenant Isola
 
   // 1. Seller A transitions: NEW_ORDER -> PROCESSING -> PACKED -> SHIPPED
   subOrderSellerA.status = "PROCESSING";
-  assert(subOrderSellerA.status === "PROCESSING", "Seller A successfully accepts sub-order into PROCESSING state");
+  assert(
+    subOrderSellerA.status === "PROCESSING",
+    "Seller A successfully accepts sub-order into PROCESSING state",
+  );
   subOrderSellerA.status = "PACKED";
   assert(subOrderSellerA.status === "PACKED", "Seller A marks sub-order PACKED");
   subOrderSellerA.status = "SHIPPED";
   subOrderSellerA.trackingNumber = "AP-AU-99182736";
-  assert(subOrderSellerA.status === "SHIPPED" && !!subOrderSellerA.trackingNumber, "Seller A generates Australia Post label and dispatches package");
+  assert(
+    subOrderSellerA.status === "SHIPPED" && !!subOrderSellerA.trackingNumber,
+    "Seller A generates Australia Post label and dispatches package",
+  );
 
   // 2. Tenant Isolation: Seller A cannot mutate Seller B's sub-order
   function canSellerMutateSubOrder(actingSellerId: string, targetSubOrder: MockSubOrder): boolean {
     return actingSellerId === targetSubOrder.sellerId;
   }
-  assert(!canSellerMutateSubOrder("seller_sydney", subOrderSellerB), "Seller Sydney is strictly blocked from mutating Seller Melbourne's sub-order");
+  assert(
+    !canSellerMutateSubOrder("seller_sydney", subOrderSellerB),
+    "Seller Sydney is strictly blocked from mutating Seller Melbourne's sub-order",
+  );
 
   // 3. Seller B transitions: CANCELLED due to out-of-stock
   subOrderSellerB.status = "CANCELLED";
-  assert(subOrderSellerB.status === "CANCELLED", "Seller Melbourne cancels sub-order independently without impacting other sellers");
+  assert(
+    subOrderSellerB.status === "CANCELLED",
+    "Seller Melbourne cancels sub-order independently without impacting other sellers",
+  );
 
   // 4. SLA Deadline & Late Seller Alert detection
   function isSlaBreached(so: MockSubOrder, currentTime: Date): boolean {
@@ -708,10 +733,7 @@ console.log("\n23. Testing Multi-Seller Fulfilment, SLA Deadlines & Tenant Isola
     );
   }
 
-  const sellerAOverdue = isSlaBreached(
-    { ...subOrderSellerA, status: "PROCESSING" },
-    now,
-  );
+  const sellerAOverdue = isSlaBreached({ ...subOrderSellerA, status: "PROCESSING" }, now);
   const sellerCOverdue = isSlaBreached(subOrderSellerC, now);
 
   assert(sellerAOverdue, "SLA breach detected for sub-order exceeding 48h dispatch deadline");
@@ -719,7 +741,9 @@ console.log("\n23. Testing Multi-Seller Fulfilment, SLA Deadlines & Tenant Isola
 }
 
 // 24. MULTI-ACTOR CANCELLATIONS, RESTOCKING & COMPENSATING LEDGER (T228-T237)
-console.log("\n24. Testing Multi-Actor Cancellations, Restocking & Ledger Compensations (T228-T237)...");
+console.log(
+  "\n24. Testing Multi-Actor Cancellations, Restocking & Ledger Compensations (T228-T237)...",
+);
 {
   interface SubOrderState {
     id: string;
@@ -754,11 +778,19 @@ console.log("\n24. Testing Multi-Actor Cancellations, Restocking & Ledger Compen
   }
 
   // 1. Eligibility assertions
-  assert(validateCancellationEligibility(packageA.status), "PROCESSING package is eligible for cancellation");
-  assert(!validateCancellationEligibility(packageB.status), "SHIPPED package is ineligible for direct cancellation (must use returns)");
+  assert(
+    validateCancellationEligibility(packageA.status),
+    "PROCESSING package is eligible for cancellation",
+  );
+  assert(
+    !validateCancellationEligibility(packageB.status),
+    "SHIPPED package is ineligible for direct cancellation (must use returns)",
+  );
 
   // 2. Cancellation execution: refund calculation & label cancellation
-  const refundAmountAud = packageA.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) + packageA.shippingCost;
+  const refundAmountAud =
+    packageA.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0) +
+    packageA.shippingCost;
   const refundAmountCents = Math.round(refundAmountAud * 100);
 
   packageA.status = "CANCELLED";
@@ -767,11 +799,20 @@ console.log("\n24. Testing Multi-Actor Cancellations, Restocking & Ledger Compen
   }
 
   assert(packageA.status === "CANCELLED", "Package A status successfully updated to CANCELLED");
-  assert(packageA.labelStatus === "CANCELLED", "Unused shipping label for Package A is marked CANCELLED");
-  assert(refundAmountCents === 9995, "Compensating refund calculates exact integer cents ($99.95 AUD = 9995 cents)");
+  assert(
+    packageA.labelStatus === "CANCELLED",
+    "Unused shipping label for Package A is marked CANCELLED",
+  );
+  assert(
+    refundAmountCents === 9995,
+    "Compensating refund calculates exact integer cents ($99.95 AUD = 9995 cents)",
+  );
 
   // 3. Isolated multi-seller cancellation
-  assert(packageB.status === "SHIPPED", "Package B remains in SHIPPED status unaffected by Package A cancellation");
+  assert(
+    packageB.status === "SHIPPED",
+    "Package B remains in SHIPPED status unaffected by Package A cancellation",
+  );
 
   // 4. Multi-actor reason requirement
   interface CancellationAudit {
@@ -788,7 +829,10 @@ console.log("\n24. Testing Multi-Actor Cancellations, Restocking & Ledger Compen
     refundAmountCents,
   };
 
-  assert(auditLog.actorRole === "CUSTOMER" && auditLog.reasonCode === "CUSTOMER_REQUEST", "Audit log records customer cancellation actor and reason code");
+  assert(
+    auditLog.actorRole === "CUSTOMER" && auditLog.reasonCode === "CUSTOMER_REQUEST",
+    "Audit log records customer cancellation actor and reason code",
+  );
 }
 
 // 25. CANONICAL RETURNS, EVIDENCE, DISPUTE HOLDS & REFUNDS (T238-T257)
@@ -827,24 +871,39 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
 
   const disputeHoldCents = Math.round(returnRecord.refundAmount * 100);
   assert(returnRecord.status === "REQUESTED", "Return record initialized in REQUESTED state");
-  assert(returnRecord.items.length === 1 && returnRecord.items[0]!.condition === "PENDING_INSPECTION", "Canonical return_items created with PENDING_INSPECTION condition");
-  assert(disputeHoldCents === 14900, "Atomic dispute hold created for seller ledger matching refund amount (14900 cents)");
+  assert(
+    returnRecord.items.length === 1 && returnRecord.items[0]!.condition === "PENDING_INSPECTION",
+    "Canonical return_items created with PENDING_INSPECTION condition",
+  );
+  assert(
+    disputeHoldCents === 14900,
+    "Atomic dispute hold created for seller ledger matching refund amount (14900 cents)",
+  );
 
   // 2. Return Approval & Return Label Generation
   returnRecord.status = "APPROVED";
   returnRecord.returnTrackingNumber = "RET-AP-94827104";
-  assert(returnRecord.status === "APPROVED" && !!returnRecord.returnTrackingNumber, "Return approved with Australia Post return tracking number");
+  assert(
+    returnRecord.status === "APPROVED" && !!returnRecord.returnTrackingNumber,
+    "Return approved with Australia Post return tracking number",
+  );
 
   // 3. Return Receipt & Condition Inspection
   returnRecord.status = "RECEIVED";
   returnRecord.items[0]!.condition = "PERFECT";
-  assert(returnRecord.status === "RECEIVED" && returnRecord.items[0]!.condition === "PERFECT", "Return package received and item marked PERFECT condition");
+  assert(
+    returnRecord.status === "RECEIVED" && returnRecord.items[0]!.condition === "PERFECT",
+    "Return package received and item marked PERFECT condition",
+  );
 
   // 4. Refund Execution & Idempotency Key
   const idempotencyKey = `return_refund_${returnRecord.id}`;
   returnRecord.status = "REFUNDED";
 
-  assert(idempotencyKey === "return_refund_ret_canonical_881", "Stripe refund uses deterministic idempotency key");
+  assert(
+    idempotencyKey === "return_refund_ret_canonical_881",
+    "Stripe refund uses deterministic idempotency key",
+  );
   assert(returnRecord.status === "REFUNDED", "Return lifecycle completed in REFUNDED state");
 }
 
@@ -929,14 +988,26 @@ console.log("\n26. Testing Stripe Connect Seller Payouts & 14-Day Maturity (T258
     now,
   );
 
-  assert(result.eligible.length === 1 && result.eligible[0]!.id === "so_matured_01", "Only 14-day matured delivered sub-order is eligible for payout");
-  assert(result.held.length === 2, "Unmatured delivery and active return hold packages are kept in pending clearance");
-  assert(result.netPayoutCents === 18995, "Net payout amount equals exact integer cents ($189.95 AUD = 18995 cents)");
+  assert(
+    result.eligible.length === 1 && result.eligible[0]!.id === "so_matured_01",
+    "Only 14-day matured delivered sub-order is eligible for payout",
+  );
+  assert(
+    result.held.length === 2,
+    "Unmatured delivery and active return hold packages are kept in pending clearance",
+  );
+  assert(
+    result.netPayoutCents === 18995,
+    "Net payout amount equals exact integer cents ($189.95 AUD = 18995 cents)",
+  );
 
   // Payout transfer batch idempotency
   const payoutBatchId = "PO-99182741";
   const transferIdempotencyKey = `payout_transfer_${payoutBatchId}`;
-  assert(transferIdempotencyKey === "payout_transfer_PO-99182741", "Stripe Connect transfer uses deterministic batch idempotency key");
+  assert(
+    transferIdempotencyKey === "payout_transfer_PO-99182741",
+    "Stripe Connect transfer uses deterministic batch idempotency key",
+  );
 }
 
 // 27. BULK PRODUCT CSV/XLSX PARSER, SSRF DEFENSE & CHUNKING (T274-T308)
@@ -963,7 +1034,10 @@ console.log("\n27. Testing Bulk Product Upload, SSRF Defense & Validation (T274-
         hostname.endsWith(".internal") ||
         hostname.endsWith(".local")
       ) {
-        return { safe: false, reason: "Access to private or local network addresses is strictly prohibited." };
+        return {
+          safe: false,
+          reason: "Access to private or local network addresses is strictly prohibited.",
+        };
       }
       return { safe: true };
     } catch {
@@ -972,10 +1046,22 @@ console.log("\n27. Testing Bulk Product Upload, SSRF Defense & Validation (T274-
   }
 
   // 1. SSRF defense assertions
-  assert(!checkMediaUrlSsrf("http://127.0.0.1:8000/image.jpg").safe, "SSRF defense blocks localhost 127.0.0.1 image URL");
-  assert(!checkMediaUrlSsrf("http://169.254.169.254/latest/meta-data").safe, "SSRF defense blocks cloud instance metadata IP 169.254.169.254");
-  assert(!checkMediaUrlSsrf("http://192.168.1.50/photo.png").safe, "SSRF defense blocks RFC1918 private network IP 192.168.x.x");
-  assert(checkMediaUrlSsrf("https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b").safe, "SSRF defense permits public HTTPS media URL");
+  assert(
+    !checkMediaUrlSsrf("http://127.0.0.1:8000/image.jpg").safe,
+    "SSRF defense blocks localhost 127.0.0.1 image URL",
+  );
+  assert(
+    !checkMediaUrlSsrf("http://169.254.169.254/latest/meta-data").safe,
+    "SSRF defense blocks cloud instance metadata IP 169.254.169.254",
+  );
+  assert(
+    !checkMediaUrlSsrf("http://192.168.1.50/photo.png").safe,
+    "SSRF defense blocks RFC1918 private network IP 192.168.x.x",
+  );
+  assert(
+    checkMediaUrlSsrf("https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b").safe,
+    "SSRF defense permits public HTTPS media URL",
+  );
 
   // 2. Blank cell policy logic
   interface ProductDraft {
@@ -1005,8 +1091,14 @@ console.log("\n27. Testing Bulk Product Upload, SSRF Defense & Validation (T274-
   const ignoredResult = applyBlankPolicy(existingDbRow, "", "ignore");
   const clearedResult = applyBlankPolicy(existingDbRow, "", "clear");
 
-  assert(ignoredResult.material === "100% Mulberry Silk", "Blank cell policy 'ignore' preserves existing database value");
-  assert(clearedResult.material === null, "Blank cell policy 'clear' removes/nullifies optional attribute");
+  assert(
+    ignoredResult.material === "100% Mulberry Silk",
+    "Blank cell policy 'ignore' preserves existing database value",
+  );
+  assert(
+    clearedResult.material === null,
+    "Blank cell policy 'clear' removes/nullifies optional attribute",
+  );
 }
 
 // 28. BULK STOCK ADJUSTMENT & RESERVATION HOLD PROTECTION (T309-T316)
@@ -1060,19 +1152,31 @@ console.log("\n28. Testing Bulk Stock Adjustment & Reservation Protection (T309-
 
   // 1. Cross-seller ownership test
   const unauthorizedUpdate = updateStockQuantity("seller_mumbai", variantB, 30);
-  assert(!unauthorizedUpdate.success && unauthorizedUpdate.error?.includes("Unauthorized"), "Cross-seller stock update is strictly blocked");
+  assert(
+    !unauthorizedUpdate.success && unauthorizedUpdate.error?.includes("Unauthorized"),
+    "Cross-seller stock update is strictly blocked",
+  );
 
   // 2. Negative quantity validation
   const negativeUpdate = updateStockQuantity("seller_mumbai", variantA, -5);
-  assert(!negativeUpdate.success && negativeUpdate.error?.includes("cannot be negative"), "Negative stock quantity update is rejected");
+  assert(
+    !negativeUpdate.success && negativeUpdate.error?.includes("cannot be negative"),
+    "Negative stock quantity update is rejected",
+  );
 
   // 3. Active reservation hold protection
   const holdViolationUpdate = updateStockQuantity("seller_mumbai", variantA, 2); // target 2 < 3 locked
-  assert(!holdViolationUpdate.success && holdViolationUpdate.error?.includes("active reservations"), "Stock reduction below active checkout reservation count is blocked");
+  assert(
+    !holdViolationUpdate.success && holdViolationUpdate.error?.includes("active reservations"),
+    "Stock reduction below active checkout reservation count is blocked",
+  );
 
   // 4. Valid stock update with delta calculation & inventory transaction audit
   const validUpdate = updateStockQuantity("seller_mumbai", variantA, 15);
-  assert(validUpdate.success && validUpdate.delta === 5 && validUpdate.balanceAfter === 15, "Valid stock adjustment computes exact delta (+5) and balance after (15)");
+  assert(
+    validUpdate.success && validUpdate.delta === 5 && validUpdate.balanceAfter === 15,
+    "Valid stock adjustment computes exact delta (+5) and balance after (15)",
+  );
 }
 
 // 29. PRODUCT VIDEO PIPELINE & MUX SIGNED WEBHOOKS (T317-T335)
@@ -1113,23 +1217,41 @@ console.log("\n29. Testing Product Video Pipeline & Webhook Moderation (T317-T33
   const secret = "mux_test_secret_12345";
   const nowTs = Math.floor(Date.now() / 1000);
   const rawBody = JSON.stringify({ type: "video.asset.ready", id: "mux_asset_99" });
-  const validSig = cryptoModule.createHmac("sha256", secret).update(`${nowTs}.${rawBody}`).digest("hex");
+  const validSig = cryptoModule
+    .createHmac("sha256", secret)
+    .update(`${nowTs}.${rawBody}`)
+    .digest("hex");
   const validHeader = `t=${nowTs},v1=${validSig}`;
 
   // 1. Valid Mux webhook signature
-  assert(verifyMuxWebhookSignature(rawBody, validHeader, secret), "Valid Mux HMAC-SHA256 signature is verified");
+  assert(
+    verifyMuxWebhookSignature(rawBody, validHeader, secret),
+    "Valid Mux HMAC-SHA256 signature is verified",
+  );
 
   // 2. Invalid secret rejection
-  assert(!verifyMuxWebhookSignature(rawBody, validHeader, "wrong_secret"), "Mux signature with invalid secret is rejected");
+  assert(
+    !verifyMuxWebhookSignature(rawBody, validHeader, "wrong_secret"),
+    "Mux signature with invalid secret is rejected",
+  );
 
   // 3. Expired timestamp rejection (> 300s)
   const expiredTs = nowTs - 400;
-  const expiredSig = cryptoModule.createHmac("sha256", secret).update(`${expiredTs}.${rawBody}`).digest("hex");
+  const expiredSig = cryptoModule
+    .createHmac("sha256", secret)
+    .update(`${expiredTs}.${rawBody}`)
+    .digest("hex");
   const expiredHeader = `t=${expiredTs},v1=${expiredSig}`;
-  assert(!verifyMuxWebhookSignature(rawBody, expiredHeader, secret), "Mux webhook with timestamp older than 300s is rejected");
+  assert(
+    !verifyMuxWebhookSignature(rawBody, expiredHeader, secret),
+    "Mux webhook with timestamp older than 300s is rejected",
+  );
 
   // 4. Video file format & size validation
-  function validateVideoUpload(fileExt: string, sizeBytes: number): { valid: boolean; error?: string } {
+  function validateVideoUpload(
+    fileExt: string,
+    sizeBytes: number,
+  ): { valid: boolean; error?: string } {
     const MAX_BYTES = 100 * 1024 * 1024;
     if (sizeBytes > MAX_BYTES) return { valid: false, error: "File exceeds 100MB limit" };
     if (!["mp4", "mov", "webm", "m4v"].includes(fileExt.toLowerCase())) {
@@ -1138,9 +1260,15 @@ console.log("\n29. Testing Product Video Pipeline & Webhook Moderation (T317-T33
     return { valid: true };
   }
 
-  assert(validateVideoUpload("mp4", 50 * 1024 * 1024).valid, "Standard 50MB MP4 upload is accepted");
+  assert(
+    validateVideoUpload("mp4", 50 * 1024 * 1024).valid,
+    "Standard 50MB MP4 upload is accepted",
+  );
   assert(!validateVideoUpload("exe", 1024).valid, "Executable file upload is rejected");
-  assert(!validateVideoUpload("mp4", 150 * 1024 * 1024).valid, "150MB video exceeding 100MB threshold is rejected");
+  assert(
+    !validateVideoUpload("mp4", 150 * 1024 * 1024).valid,
+    "150MB video exceeding 100MB threshold is rejected",
+  );
 }
 
 // 30. TRANSACTIONAL NOTIFICATIONS ENGINE & IDEMPOTENCY (T336-T351)
@@ -1168,7 +1296,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
     packageCount: 2,
     idempotencyKey: "test_order_confirm_001",
   });
-  assert(orderRes.success && orderRes.idempotencyKey === "test_order_confirm_001", "Order confirmation email generated with 10% GST breakdown");
+  assert(
+    orderRes.success && orderRes.idempotencyKey === "test_order_confirm_001",
+    "Order confirmation email generated with 10% GST breakdown",
+  );
 
   // 2. Idempotency Deduplication: Duplicate webhook replay returns alreadySent: true
   const dupOrderRes = await sendOrderConfirmationEmail({
@@ -1180,7 +1311,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
     packageCount: 2,
     idempotencyKey: "test_order_confirm_001",
   });
-  assert(dupOrderRes.success && dupOrderRes.alreadySent === true, "Duplicate payment webhook event is idempotently deduplicated (single email sent)");
+  assert(
+    dupOrderRes.success && dupOrderRes.alreadySent === true,
+    "Duplicate payment webhook event is idempotently deduplicated (single email sent)",
+  );
 
   // 3. Seller New Order Notification with SLA
   const sellerRes = await sendSellerNewOrderEmail({
@@ -1192,7 +1326,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
     deadlineHours: 48,
     idempotencyKey: "test_seller_new_001",
   });
-  assert(sellerRes.success && sellerRes.idempotencyKey === "test_seller_new_001", "Seller new order alert generated with 48h dispatch SLA");
+  assert(
+    sellerRes.success && sellerRes.idempotencyKey === "test_seller_new_001",
+    "Seller new order alert generated with 48h dispatch SLA",
+  );
 
   // 4. Dispatch SLA Reminder Notification
   const slaRes = await sendDispatchDeadlineReminderEmail({
@@ -1215,7 +1352,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
     trackingUrl: "https://auspost.com.au/mypost/track/#/details/AP992837192AU",
     idempotencyKey: "test_shipped_001",
   });
-  assert(shipRes.success, "Package shipped notification with Australia Post tracking link generated");
+  assert(
+    shipRes.success,
+    "Package shipped notification with Australia Post tracking link generated",
+  );
 
   // 6. Package Delivered Notification (Anchoring 7-day return clock)
   const delRes = await sendPackageDeliveredEmail({
@@ -1226,7 +1366,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
     deliveryTimestamp: new Date().toISOString(),
     idempotencyKey: "test_delivered_001",
   });
-  assert(delRes.success, "Package delivered notification sent with 7-day change-of-mind return notice");
+  assert(
+    delRes.success,
+    "Package delivered notification sent with 7-day change-of-mind return notice",
+  );
 
   // 7. Return Update Notification
   const retRes = await sendReturnUpdateEmail({
@@ -1260,7 +1403,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
     itemCount: 1,
     idempotencyKey: "test_payout_001",
   });
-  assert(payRes.success, "Seller payout settlement notification generated for Stripe Connect transfer");
+  assert(
+    payRes.success,
+    "Seller payout settlement notification generated for Stripe Connect transfer",
+  );
 
   // 10. Fail-Closed behavior when provider unconfigured in production
   const origEnv = process.env.NODE_ENV;
@@ -1275,7 +1421,10 @@ console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)
       htmlContent: "<p>Test</p>",
       idempotencyKey: "test_fail_closed_prod",
     });
-    assert(!failRes.success && failRes.error === "EMAIL_PROVIDER_NOT_CONFIGURED", "Missing BREVO_API_KEY in production fails closed with EMAIL_PROVIDER_NOT_CONFIGURED");
+    assert(
+      !failRes.success && failRes.error === "EMAIL_PROVIDER_NOT_CONFIGURED",
+      "Missing BREVO_API_KEY in production fails closed with EMAIL_PROVIDER_NOT_CONFIGURED",
+    );
   } finally {
     process.env.NODE_ENV = origEnv;
     if (origKey) process.env.BREVO_API_KEY = origKey;
@@ -1307,7 +1456,9 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
       totalPlatformCommissionAud: Number((totalCommissionCents / 100).toFixed(2)),
       totalPendingHoldAud: Number((totalHoldCents / 100).toFixed(2)),
       totalEligiblePayoutsAud: Number(
-        (Math.max(0, totalGmvCents - totalCommissionCents - totalHoldCents - totalPaidCents) / 100).toFixed(2),
+        (
+          Math.max(0, totalGmvCents - totalCommissionCents - totalHoldCents - totalPaidCents) / 100
+        ).toFixed(2),
       ),
       totalPaidToSellersAud: Number((totalPaidCents / 100).toFixed(2)),
     };
@@ -1320,11 +1471,21 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     { amount_cents: 5000, entry_type: "SELLER_PAYOUT" },
   ];
   const metrics = calculateFinanceMetrics(sampleLedger);
-  assert(metrics.totalGmvAud === 200.0 && metrics.totalPlatformCommissionAud === 20.0, "Admin finance metrics calculate GMV ($200.00) and commission ($20.00) accurately");
-  assert(metrics.totalEligiblePayoutsAud === 100.0, "Admin finance metrics calculate net eligible payouts ($100.00) after hold and prior payouts");
+  assert(
+    metrics.totalGmvAud === 200.0 && metrics.totalPlatformCommissionAud === 20.0,
+    "Admin finance metrics calculate GMV ($200.00) and commission ($20.00) accurately",
+  );
+  assert(
+    metrics.totalEligiblePayoutsAud === 100.0,
+    "Admin finance metrics calculate net eligible payouts ($100.00) after hold and prior payouts",
+  );
 
   // 2. Seller Team Member Invite & Role Permissions
-  function validateStaffInvite(email: string, role: string, permissions: string[]): { valid: boolean; error?: string } {
+  function validateStaffInvite(
+    email: string,
+    role: string,
+    permissions: string[],
+  ): { valid: boolean; error?: string } {
     if (!email || !email.includes("@")) return { valid: false, error: "Invalid email" };
     if (!["owner", "manager", "staff", "accountant"].includes(role.toLowerCase())) {
       return { valid: false, error: "Invalid role" };
@@ -1336,12 +1497,28 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     return { valid: true };
   }
 
-  assert(validateStaffInvite("sarah@boutique.com.au", "manager", ["products", "orders", "inventory"]).valid, "Valid seller staff invite accepted");
-  assert(!validateStaffInvite("bad_email", "manager", ["orders"]).valid, "Invalid staff invite email rejected");
-  assert(!validateStaffInvite("test@boutique.com", "manager", ["super_root_access"]).valid, "Invalid custom staff permission rejected");
+  assert(
+    validateStaffInvite("sarah@boutique.com.au", "manager", ["products", "orders", "inventory"])
+      .valid,
+    "Valid seller staff invite accepted",
+  );
+  assert(
+    !validateStaffInvite("bad_email", "manager", ["orders"]).valid,
+    "Invalid staff invite email rejected",
+  );
+  assert(
+    !validateStaffInvite("test@boutique.com", "manager", ["super_root_access"]).valid,
+    "Invalid custom staff permission rejected",
+  );
 
   // 3. Customer Address Validation (Australian States & 4-Digit Postcodes)
-  function validateAuAddress(addr: { street: string; city: string; state: string; postcode: string; country: string }): boolean {
+  function validateAuAddress(addr: {
+    street: string;
+    city: string;
+    state: string;
+    postcode: string;
+    country: string;
+  }): boolean {
     const validStates = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
     if (!validStates.includes(addr.state.toUpperCase())) return false;
     if (!/^\d{4}$/.test(addr.postcode)) return false;
@@ -1350,9 +1527,36 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     return true;
   }
 
-  assert(validateAuAddress({ street: "100 George St", city: "Sydney", state: "NSW", postcode: "2000", country: "Australia" }), "Valid Australian customer delivery address accepted");
-  assert(!validateAuAddress({ street: "100 George St", city: "Sydney", state: "CALIFORNIA", postcode: "90210", country: "USA" }), "Non-Australian delivery address rejected");
-  assert(!validateAuAddress({ street: "100 George St", city: "Sydney", state: "NSW", postcode: "ABC12", country: "Australia" }), "Invalid Australian postcode rejected");
+  assert(
+    validateAuAddress({
+      street: "100 George St",
+      city: "Sydney",
+      state: "NSW",
+      postcode: "2000",
+      country: "Australia",
+    }),
+    "Valid Australian customer delivery address accepted",
+  );
+  assert(
+    !validateAuAddress({
+      street: "100 George St",
+      city: "Sydney",
+      state: "CALIFORNIA",
+      postcode: "90210",
+      country: "USA",
+    }),
+    "Non-Australian delivery address rejected",
+  );
+  assert(
+    !validateAuAddress({
+      street: "100 George St",
+      city: "Sydney",
+      state: "NSW",
+      postcode: "ABC12",
+      country: "Australia",
+    }),
+    "Invalid Australian postcode rejected",
+  );
 
   // 4. Verified Purchase & Anti-Self/Duplicate Review Validation
   function validateReviewSubmission(params: {
@@ -1362,10 +1566,18 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     customerPurchasedProduct: boolean;
   }): { allowed: boolean; isVerifiedPurchase: boolean; error?: string } {
     if (params.userId === params.productSellerUserId) {
-      return { allowed: false, isVerifiedPurchase: false, error: "Sellers cannot review their own products" };
+      return {
+        allowed: false,
+        isVerifiedPurchase: false,
+        error: "Sellers cannot review their own products",
+      };
     }
     if (params.existingReviewsUserIds.includes(params.userId)) {
-      return { allowed: false, isVerifiedPurchase: false, error: "You have already reviewed this product" };
+      return {
+        allowed: false,
+        isVerifiedPurchase: false,
+        error: "You have already reviewed this product",
+      };
     }
     return { allowed: true, isVerifiedPurchase: params.customerPurchasedProduct };
   }
@@ -1376,7 +1588,10 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     existingReviewsUserIds: ["cust_other"],
     customerPurchasedProduct: true,
   });
-  assert(validReview.allowed && validReview.isVerifiedPurchase, "Verified customer review is approved and flagged as verified purchase");
+  assert(
+    validReview.allowed && validReview.isVerifiedPurchase,
+    "Verified customer review is approved and flagged as verified purchase",
+  );
 
   const selfReview = validateReviewSubmission({
     userId: "seller_owner_999",
@@ -1384,7 +1599,10 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     existingReviewsUserIds: [],
     customerPurchasedProduct: false,
   });
-  assert(!selfReview.allowed && selfReview.error === "Sellers cannot review their own products", "Seller self-review is strictly blocked");
+  assert(
+    !selfReview.allowed && selfReview.error === "Sellers cannot review their own products",
+    "Seller self-review is strictly blocked",
+  );
 
   const dupReview = validateReviewSubmission({
     userId: "cust_123",
@@ -1392,7 +1610,10 @@ console.log("\n31. Testing Admin, Seller Team & Customer Operations (T352-T386).
     existingReviewsUserIds: ["cust_123"],
     customerPurchasedProduct: true,
   });
-  assert(!dupReview.allowed && dupReview.error === "You have already reviewed this product", "Duplicate customer review is strictly blocked");
+  assert(
+    !dupReview.allowed && dupReview.error === "You have already reviewed this product",
+    "Duplicate customer review is strictly blocked",
+  );
 }
 
 // 32. BACKGROUND JOBS & DEAD-LETTER RETRY QUEUE (T387-T397)
@@ -1402,7 +1623,10 @@ console.log("\n32. Testing Background Processing & Dead-Letter Queue (T387-T397)
 
   // 1. Correlation ID generator format
   const corrId = generateCorrelationId("test_trace");
-  assert(corrId.startsWith("test_trace_") && corrId.length > 15, "Structured correlation ID generated with prefix and timestamp");
+  assert(
+    corrId.startsWith("test_trace_") && corrId.length > 15,
+    "Structured correlation ID generated with prefix and timestamp",
+  );
 
   // 2. Job Concurrency Lock & Duplicate Execution Protection
   const activeLocks = new Set<string>();
@@ -1421,17 +1645,26 @@ console.log("\n32. Testing Background Processing & Dead-Letter Queue (T387-T397)
 
   activeLocks.add("payout_engine");
   const job2 = await runLockedJob("payout_engine");
-  assert(!job2.ran && job2.reason === "CONCURRENT_RUN_IN_PROGRESS", "Duplicate concurrent job execution is skipped");
+  assert(
+    !job2.ran && job2.reason === "CONCURRENT_RUN_IN_PROGRESS",
+    "Duplicate concurrent job execution is skipped",
+  );
   activeLocks.delete("payout_engine");
 
   // 3. Dead-letter queue transition after 3 failed attempts
-  function evaluateDeadLetterStatus(attempts: number, maxAttempts: number = 3): "RETRY" | "DEAD_LETTER" {
+  function evaluateDeadLetterStatus(
+    attempts: number,
+    maxAttempts: number = 3,
+  ): "RETRY" | "DEAD_LETTER" {
     return attempts >= maxAttempts ? "DEAD_LETTER" : "RETRY";
   }
 
   assert(evaluateDeadLetterStatus(1) === "RETRY", "First failed attempt triggers retry");
   assert(evaluateDeadLetterStatus(2) === "RETRY", "Second failed attempt triggers retry");
-  assert(evaluateDeadLetterStatus(3) === "DEAD_LETTER", "Third failed attempt is moved to DEAD_LETTER queue for admin inspection");
+  assert(
+    evaluateDeadLetterStatus(3) === "DEAD_LETTER",
+    "Third failed attempt is moved to DEAD_LETTER queue for admin inspection",
+  );
 
   // 4. Stale Reservation Expiry logic
   function identifyExpiredReservations(
@@ -1447,19 +1680,28 @@ console.log("\n32. Testing Background Processing & Dead-Letter Queue (T387-T397)
   const testReservations = [
     { id: "res_old", expires_at: new Date(now - 1000).toISOString(), status: "active" },
     { id: "res_future", expires_at: new Date(now + 600000).toISOString(), status: "active" },
-    { id: "res_already_committed", expires_at: new Date(now - 5000).toISOString(), status: "committed" },
+    {
+      id: "res_already_committed",
+      expires_at: new Date(now - 5000).toISOString(),
+      status: "committed",
+    },
   ];
   const expired = identifyExpiredReservations(testReservations, now);
-  assert(expired.length === 1 && expired[0] === "res_old", "Only active reservations past expires_at are flagged for expiration");
+  assert(
+    expired.length === 1 && expired[0] === "res_old",
+    "Only active reservations past expires_at are flagged for expiration",
+  );
 }
 
 // 33. SECURITY HARDENING & OPERATIONAL DISASTER RECOVERY (T398-T435)
 console.log("\n33. Testing Security Hardening & Operational Recovery (T398-T435)...");
 {
-  const { redactSensitiveData, maskSensitiveString } = await import("../src/lib/security/logger-redaction");
+  const { redactSensitiveData, maskSensitiveString } =
+    await import("../src/lib/security/logger-redaction");
   const { escapeHtml } = await import("../src/lib/security/sanitizer");
   const { validateRemoteUrl } = await import("../src/lib/security/ssrf");
-  const { dispatchOperationalAlert, getAlertHistory } = await import("../src/lib/monitoring/alerts");
+  const { dispatchOperationalAlert, getAlertHistory } =
+    await import("../src/lib/monitoring/alerts");
 
   // 1. Logger PII & Secret Redaction
   const sensitivePayload = {
@@ -1469,7 +1711,10 @@ console.log("\n33. Testing Security Hardening & Operational Recovery (T398-T435)
     safeField: "ISM-AU-100",
   };
   const redacted = redactSensitiveData(sensitivePayload) as any;
-  assert(redacted.apiKey.endsWith("cdef") && redacted.apiKey.includes("*"), "API keys masked in log payload");
+  assert(
+    redacted.apiKey.endsWith("cdef") && redacted.apiKey.includes("*"),
+    "API keys masked in log payload",
+  );
   assert(redacted.password.includes("*"), "Passwords masked in log payload");
   assert(redacted.safeField === "ISM-AU-100", "Safe fields preserved in log payload");
   assert(maskSensitiveString("short") === "*hort", "Sensitive string masking works");
@@ -1480,10 +1725,22 @@ console.log("\n33. Testing Security Hardening & Operational Recovery (T398-T435)
   assert(cleanText.includes("&lt;script&gt;"), "HTML script tags escaped for injection safety");
 
   // 3. SSRF Defense: Private IP ranges, localhost, and metadata IPs
-  assert(!validateRemoteUrl("http://169.254.169.254/latest/meta-data/", true).safe, "Cloud instance metadata URL blocked by SSRF defense");
-  assert(!validateRemoteUrl("http://127.0.0.1:8080/admin", true).safe, "Localhost URL blocked by SSRF defense");
-  assert(!validateRemoteUrl("http://192.168.1.1/router", true).safe, "RFC1918 private network URL blocked by SSRF defense");
-  assert(validateRemoteUrl("https://images.unsplash.com/photo-123.jpg").safe, "Public HTTPS media URL allowed by SSRF defense");
+  assert(
+    !validateRemoteUrl("http://169.254.169.254/latest/meta-data/", true).safe,
+    "Cloud instance metadata URL blocked by SSRF defense",
+  );
+  assert(
+    !validateRemoteUrl("http://127.0.0.1:8080/admin", true).safe,
+    "Localhost URL blocked by SSRF defense",
+  );
+  assert(
+    !validateRemoteUrl("http://192.168.1.1/router", true).safe,
+    "RFC1918 private network URL blocked by SSRF defense",
+  );
+  assert(
+    validateRemoteUrl("https://images.unsplash.com/photo-123.jpg").safe,
+    "Public HTTPS media URL allowed by SSRF defense",
+  );
 
   // 4. Operational Alert Dispatch across Categories & Priorities
   const alert = await dispatchOperationalAlert({
@@ -1494,9 +1751,15 @@ console.log("\n33. Testing Security Hardening & Operational Recovery (T398-T435)
     actionRequired: "Rotate STRIPE_WEBHOOK_SECRET in Vercel environment",
     metadata: { attemptCount: 3, provider: "stripe" },
   });
-  assert(alert.alertId.startsWith("alt_") && alert.priority === "P1_CRITICAL", "Critical operational alert dispatched and formatted");
+  assert(
+    alert.alertId.startsWith("alt_") && alert.priority === "P1_CRITICAL",
+    "Critical operational alert dispatched and formatted",
+  );
   const history = getAlertHistory();
-  assert(history.some((a) => a.alertId === alert.alertId), "Operational alert recorded in telemetry history");
+  assert(
+    history.some((a) => a.alertId === alert.alertId),
+    "Operational alert recorded in telemetry history",
+  );
 }
 
 // 34. PERFORMANCE, LOAD SIMULATION & RELIABILITY (T465–T476)
@@ -1512,10 +1775,18 @@ console.log("\n34. Testing Performance, Load Simulation & Reliability (T465–T4
   }
 
   const paginationNormal = applyPagination(250, 2, 20);
-  assert(paginationNormal.offset === 20 && paginationNormal.limit === 20 && paginationNormal.totalPages === 13, "Standard pagination computes offset 20 and 13 pages");
+  assert(
+    paginationNormal.offset === 20 &&
+      paginationNormal.limit === 20 &&
+      paginationNormal.totalPages === 13,
+    "Standard pagination computes offset 20 and 13 pages",
+  );
 
   const paginationCap = applyPagination(500, 1, 5000);
-  assert(paginationCap.limit === 100, "Pagination caps oversized request at 100 items maximum to prevent memory exhaustion");
+  assert(
+    paginationCap.limit === 100,
+    "Pagination caps oversized request at 100 items maximum to prevent memory exhaustion",
+  );
 
   // 2. High-Concurrency Checkout Locking Simulation (T473)
   let stockRemaining = 1;
@@ -1541,7 +1812,10 @@ console.log("\n34. Testing Performance, Load Simulation & Reliability (T465–T4
   const reservationResults = await Promise.all(simulatedBuyers.map((b) => atomicReserveStock(b)));
   const successfulReservations = reservationResults.filter(Boolean).length;
 
-  assert(successfulReservations === 1, "Concurrency load test: exactly 1 reservation succeeds under 50 simultaneous checkout races");
+  assert(
+    successfulReservations === 1,
+    "Concurrency load test: exactly 1 reservation succeeds under 50 simultaneous checkout races",
+  );
   assert(stockRemaining === 0, "Stock cannot become negative under high concurrency load");
 
   // 3. 1,000-Row Bulk Import Throughput & Memory Stress Test (T474)
@@ -1570,7 +1844,9 @@ console.log("\n34. Testing Performance, Load Simulation & Reliability (T465–T4
 
   // 4. Provider Timeout & Exponential Backoff Retry Resilience (T475)
   let attemptCount = 0;
-  async function callExternalCarrierWithRetry(maxRetries: number = 3): Promise<{ success: boolean; attempts: number }> {
+  async function callExternalCarrierWithRetry(
+    maxRetries: number = 3,
+  ): Promise<{ success: boolean; attempts: number }> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       attemptCount++;
       if (attempt === 3) {
@@ -1581,7 +1857,10 @@ console.log("\n34. Testing Performance, Load Simulation & Reliability (T465–T4
   }
 
   const retryOutcome = await callExternalCarrierWithRetry();
-  assert(retryOutcome.success && retryOutcome.attempts === 3, "Provider retry loop recovers on 3rd attempt after transient failure");
+  assert(
+    retryOutcome.success && retryOutcome.attempts === 3,
+    "Provider retry loop recovers on 3rd attempt after transient failure",
+  );
 
   // 5. Decoupled Background Task Independence (T476)
   let backgroundJobExecuted = false;
@@ -1594,9 +1873,15 @@ console.log("\n34. Testing Performance, Load Simulation & Reliability (T465–T4
   }
 
   const httpResponse = triggerAsyncBackgroundWorker();
-  assert(httpResponse.accepted && httpResponse.status === "QUEUED", "HTTP route returns immediately with 202 QUEUED while worker processes in background");
+  assert(
+    httpResponse.accepted && httpResponse.status === "QUEUED",
+    "HTTP route returns immediately with 202 QUEUED while worker processes in background",
+  );
   await new Promise((r) => setTimeout(r, 25));
-  assert(backgroundJobExecuted === true, "Background worker completed execution independently of HTTP request lifecycle");
+  assert(
+    backgroundJobExecuted === true,
+    "Background worker completed execution independently of HTTP request lifecycle",
+  );
 }
 
 console.log("\n=======================================================");
@@ -1608,7 +1893,3 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
-
-
-
-

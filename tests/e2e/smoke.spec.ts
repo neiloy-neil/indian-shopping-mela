@@ -34,7 +34,7 @@ test.describe("Indian Shopping Mela — E2E Critical Path Suite", () => {
   test("3. Zero-Trust Cart Page", async ({ page }) => {
     await page.goto("/cart");
     await expect(page.locator("body")).toBeVisible();
-    
+
     // Ensure checkout button or empty cart state is present
     const main = page.locator("main");
     await expect(main).toBeVisible();

@@ -30,20 +30,38 @@ async function runStagingUat() {
   {
     const { validateAustralianAbn } = await import("../src/lib/api/sellers");
     const validAbnResult = validateAustralianAbn("51 824 753 556");
-    assert(validAbnResult.valid, "T504: Valid Australian ABN (ATO Modulo-89) passes onboarding validation");
+    assert(
+      validAbnResult.valid,
+      "T504: Valid Australian ABN (ATO Modulo-89) passes onboarding validation",
+    );
 
     const invalidAbnResult = validateAustralianAbn("12 345 678 901");
-    assert(!invalidAbnResult.valid, "T504: Invalid Australian ABN strictly rejected with actionable error");
+    assert(
+      !invalidAbnResult.valid,
+      "T504: Invalid Australian ABN strictly rejected with actionable error",
+    );
   }
 
   // 2. UAT Admin Seller Review Transitions (T505)
   console.log("\n2. Scenario T505: Admin Seller Status Transitions...");
   {
     const { isValidSellerStatusTransition } = await import("../src/lib/api/sellers");
-    assert(isValidSellerStatusTransition("SUBMITTED", "UNDER_REVIEW"), "T505: SUBMITTED -> UNDER_REVIEW is valid");
-    assert(isValidSellerStatusTransition("UNDER_REVIEW", "APPROVED"), "T505: UNDER_REVIEW -> APPROVED is valid");
-    assert(isValidSellerStatusTransition("UNDER_REVIEW", "REJECTED"), "T505: UNDER_REVIEW -> REJECTED is valid");
-    assert(!isValidSellerStatusTransition("REJECTED", "APPROVED"), "T505: Direct REJECTED -> APPROVED transition blocked without resubmission");
+    assert(
+      isValidSellerStatusTransition("SUBMITTED", "UNDER_REVIEW"),
+      "T505: SUBMITTED -> UNDER_REVIEW is valid",
+    );
+    assert(
+      isValidSellerStatusTransition("UNDER_REVIEW", "APPROVED"),
+      "T505: UNDER_REVIEW -> APPROVED is valid",
+    );
+    assert(
+      isValidSellerStatusTransition("UNDER_REVIEW", "REJECTED"),
+      "T505: UNDER_REVIEW -> REJECTED is valid",
+    );
+    assert(
+      !isValidSellerStatusTransition("REJECTED", "APPROVED"),
+      "T505: Direct REJECTED -> APPROVED transition blocked without resubmission",
+    );
   }
 
   // 3. UAT Single Listing with Variants & Images (T506)
@@ -54,8 +72,14 @@ async function runStagingUat() {
       { sku: "SKU-RED-M", price: 149.0, stock: 15, colour: "Red", size: "M" },
     ];
     const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
-    assert(totalStock === 25, "T506: Variant matrix aggregates total parent product stock correctly (25 units)");
-    assert(variants.every((v) => v.price > 0 && v.sku.startsWith("SKU-")), "T506: All variants have unique SKUs and positive prices");
+    assert(
+      totalStock === 25,
+      "T506: Variant matrix aggregates total parent product stock correctly (25 units)",
+    );
+    assert(
+      variants.every((v) => v.price > 0 && v.sku.startsWith("SKU-")),
+      "T506: All variants have unique SKUs and positive prices",
+    );
   }
 
   // 4. UAT Product Video Constraints & Moderation (T507)
@@ -63,7 +87,10 @@ async function runStagingUat() {
   {
     const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
     const testFileSize = 45 * 1024 * 1024;
-    assert(testFileSize <= MAX_VIDEO_SIZE, "T507: 45MB product showcase video complies with 100MB constraint");
+    assert(
+      testFileSize <= MAX_VIDEO_SIZE,
+      "T507: 45MB product showcase video complies with 100MB constraint",
+    );
   }
 
   // 5. UAT 500 & 1,000 Product Import Acceptance (T508, T509)
@@ -79,7 +106,10 @@ async function runStagingUat() {
     for (let i = 1; i <= 1000; i++) {
       rows1000.push({ sku: `SKU-1000-${i}`, title: `Product #${i}`, price: 129.95, stock: 15 });
     }
-    assert(rows1000.length === 1000, "T509: 1,000-product maximum batch size accepted within memory bounds");
+    assert(
+      rows1000.length === 1000,
+      "T509: 1,000-product maximum batch size accepted within memory bounds",
+    );
   }
 
   // 6. UAT Multi-Seller Cart & 3 Sellers Checkout (T510, T511)
@@ -98,7 +128,10 @@ async function runStagingUat() {
       packageMap.set(item.sellerId, existing);
     }
 
-    assert(packageMap.size === 3, "T510 & T511: 3-seller cart splits into exactly 3 independent seller packages");
+    assert(
+      packageMap.size === 3,
+      "T510 & T511: 3-seller cart splits into exactly 3 independent seller packages",
+    );
 
     let totalShipping = 0;
     for (const [sellerId, items] of packageMap.entries()) {
@@ -106,7 +139,10 @@ async function runStagingUat() {
       const shipping = packageTotal >= 100 ? 0 : 9.95;
       totalShipping += shipping;
     }
-    assert(totalShipping === 9.95, "T511: Melbourne ($150) & Brisbane ($120) unlock free shipping; Sydney ($80) pays $9.95 AUD");
+    assert(
+      totalShipping === 9.95,
+      "T511: Melbourne ($150) & Brisbane ($120) unlock free shipping; Sydney ($80) pays $9.95 AUD",
+    );
   }
 
   // 7. UAT Final-Unit Concurrency Race (T512)
@@ -138,7 +174,10 @@ async function runStagingUat() {
       reserveFinalUnit("buyer_patel"),
     ]);
 
-    assert([buyer1, buyer2].filter(Boolean).length === 1, "T512: Exactly 1 customer wins final unit reservation");
+    assert(
+      [buyer1, buyer2].filter(Boolean).length === 1,
+      "T512: Exactly 1 customer wins final unit reservation",
+    );
     assert(inventory === 0, "T512: Stock is exactly 0 with zero negative over-selling");
   }
 
@@ -161,13 +200,22 @@ async function runStagingUat() {
     }
 
     const res1 = processStripeWebhook("evt_pay_999", "success");
-    assert(!res1.duplicate && res1.status === "ORDER_PAID", "T513: Stripe payment success marks order as PAID");
+    assert(
+      !res1.duplicate && res1.status === "ORDER_PAID",
+      "T513: Stripe payment success marks order as PAID",
+    );
 
     const res2 = processStripeWebhook("evt_pay_888", "failure");
-    assert(!res2.duplicate && res2.status === "PAYMENT_FAILED", "T514: Stripe payment failure rolls back order to UNPAID");
+    assert(
+      !res2.duplicate && res2.status === "PAYMENT_FAILED",
+      "T514: Stripe payment failure rolls back order to UNPAID",
+    );
 
     const replay = processStripeWebhook("evt_pay_999", "success");
-    assert(replay.duplicate && replay.status === "ALREADY_PROCESSED", "T515: Duplicate Stripe webhook replayed 5x is idempotently ignored");
+    assert(
+      replay.duplicate && replay.status === "ALREADY_PROCESSED",
+      "T515: Duplicate Stripe webhook replayed 5x is idempotently ignored",
+    );
     assert(paymentCount === 1, "T515: Order committed exactly once");
   }
 
@@ -180,15 +228,27 @@ async function runStagingUat() {
       { id: "sub_3", sellerId: "seller_C", status: "CANCELLED", hoursToDispatch: 0 },
     ];
 
-    assert(subOrders[0]!.status === "SHIPPED" && subOrders[0]!.hoursToDispatch <= 48, "T516: Seller A dispatched on-time within 48h SLA");
+    assert(
+      subOrders[0]!.status === "SHIPPED" && subOrders[0]!.hoursToDispatch <= 48,
+      "T516: Seller A dispatched on-time within 48h SLA",
+    );
     assert(subOrders[1]!.hoursToDispatch > 48, "T516: Seller B breached 48h SLA dispatch deadline");
-    assert(subOrders[2]!.status === "CANCELLED", "T516: Seller C sub-order cancelled independently");
+    assert(
+      subOrders[2]!.status === "CANCELLED",
+      "T516: Seller C sub-order cancelled independently",
+    );
 
     const trackingNumber = "AP9928172635AU";
-    assert(trackingNumber.startsWith("AP") && trackingNumber.endsWith("AU"), "T517: Australia Post consignment number generated");
+    assert(
+      trackingNumber.startsWith("AP") && trackingNumber.endsWith("AU"),
+      "T517: Australia Post consignment number generated",
+    );
 
     const deliveredAt = new Date("2026-09-01T14:00:00Z");
-    assert(!isNaN(deliveredAt.getTime()), "T518: Carrier delivered_at timestamp anchored to UTC clock");
+    assert(
+      !isNaN(deliveredAt.getTime()),
+      "T518: Carrier delivered_at timestamp anchored to UTC clock",
+    );
   }
 
   // 10. UAT Customer Cancellation & Returns Lifecycle (T519–T524)
@@ -196,8 +256,14 @@ async function runStagingUat() {
   {
     // Customer cancellation
     const canCancelProcessing = (status: string) => ["NEW_ORDER", "PROCESSING"].includes(status);
-    assert(canCancelProcessing("PROCESSING"), "T519: Sub-order in PROCESSING state successfully cancelled by customer");
-    assert(!canCancelProcessing("SHIPPED"), "T519: Sub-order in SHIPPED state cannot be cancelled directly (must use returns)");
+    assert(
+      canCancelProcessing("PROCESSING"),
+      "T519: Sub-order in PROCESSING state successfully cancelled by customer",
+    );
+    assert(
+      !canCancelProcessing("SHIPPED"),
+      "T519: Sub-order in SHIPPED state cannot be cancelled directly (must use returns)",
+    );
 
     // 7-day change of mind
     const delivery = new Date("2026-09-01T00:00:00Z");
@@ -205,12 +271,25 @@ async function runStagingUat() {
     const day8Request = new Date("2026-09-09T00:00:00Z");
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-    assert(day5Request.getTime() - delivery.getTime() <= SEVEN_DAYS_MS, "T520: Day 5 return request is within 7-day change-of-mind window");
-    assert(day8Request.getTime() - delivery.getTime() > SEVEN_DAYS_MS, "T520: Day 8 change-of-mind return strictly rejected");
+    assert(
+      day5Request.getTime() - delivery.getTime() <= SEVEN_DAYS_MS,
+      "T520: Day 5 return request is within 7-day change-of-mind window",
+    );
+    assert(
+      day8Request.getTime() - delivery.getTime() > SEVEN_DAYS_MS,
+      "T520: Day 8 change-of-mind return strictly rejected",
+    );
 
     // Statutory fault
-    const statutoryReturn = { reason: "DEFECTIVE_FAULTY", daysSinceDelivery: 45, evidenceUrl: "https://storage.ism.com.au/evidence.jpg" };
-    assert(statutoryReturn.reason === "DEFECTIVE_FAULTY" && !!statutoryReturn.evidenceUrl, "T521 & T522: Statutory fault claim accepted after 45 days with valid photographic evidence");
+    const statutoryReturn = {
+      reason: "DEFECTIVE_FAULTY",
+      daysSinceDelivery: 45,
+      evidenceUrl: "https://storage.ism.com.au/evidence.jpg",
+    };
+    assert(
+      statutoryReturn.reason === "DEFECTIVE_FAULTY" && !!statutoryReturn.evidenceUrl,
+      "T521 & T522: Statutory fault claim accepted after 45 days with valid photographic evidence",
+    );
 
     // Return inspection & dispute hold
     let sellerPayoutBalance = 25000; // 250.00 AUD
@@ -218,13 +297,19 @@ async function runStagingUat() {
     let disputeHoldCents = refundCents;
     let netEligibleBalance = sellerPayoutBalance - disputeHoldCents;
 
-    assert(netEligibleBalance === 13000, "T524: Dispute hold of $120.00 AUD immediately locks seller net payout balance ($130.00 eligible)");
+    assert(
+      netEligibleBalance === 13000,
+      "T524: Dispute hold of $120.00 AUD immediately locks seller net payout balance ($130.00 eligible)",
+    );
 
     // Inspection approval & refund
     sellerPayoutBalance -= refundCents;
     disputeHoldCents = 0;
     netEligibleBalance = sellerPayoutBalance;
-    assert(netEligibleBalance === 13000, "T523: Return approved, item refunded to customer and dispute hold released cleanly");
+    assert(
+      netEligibleBalance === 13000,
+      "T523: Return approved, item refunded to customer and dispute hold released cleanly",
+    );
   }
 
   // 11. UAT Payout Timing, Stripe Connect & Retries (T525–T527)
@@ -238,7 +323,10 @@ async function runStagingUat() {
     assert(isMatured, "T525: 16-day old delivered order is eligible for payout (> 14 days)");
 
     const transferId = "tr_1Qx882736452";
-    assert(transferId.startsWith("tr_"), "T526: Stripe Connect transfer executed with real transfer ID");
+    assert(
+      transferId.startsWith("tr_"),
+      "T526: Stripe Connect transfer executed with real transfer ID",
+    );
 
     // Failed payout retry
     let retryAttempts = 0;
@@ -247,7 +335,10 @@ async function runStagingUat() {
       return { status: "RETRY_SCHEDULED", attempt: retryAttempts };
     }
     const retryRes = retryFailedPayout();
-    assert(retryRes.status === "RETRY_SCHEDULED" && retryRes.attempt === 1, "T527: Failed payout safely queued for automated retry");
+    assert(
+      retryRes.status === "RETRY_SCHEDULED" && retryRes.attempt === 1,
+      "T527: Failed payout safely queued for automated retry",
+    );
   }
 
   // 12. UAT RLS Isolation & Admin Finance MFA (T528, T529)
@@ -259,12 +350,16 @@ async function runStagingUat() {
     assert(!customerA.orders.includes("ord_102"), "T528: Customer A cannot view Customer B orders");
 
     function releaseFinancialPayout(adminRole: string, aal2Verified: boolean) {
-      if (adminRole !== "finance" && adminRole !== "super_admin") throw new Error("UNAUTHORIZED_ROLE");
+      if (adminRole !== "finance" && adminRole !== "super_admin")
+        throw new Error("UNAUTHORIZED_ROLE");
       if (!aal2Verified) throw new Error("AAL2_MFA_REQUIRED");
       return { success: true };
     }
 
-    assert(releaseFinancialPayout("finance", true).success, "T529: Finance admin with AAL2 MFA verified executes payout release");
+    assert(
+      releaseFinancialPayout("finance", true).success,
+      "T529: Finance admin with AAL2 MFA verified executes payout release",
+    );
     let mfaBlocked = false;
     try {
       releaseFinancialPayout("finance", false);
@@ -284,17 +379,29 @@ async function runStagingUat() {
       entityId: "sel_992",
       timestamp: new Date().toISOString(),
     };
-    assert(!!auditRecord.actorId && !!auditRecord.action, "T530: Audit log contains actor, action, entity, and timestamp");
+    assert(
+      !!auditRecord.actorId && !!auditRecord.action,
+      "T530: Audit log contains actor, action, entity, and timestamp",
+    );
 
     const viewportMobile = { width: 375, height: 812 };
-    assert(viewportMobile.width >= 320, "T531: Mobile responsive layout supports iPhone SE / 375px viewports");
+    assert(
+      viewportMobile.width >= 320,
+      "T531: Mobile responsive layout supports iPhone SE / 375px viewports",
+    );
 
     const alertEvent = { type: "PAYOUT_FAILURE", priority: "P1_CRITICAL", sent: true };
-    assert(alertEvent.priority === "P1_CRITICAL" && alertEvent.sent, "T532: Critical operational alert triggered on failure");
+    assert(
+      alertEvent.priority === "P1_CRITICAL" && alertEvent.sent,
+      "T532: Critical operational alert triggered on failure",
+    );
 
     const rpoMinutes = 5;
     const rtoMinutes = 30;
-    assert(rpoMinutes <= 5 && rtoMinutes <= 30, "T533: Database disaster recovery runbook guarantees <5m RPO and <30m RTO");
+    assert(
+      rpoMinutes <= 5 && rtoMinutes <= 30,
+      "T533: Database disaster recovery runbook guarantees <5m RPO and <30m RTO",
+    );
   }
 
   console.log("\n=======================================================");

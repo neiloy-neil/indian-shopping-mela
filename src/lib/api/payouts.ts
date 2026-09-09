@@ -327,7 +327,10 @@ export async function executeSellerPayoutTransfer(
     );
     transferId = transfer.id;
   } catch (stripeErr: any) {
-    if (!isProduction && (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))) {
+    if (
+      !isProduction &&
+      (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))
+    ) {
       transferId = `tr_dev_${Date.now()}`;
     } else {
       // Mark payout failed

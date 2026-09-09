@@ -54,17 +54,14 @@ export default {
       if (url.pathname === "/api/health") {
         const health = await performDeepHealthCheck();
         const statusCode = health.status === "unhealthy" ? 503 : 200;
-        return new Response(
-          JSON.stringify(health),
-          {
-            status: statusCode,
-            headers: {
-              "content-type": "application/json",
-              "X-Content-Type-Options": "nosniff",
-              "Cache-Control": "no-store, max-age=0",
-            },
+        return new Response(JSON.stringify(health), {
+          status: statusCode,
+          headers: {
+            "content-type": "application/json",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store, max-age=0",
           },
-        );
+        });
       }
 
       if (url.pathname === "/api/webhooks/stripe" && request.method === "POST") {
