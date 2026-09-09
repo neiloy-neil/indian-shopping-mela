@@ -89,7 +89,7 @@ function SearchPage() {
             : "Every product on Indian Shopping Mela, priced in AUD."
         }
         query={q}
-        baseProducts={category ? byCategory(category.slug) : undefined}
+        baseProducts={products}
       />
     </ShopLayout>
   );
