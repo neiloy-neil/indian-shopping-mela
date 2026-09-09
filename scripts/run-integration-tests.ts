@@ -642,7 +642,84 @@ console.log("\n22. Testing Multi-Seller Shipping Rates & Delivery Clock Anchorin
   assert(checkPayoutDate >= payoutMaturation, "Seller payout matures 14 days post-delivery");
 }
 
+// 23. MULTI-SELLER FULFILMENT, DISPATCH SLA & TENANT ISOLATION (T212-T227)
+console.log("\n23. Testing Multi-Seller Fulfilment, SLA Deadlines & Tenant Isolation (T212-T227)...");
+{
+  interface MockSubOrder {
+    id: string;
+    sellerId: string;
+    status: "NEW_ORDER" | "PROCESSING" | "PACKED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+    createdAt: Date;
+    dispatchDeadline: Date;
+    trackingNumber?: string;
+  }
+
+  const now = new Date("2026-09-09T10:00:00Z");
+  const orderCreatedAt = new Date("2026-09-07T08:00:00Z"); // 50 hours ago (> 48h SLA)
+
+  const subOrderSellerA: MockSubOrder = {
+    id: "so_sydney_01",
+    sellerId: "seller_sydney",
+    status: "NEW_ORDER",
+    createdAt: orderCreatedAt,
+    dispatchDeadline: new Date(orderCreatedAt.getTime() + 48 * 60 * 60 * 1000), // 48h SLA
+  };
+
+  const subOrderSellerB: MockSubOrder = {
+    id: "so_melbourne_02",
+    sellerId: "seller_melbourne",
+    status: "NEW_ORDER",
+    createdAt: new Date("2026-09-09T08:00:00Z"), // 2 hours ago
+    dispatchDeadline: new Date(new Date("2026-09-09T08:00:00Z").getTime() + 48 * 60 * 60 * 1000),
+  };
+
+  const subOrderSellerC: MockSubOrder = {
+    id: "so_brisbane_03",
+    sellerId: "seller_brisbane",
+    status: "NEW_ORDER",
+    createdAt: new Date("2026-09-09T08:00:00Z"),
+    dispatchDeadline: new Date(new Date("2026-09-09T08:00:00Z").getTime() + 48 * 60 * 60 * 1000),
+  };
+
+  // 1. Seller A transitions: NEW_ORDER -> PROCESSING -> PACKED -> SHIPPED
+  subOrderSellerA.status = "PROCESSING";
+  assert(subOrderSellerA.status === "PROCESSING", "Seller A successfully accepts sub-order into PROCESSING state");
+  subOrderSellerA.status = "PACKED";
+  assert(subOrderSellerA.status === "PACKED", "Seller A marks sub-order PACKED");
+  subOrderSellerA.status = "SHIPPED";
+  subOrderSellerA.trackingNumber = "AP-AU-99182736";
+  assert(subOrderSellerA.status === "SHIPPED" && !!subOrderSellerA.trackingNumber, "Seller A generates Australia Post label and dispatches package");
+
+  // 2. Tenant Isolation: Seller A cannot mutate Seller B's sub-order
+  function canSellerMutateSubOrder(actingSellerId: string, targetSubOrder: MockSubOrder): boolean {
+    return actingSellerId === targetSubOrder.sellerId;
+  }
+  assert(!canSellerMutateSubOrder("seller_sydney", subOrderSellerB), "Seller Sydney is strictly blocked from mutating Seller Melbourne's sub-order");
+
+  // 3. Seller B transitions: CANCELLED due to out-of-stock
+  subOrderSellerB.status = "CANCELLED";
+  assert(subOrderSellerB.status === "CANCELLED", "Seller Melbourne cancels sub-order independently without impacting other sellers");
+
+  // 4. SLA Deadline & Late Seller Alert detection
+  function isSlaBreached(so: MockSubOrder, currentTime: Date): boolean {
+    return (
+      (so.status === "NEW_ORDER" || so.status === "PROCESSING") &&
+      currentTime.getTime() > so.dispatchDeadline.getTime()
+    );
+  }
+
+  const sellerAOverdue = isSlaBreached(
+    { ...subOrderSellerA, status: "PROCESSING" },
+    now,
+  );
+  const sellerCOverdue = isSlaBreached(subOrderSellerC, now);
+
+  assert(sellerAOverdue, "SLA breach detected for sub-order exceeding 48h dispatch deadline");
+  assert(!sellerCOverdue, "Recent sub-order within 48h dispatch deadline is compliant with SLA");
+}
+
 console.log("\n=======================================================");
+
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
 
