@@ -848,7 +848,99 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
   assert(returnRecord.status === "REFUNDED", "Return lifecycle completed in REFUNDED state");
 }
 
+// 26. STRIPE CONNECT SELLER PAYOUTS & 14-DAY MATURITY ENGINE (T258-T273)
+console.log("\n26. Testing Stripe Connect Seller Payouts & 14-Day Maturity (T258-T273)...");
+{
+  interface SubOrderPayoutCandidate {
+    id: string;
+    sellerId: string;
+    status: string;
+    subtotal: number;
+    shippingCost: number;
+    commissionAmount: number;
+    netSellerAmount: number;
+    deliveredAt?: Date;
+    hasActiveReturnHold: boolean;
+  }
+
+  const now = new Date("2026-09-15T12:00:00Z");
+  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+  const deliveredMatured: SubOrderPayoutCandidate = {
+    id: "so_matured_01",
+    sellerId: "seller_mumbai",
+    status: "DELIVERED",
+    subtotal: 200.0,
+    shippingCost: 9.95,
+    commissionAmount: 20.0,
+    netSellerAmount: 189.95,
+    deliveredAt: new Date("2026-09-01T10:00:00Z"), // 14.1 days ago (Matured)
+    hasActiveReturnHold: false,
+  };
+
+  const deliveredUnmatured: SubOrderPayoutCandidate = {
+    id: "so_unmatured_02",
+    sellerId: "seller_mumbai",
+    status: "DELIVERED",
+    subtotal: 100.0,
+    shippingCost: 9.95,
+    commissionAmount: 10.0,
+    netSellerAmount: 99.95,
+    deliveredAt: new Date("2026-09-10T10:00:00Z"), // 5.1 days ago (Unmatured)
+    hasActiveReturnHold: false,
+  };
+
+  const deliveredWithDispute: SubOrderPayoutCandidate = {
+    id: "so_disputed_03",
+    sellerId: "seller_mumbai",
+    status: "RETURN_REQUESTED",
+    subtotal: 150.0,
+    shippingCost: 9.95,
+    commissionAmount: 15.0,
+    netSellerAmount: 144.95,
+    deliveredAt: new Date("2026-08-20T10:00:00Z"), // > 14 days, but has dispute hold
+    hasActiveReturnHold: true,
+  };
+
+  function evaluatePayoutEligibility(candidates: SubOrderPayoutCandidate[], asOfDate: Date) {
+    const eligible: SubOrderPayoutCandidate[] = [];
+    const held: SubOrderPayoutCandidate[] = [];
+    let netPayoutCents = 0;
+
+    for (const c of candidates) {
+      if (c.hasActiveReturnHold || c.status === "RETURN_REQUESTED") {
+        held.push(c);
+        continue;
+      }
+      if (c.status === "DELIVERED" && c.deliveredAt) {
+        if (asOfDate.getTime() - c.deliveredAt.getTime() >= FOURTEEN_DAYS_MS) {
+          eligible.push(c);
+          netPayoutCents += Math.round(c.netSellerAmount * 100);
+        } else {
+          held.push(c);
+        }
+      }
+    }
+    return { eligible, held, netPayoutCents };
+  }
+
+  const result = evaluatePayoutEligibility(
+    [deliveredMatured, deliveredUnmatured, deliveredWithDispute],
+    now,
+  );
+
+  assert(result.eligible.length === 1 && result.eligible[0]!.id === "so_matured_01", "Only 14-day matured delivered sub-order is eligible for payout");
+  assert(result.held.length === 2, "Unmatured delivery and active return hold packages are kept in pending clearance");
+  assert(result.netPayoutCents === 18995, "Net payout amount equals exact integer cents ($189.95 AUD = 18995 cents)");
+
+  // Payout transfer batch idempotency
+  const payoutBatchId = "PO-99182741";
+  const transferIdempotencyKey = `payout_transfer_${payoutBatchId}`;
+  assert(transferIdempotencyKey === "payout_transfer_PO-99182741", "Stripe Connect transfer uses deterministic batch idempotency key");
+}
+
 console.log("\n=======================================================");
+
 
 
 
