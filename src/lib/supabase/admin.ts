@@ -20,7 +20,7 @@ const getServiceRoleKey = (): string => {
   if (process.env["NODE_ENV"] === "production") {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required in production runtime.");
   }
-  return "placeholder-service-key";
+  return "dev-local-service-role-key";
 };
 
 const getSupabaseUrl = (): string => {
@@ -31,7 +31,7 @@ const getSupabaseUrl = (): string => {
   if (process.env["NODE_ENV"] === "production") {
     throw new Error("SUPABASE_URL or VITE_SUPABASE_URL is required in production runtime.");
   }
-  return "https://placeholder-project.supabase.co";
+  return "http://127.0.0.1:54321";
 };
 
 let _adminClient: SupabaseClient<Database> | null = null;

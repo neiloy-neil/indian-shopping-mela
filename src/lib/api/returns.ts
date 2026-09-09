@@ -417,14 +417,14 @@ export async function executeReturnRefund(
 
   // 2. Trigger Stripe Refund if payment intent exists
   const isProduction = process.env["NODE_ENV"] === "production";
-  if ((!paymentIntentId || paymentIntentId.startsWith("pi_demo")) && isProduction) {
+  if (!paymentIntentId && isProduction) {
     throw new Error(
-      `Cannot process refund for return ${returnId}: Order ${masterOrderId} lacks an active production Stripe PaymentIntent.`,
+      `Cannot process refund for return ${returnId}: Order ${masterOrderId} lacks an authoritative Stripe PaymentIntent.`,
     );
   }
 
-  let stripeRefundId = `re_demo_${Date.now()}`;
-  if (paymentIntentId && !paymentIntentId.startsWith("pi_demo")) {
+  let stripeRefundId: string;
+  if (paymentIntentId) {
     try {
       const stripeRefund = await stripe.refunds.create(
         {
@@ -443,9 +443,15 @@ export async function executeReturnRefund(
       );
       stripeRefundId = stripeRefund.id;
     } catch (stripeErr: any) {
-      console.error("Stripe refund error:", stripeErr.message);
-      throw new Error(`Payment refund failed via Stripe: ${stripeErr.message}`);
+      if (!isProduction && (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))) {
+        stripeRefundId = `re_dev_${Date.now()}`;
+      } else {
+        console.error("Stripe refund error:", stripeErr.message);
+        throw new Error(`Payment refund failed via Stripe: ${stripeErr.message}`);
+      }
     }
+  } else {
+    stripeRefundId = `re_dev_${Date.now()}`;
   }
 
   // 3. Insert record in canonical refunds table

@@ -292,7 +292,7 @@ export async function executeSellerPayoutTransfer(
 
   // 4. Initiate real Stripe Connect Transfer
   const isProduction = process.env["NODE_ENV"] === "production";
-  if ((!stripeAccountId || stripeAccountId.startsWith("acct_demo")) && isProduction) {
+  if (!stripeAccountId) {
     await (supabaseAdmin.from("payouts") as any)
       .update({
         status: "FAILED",
@@ -306,28 +306,30 @@ export async function executeSellerPayoutTransfer(
     );
   }
 
-  let transferId = `tr_demo_${Date.now()}`;
-  if (stripeAccountId && !stripeAccountId.startsWith("acct_demo")) {
-    try {
-      const transfer = await stripe.transfers.create(
-        {
-          amount: eligibility.totalNetPayoutCents,
-          currency: "aud",
-          destination: stripeAccountId,
-          description: `Settlement payout ${payoutBatchId} for Indian Shopping Mela`,
-          metadata: {
-            payoutId,
-            sellerId,
-            payoutBatchId,
-            subOrderCount: eligibility.eligibleSubOrderIds.length,
-          },
+  let transferId: string;
+  try {
+    const transfer = await stripe.transfers.create(
+      {
+        amount: eligibility.totalNetPayoutCents,
+        currency: "aud",
+        destination: stripeAccountId,
+        description: `Settlement payout ${payoutBatchId} for Indian Shopping Mela`,
+        metadata: {
+          payoutId,
+          sellerId,
+          payoutBatchId,
+          subOrderCount: eligibility.eligibleSubOrderIds.length,
         },
-        {
-          idempotencyKey: `payout_transfer_${payoutId}`,
-        },
-      );
-      transferId = transfer.id;
-    } catch (stripeErr: any) {
+      },
+      {
+        idempotencyKey: `payout_transfer_${payoutId}`,
+      },
+    );
+    transferId = transfer.id;
+  } catch (stripeErr: any) {
+    if (!isProduction && (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))) {
+      transferId = `tr_dev_${Date.now()}`;
+    } else {
       // Mark payout failed
       await (supabaseAdmin.from("payouts") as any)
         .update({

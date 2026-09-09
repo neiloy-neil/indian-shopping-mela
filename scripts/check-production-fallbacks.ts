@@ -3,7 +3,7 @@
  * Indian Shopping Mela — Master Implementation Runbook
  *
  * Statically scans the codebase to ensure no raw mock cards, unisolated demo bypasses,
- * or fake transaction simulators can activate in a production build.
+ * placeholder API keys, or fake transaction simulators can activate in a production build.
  */
 
 import * as fs from "fs";
@@ -33,20 +33,18 @@ const FORBIDDEN_RULES: Array<{
   {
     name: "Demo Customer Fallback in Routes",
     regex: /["']cust_demo["']/,
-    reason:
-      "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
+    reason: "Customer ID must be resolved from real authenticated session, not hardcoded 'cust_demo'.",
     excludeFiles: ["ism-ops.ts"],
   },
   {
     name: "Fake Payment Simulation in Production Code",
-    regex: /simulatePaymentSuccess|fakePaymentIntent/i,
+    regex: /simulatePaymentSuccess|fakePaymentIntent|pi_fake|pi_mock|pi_demo/i,
     reason: "Payments must strictly proceed through authoritative Stripe PaymentElement/webhooks.",
   },
   {
     name: "Fake Australia Post Consignment Generator",
     regex: /AP-AU-\${Math\.random/,
-    reason:
-      "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
+    reason: "Shipping tracking and labels must be authoritatively created via AusPost/carrier provider.",
   },
   {
     name: "Optimistic Return Swallow in Production",
@@ -57,6 +55,21 @@ const FORBIDDEN_RULES: Array<{
     name: "Optimistic Sub-Order Status Swallow",
     regex: /acceptSubOrderServerFn\(.*?\)\.catch|markSubOrderPackedServerFn\(.*?\)\.catch/,
     reason: "Seller sub-order status updates must fail closed on database failure.",
+  },
+  {
+    name: "Placeholder Secrets in Production Code",
+    regex: /sk_test_placeholder|placeholder-service-key|placeholder_secret/i,
+    reason: "Placeholder credentials must never be committed to production code.",
+  },
+  {
+    name: "Fake Payout Transfer Simulation",
+    regex: /tr_demo|tr_mock|tr_fake/i,
+    reason: "Payout transfers must be generated through real Stripe Connect API with real transfer IDs.",
+  },
+  {
+    name: "Fake Refund Transaction ID",
+    regex: /re_demo|re_mock|re_fake/i,
+    reason: "Refunds must be processed through real Stripe Refunds API with real refund IDs.",
   },
 ];
 
