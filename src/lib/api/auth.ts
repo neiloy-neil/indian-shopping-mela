@@ -116,7 +116,8 @@ export async function resetPassword(email: string): Promise<void> {
  * Fetch profile data for a specific user ID.
  */
 export async function getProfile(userId: string): Promise<ProfileRow | null> {
-  const { data, error } = await (supabase.from("profiles") as any)
+  const { data, error } = await supabase
+    .from("profiles")
     .select("*")
     .eq("id", userId)
     .maybeSingle();
@@ -126,7 +127,7 @@ export async function getProfile(userId: string): Promise<ProfileRow | null> {
     return null;
   }
 
-  return (data as ProfileRow) || null;
+  return data;
 }
 
 /**
@@ -180,7 +181,7 @@ export async function requireSellerMember(
     return { sellerId, role: "admin_override" };
   }
 
-  const { data: member, error } = await (supabase as any)
+  const { data: member } = await supabase
     .from("seller_staff")
     .select("staff_role, permissions")
     .eq("seller_id", sellerId)
@@ -193,7 +194,8 @@ export async function requireSellerMember(
   }
 
   // Check direct owner
-  const { data: seller } = await (supabase.from("sellers") as any)
+  const { data: seller } = await supabase
+    .from("sellers")
     .select("id, owner_id")
     .eq("id", sellerId)
     .eq("owner_id", userId)
@@ -221,7 +223,7 @@ export async function requireSellerPermission(
     return true;
   }
 
-  const { data: member } = await (supabase as any)
+  const { data: member } = await supabase
     .from("seller_staff")
     .select("permissions")
     .eq("seller_id", sellerId)
@@ -229,7 +231,7 @@ export async function requireSellerPermission(
     .eq("is_active", true)
     .maybeSingle();
 
-  const permissions: string[] = member?.permissions ?? [];
+  const permissions: string[] = (member?.permissions as string[]) ?? [];
   if (!permissions.includes(requiredPermission) && !permissions.includes("*")) {
     throw new Error(`FORBIDDEN: Missing required seller permission: ${requiredPermission}`);
   }

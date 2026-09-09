@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe-server";
-import type { Address } from "@/lib/supabase/types";
+import type { Address, Database } from "@/lib/supabase/types";
 import type { CheckoutSummary } from "./checkout";
 import { restockVariantInventory } from "./inventory";
 
@@ -52,6 +52,39 @@ export interface SellerOrderView {
   labelPdfUrl?: string | undefined;
 }
 
+interface SubOrderJoinedRow {
+  id: string;
+  master_order_id: string;
+  status: string;
+  package_label: string | null;
+  carrier: string | null;
+  shipping_cost: number | null;
+  shipping_service: string | null;
+  tracking_number: string | null;
+  dispatch_deadline: string | null;
+  created_at: string;
+  master_order: {
+    id: string;
+    order_number: string;
+    customer_name: string;
+    shipping_address: Address | unknown;
+    created_at: string;
+  } | null;
+  items: Array<{
+    id: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    product_name: string;
+  }> | null;
+  shipment: {
+    carrier: string | null;
+    tracking_number: string | null;
+    label_url: string | null;
+    status: string;
+  } | null;
+}
+
 /**
  * Fetch actionable sub-orders for a specific seller from PostgreSQL without fake fallbacks.
  */
@@ -60,7 +93,8 @@ export async function getSellerSubOrders(
   statusFilter?: string,
 ): Promise<SellerOrderView[]> {
   try {
-    let query = (supabaseAdmin.from("sub_orders") as any)
+    let query = supabaseAdmin
+      .from("sub_orders")
       .select(
         `
         id,
@@ -99,7 +133,7 @@ export async function getSellerSubOrders(
       .order("created_at", { ascending: false });
 
     if (statusFilter) {
-      query = query.eq("status", statusFilter);
+      query = query.eq("status", statusFilter as Database["public"]["Enums"]["sub_order_status"]);
     }
 
     const { data: dbSubOrders, error } = await query;
@@ -107,15 +141,17 @@ export async function getSellerSubOrders(
       return [];
     }
 
-    return dbSubOrders.map((so: any) => {
+    const subOrders = dbSubOrders as unknown as SubOrderJoinedRow[];
+
+    return subOrders.map((so) => {
       const address = so.master_order?.shipping_address as Address;
       const itemsSubtotal = (so.items || []).reduce(
-        (acc: number, item: any) => acc + Number(item.total_price || 0),
+        (acc: number, item) => acc + Number(item.total_price || 0),
         0,
       );
       const totalAud = Number((itemsSubtotal + Number(so.shipping_cost || 0)).toFixed(2));
       const itemsCount = (so.items || []).reduce(
-        (acc: number, item: any) => acc + Number(item.quantity || 1),
+        (acc: number, item) => acc + Number(item.quantity || 1),
         0,
       );
       const deadline = so.dispatch_deadline
@@ -143,13 +179,14 @@ export async function getSellerSubOrders(
         }),
         isUrgent,
         createdAt: so.created_at,
-        carrier: so.carrier || so.shipment?.carrier,
-        trackingNumber: so.tracking_number || so.shipment?.tracking_number,
-        labelPdfUrl: so.shipment?.label_url,
+        carrier: so.carrier || so.shipment?.carrier || undefined,
+        trackingNumber: so.tracking_number || so.shipment?.tracking_number || undefined,
+        labelPdfUrl: so.shipment?.label_url || undefined,
       };
     });
-  } catch (err: any) {
-    console.error("Seller sub-orders query error:", err.message);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("Seller sub-orders query error:", errorMsg);
     return [];
   }
 }
@@ -168,26 +205,92 @@ export const updateSellerSubOrderStatusServerFn = createServerFn({ method: "POST
     return updateSellerSubOrderStatus(data.subOrderId, data.newStatus);
   });
 
+interface SubOrderCancelRow {
+  id: string;
+  master_order_id: string;
+  seller_id: string;
+  status: string;
+  shipping_cost: number | null;
+  items: Array<{
+    id: string;
+    variant_id: string | null;
+    quantity: number;
+    total_price: number;
+    unit_price: number;
+  }> | null;
+  master_order: {
+    id: string;
+    payment_intent_id: string | null;
+    payment_status: string | null;
+    customer_email: string | null;
+  } | null;
+}
+
+interface OrderTrackingJoinedRow {
+  id: string;
+  order_number: string | null;
+  created_at: string;
+  total_amount: number | null;
+  subtotal: number | null;
+  shipping_total: number | null;
+  gst_total: number | null;
+  payment_provider: string | null;
+  payment_status: string | null;
+  shipping_address: Address | unknown;
+  sub_orders: Array<{
+    id: string;
+    sub_order_number: string | null;
+    seller_id: string;
+    status: string;
+    package_label: string | null;
+    carrier: string | null;
+    shipping_service: string | null;
+    shipping_cost: number | null;
+    tracking_number: string | null;
+    tracking_url: string | null;
+    shipped_at: string | null;
+    delivered_at: string | null;
+    can_return_until: string | null;
+    seller: {
+      business_name: string | null;
+      store_name: string | null;
+      slug: string | null;
+    } | null;
+    items: Array<{
+      id: string;
+      product_id: string;
+      variant_id: string | null;
+      product_name: string | null;
+      variant_name: string | null;
+      quantity: number;
+      unit_price: number;
+      total_price: number;
+      image_url: string | null;
+    }> | null;
+  }> | null;
+}
+
 export async function updateSellerSubOrderStatus(
   subOrderId: string,
   newStatus: "PREPARING" | "READY_TO_SHIP" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "DISPUTED",
 ): Promise<void> {
-  const updatePayload: Record<string, any> = {
+  const updatePayload: Database["public"]["Tables"]["sub_orders"]["Update"] = {
     status: newStatus,
     updated_at: new Date().toISOString(),
   };
 
   if (newStatus === "SHIPPED") {
-    updatePayload["shipped_at"] = new Date().toISOString();
+    updatePayload.shipped_at = new Date().toISOString();
   } else if (newStatus === "DELIVERED") {
     const deliveredAt = new Date().toISOString();
-    updatePayload["delivered_at"] = deliveredAt;
-    updatePayload["can_return_until"] = new Date(
+    updatePayload.delivered_at = deliveredAt;
+    updatePayload.can_return_until = new Date(
       Date.now() + 7 * 24 * 60 * 60 * 1000,
     ).toISOString();
   }
 
-  const { error } = await (supabaseAdmin.from("sub_orders") as any)
+  const { error } = await supabaseAdmin
+    .from("sub_orders")
     .update(updatePayload)
     .eq("id", subOrderId);
 
@@ -196,7 +299,7 @@ export async function updateSellerSubOrderStatus(
   }
 
   // Audit log
-  await (supabaseAdmin.from("audit_logs") as any).insert({
+  await supabaseAdmin.from("audit_logs").insert({
     action: `SUB_ORDER_${newStatus}`,
     entity_type: "SUB_ORDER",
     entity_id: subOrderId,
@@ -223,7 +326,8 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
   const { subOrderId, reasonCode, notes, actorRole, actorId } = params;
 
   // 1. Fetch sub-order details
-  const { data: subOrder, error: subOrderErr } = await (supabaseAdmin.from("sub_orders") as any)
+  const { data: subOrderData, error: subOrderErr } = await supabaseAdmin
+    .from("sub_orders")
     .select(
       `
       id,
@@ -249,9 +353,11 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
     .eq("id", subOrderId)
     .single();
 
-  if (subOrderErr || !subOrder) {
+  if (subOrderErr || !subOrderData) {
     throw new Error(`Sub-order ${subOrderId} not found`);
   }
+
+  const subOrder = subOrderData as unknown as SubOrderCancelRow;
 
   // 2. Enforce Cancellation State Eligibility
   const unmodifiableStatuses = ["SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];
@@ -263,17 +369,17 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
 
   // 3. Calculate refund amount for this seller package
   const itemsTotalAud = (subOrder.items || []).reduce(
-    (acc: number, item: any) => acc + Number(item.total_price || 0),
+    (acc: number, item) => acc + Number(item.total_price || 0),
     0,
   );
   const refundAmountAud = Number((itemsTotalAud + Number(subOrder.shipping_cost || 0)).toFixed(2));
   const refundAmountCents = Math.round(refundAmountAud * 100);
 
   // 4. Update sub-order state to CANCELLED
-  await (supabaseAdmin.from("sub_orders") as any)
+  await supabaseAdmin
+    .from("sub_orders")
     .update({
       status: "CANCELLED",
-      cancellation_reason: reasonCode,
       updated_at: new Date().toISOString(),
     })
     .eq("id", subOrderId);
@@ -289,18 +395,17 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
         referenceId: subOrderId,
         actorId,
         note: `Restocked via cancellation (${reasonCode}) by ${actorRole}`,
-      }).catch((restockErr: any) => {
-        console.warn(
-          `Failed to restock variant ${item.variant_id}:`,
-          restockErr?.message || restockErr,
-        );
+      }).catch((restockErr: unknown) => {
+        const msg = restockErr instanceof Error ? restockErr.message : String(restockErr);
+        console.warn(`Failed to restock variant ${item.variant_id}:`, msg);
       });
       restockedCount += item.quantity || 1;
     }
   }
 
   // 6. Cancel unused courier shipping label if created
-  await (supabaseAdmin.from("shipments") as any)
+  await supabaseAdmin
+    .from("shipments")
     .update({
       status: "CANCELLED",
       updated_at: new Date().toISOString(),
@@ -327,13 +432,14 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
           actorRole,
         },
       });
-    } catch (stripeErr: any) {
-      console.warn("Stripe refund creation note:", stripeErr.message);
+    } catch (stripeErr: unknown) {
+      const msg = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
+      console.warn("Stripe refund creation note:", msg);
     }
   }
 
   // 8. Append compensating double-entry ledger records
-  await (supabaseAdmin.from("ledger_entries") as any).insert({
+  await supabaseAdmin.from("ledger_entries").insert({
     order_id: subOrder.master_order_id,
     sub_order_id: subOrderId,
     seller_id: subOrder.seller_id,
@@ -344,7 +450,7 @@ export async function cancelSubOrder(params: CancelOrderParams): Promise<{
   });
 
   // 9. Write immutable audit log
-  await (supabaseAdmin.from("audit_logs") as any).insert({
+  await supabaseAdmin.from("audit_logs").insert({
     action: "SUB_ORDER_CANCELLED",
     entity_type: "SUB_ORDER",
     entity_id: subOrderId,
@@ -379,7 +485,8 @@ export const getOrderTrackingDetailsServerFn = createServerFn({ method: "POST" }
 
 export async function getOrderTrackingDetails(orderId: string) {
   try {
-    const { data: dbOrder, error } = await (supabaseAdmin.from("orders") as any)
+    const { data: rawOrder, error } = await supabaseAdmin
+      .from("orders")
       .select(
         `
         *,
@@ -419,13 +526,16 @@ export async function getOrderTrackingDetails(orderId: string) {
       .eq("id", orderId)
       .maybeSingle();
 
-    if (!error && dbOrder) {
+    if (!error && rawOrder) {
+      const dbOrder = rawOrder as unknown as OrderTrackingJoinedRow;
       const address = dbOrder.shipping_address as Address;
       const placedDate = new Date(dbOrder.created_at).toLocaleDateString("en-AU", {
         day: "numeric",
         month: "short",
         year: "numeric",
       });
+
+      const subOrdersList = dbOrder.sub_orders || [];
 
       return {
         id: dbOrder.order_number ?? dbOrder.id,
@@ -440,7 +550,7 @@ export async function getOrderTrackingDetails(orderId: string) {
         address: address
           ? `${address.line1}, ${address.suburb} ${address.state} ${address.postcode}`
           : "Sydney NSW 2000, Australia",
-        subOrders: (dbOrder.sub_orders || []).map((so: any, idx: number) => {
+        subOrders: subOrdersList.map((so, idx: number) => {
           const sellerName =
             so.seller?.business_name ?? so.seller?.store_name ?? "Marketplace Boutique";
           const sellerSlug = so.seller?.slug ?? "mumbai-mirror-boutique";
@@ -449,7 +559,7 @@ export async function getOrderTrackingDetails(orderId: string) {
 
           return {
             id: so.id,
-            packageLabel: so.package_label ?? `Package ${idx + 1} of ${dbOrder.sub_orders.length}`,
+            packageLabel: so.package_label ?? `Package ${idx + 1} of ${subOrdersList.length}`,
             seller: sellerName,
             sellerSlug,
             origin: "Harris Park, NSW",
@@ -467,10 +577,10 @@ export async function getOrderTrackingDetails(orderId: string) {
             canCancel:
               so.status === "NEW_ORDER" || so.status === "PROCESSING" || so.status === "PREPARING",
             canReturn: isDelivered,
-            items: (so.items || []).map((it: any) => ({
+            items: (so.items || []).map((it) => ({
               productId: it.product_id,
-              name: it.product_name || it.title || "Product",
-              variant: it.variant_name || it.variant_title || "Standard",
+              name: it.product_name ?? "Product",
+              variant: it.variant_name ?? "Standard",
               price: Number(it.unit_price ?? 0),
               qty: it.quantity ?? 1,
             })),
@@ -499,8 +609,9 @@ export async function getOrderTrackingDetails(orderId: string) {
         }),
       };
     }
-  } catch (err: any) {
-    console.warn("Order tracking query note:", err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("Order tracking query note:", msg);
   }
 
   return null;

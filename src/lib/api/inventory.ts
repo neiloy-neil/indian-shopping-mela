@@ -13,6 +13,29 @@ export interface ReservationResult {
   expiresAt: string;
 }
 
+export interface RpcReservationResponse {
+  success: boolean;
+  reservation_id?: string;
+  variant_id?: string;
+  quantity?: number;
+  expires_at?: string;
+  available?: number;
+  requested?: number;
+  error?: string;
+}
+
+export interface RpcCommitResponse {
+  success: boolean;
+  balance_after?: number;
+  idempotent?: boolean;
+  error?: string;
+}
+
+export interface RpcReleaseResponse {
+  success: boolean;
+  error?: string;
+}
+
 /**
  * Server Function: Atomically reserve stock for checkout lines.
  * Fails closed: If ANY item cannot be reserved, all previously acquired reservations
@@ -43,18 +66,18 @@ export async function reserveInventoryLines(
 
   for (const item of items) {
     if (item.quantity <= 0) {
-      // Rollback previous holds
       await rollbackReservations(acquiredReservations);
       throw new Error(`Invalid requested quantity: ${item.quantity} for variant ${item.variantId}`);
     }
 
-    const { data: rpcResult, error: rpcError } = await (supabaseAdmin.rpc as any)(
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
       "reserve_inventory_atomic",
       {
         p_variant_id: item.variantId,
         p_quantity: item.quantity,
-        p_session_id: sessionId,
-        p_ttl_minutes: ttlMinutes,
+        p_reference_id: sessionId,
+        p_reference_type: "checkout",
+        p_hold_minutes: ttlMinutes,
       },
     );
 
@@ -65,9 +88,11 @@ export async function reserveInventoryLines(
       );
     }
 
-    const res = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
+    const res = (
+      typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult
+    ) as RpcReservationResponse | null;
 
-    if (!res || !res.success) {
+    if (!res || !res.success || !res.reservation_id) {
       await rollbackReservations(acquiredReservations);
       const available = res?.available ?? 0;
       throw new Error(
@@ -79,7 +104,7 @@ export async function reserveInventoryLines(
       reservationId: res.reservation_id,
       variantId: item.variantId,
       quantity: item.quantity,
-      expiresAt: res.expires_at,
+      expiresAt: res.expires_at ?? new Date(Date.now() + ttlMinutes * 60000).toISOString(),
     });
   }
 
@@ -92,11 +117,12 @@ export async function reserveInventoryLines(
 async function rollbackReservations(reservations: ReservationResult[]): Promise<void> {
   for (const r of reservations) {
     try {
-      await (supabaseAdmin.rpc as any)("release_inventory_reservation", {
+      await supabaseAdmin.rpc("release_inventory_reservation", {
         p_reservation_id: r.reservationId,
       });
-    } catch (err: any) {
-      console.error(`Failed to rollback reservation ${r.reservationId}:`, err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Failed to rollback reservation ${r.reservationId}:`, msg);
     }
   }
 }
@@ -115,7 +141,8 @@ export async function commitInventoryReservations(
   orderId: string,
 ): Promise<{ committed: number }> {
   // Find all active reservations for this session
-  const { data: reservations, error } = await (supabaseAdmin.from("inventory_reservations") as any)
+  const { data: reservations, error } = await supabaseAdmin
+    .from("inventory_reservations")
     .select("id, status")
     .eq("session_id", sessionId);
 
@@ -127,7 +154,7 @@ export async function commitInventoryReservations(
 
   for (const res of reservations) {
     if (res.status === "active") {
-      const { data: rpcRes, error: rpcErr } = await (supabaseAdmin.rpc as any)(
+      const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
         "commit_inventory_reservation",
         {
           p_reservation_id: res.id,
@@ -136,13 +163,14 @@ export async function commitInventoryReservations(
       );
 
       if (!rpcErr) {
-        const result = typeof rpcRes === "string" ? JSON.parse(rpcRes) : rpcRes;
+        const result = (
+          typeof rpcRes === "string" ? JSON.parse(rpcRes) : rpcRes
+        ) as RpcCommitResponse | null;
         if (result?.success) {
           committedCount++;
         }
       }
     } else if (res.status === "fulfilled") {
-      // Already committed idempotently
       committedCount++;
     }
   }
@@ -162,7 +190,8 @@ export const releaseInventoryReservationsServerFn = createServerFn({ method: "PO
 export async function releaseInventoryReservations(
   sessionId: string,
 ): Promise<{ released: number }> {
-  const { data: reservations } = await (supabaseAdmin.from("inventory_reservations") as any)
+  const { data: reservations } = await supabaseAdmin
+    .from("inventory_reservations")
     .select("id")
     .eq("session_id", sessionId)
     .eq("status", "active");
@@ -174,10 +203,12 @@ export async function releaseInventoryReservations(
   let releasedCount = 0;
 
   for (const res of reservations) {
-    const { data: rpcRes } = await (supabaseAdmin.rpc as any)("release_inventory_reservation", {
+    const { data: rpcRes } = await supabaseAdmin.rpc("release_inventory_reservation", {
       p_reservation_id: res.id,
     });
-    const result = typeof rpcRes === "string" ? JSON.parse(rpcRes) : rpcRes;
+    const result = (
+      typeof rpcRes === "string" ? JSON.parse(rpcRes) : rpcRes
+    ) as RpcReleaseResponse | null;
     if (result?.success) {
       releasedCount++;
     }
@@ -191,7 +222,7 @@ export async function releaseInventoryReservations(
  */
 export const releaseExpiredReservationsServerFn = createServerFn({ method: "POST" }).handler(
   async () => {
-    const { data: count, error } = await (supabaseAdmin.rpc as any)("release_expired_reservations");
+    const { data: count, error } = await supabaseAdmin.rpc("release_expired_reservations");
     if (error) {
       throw new Error(`Failed to release expired reservations: ${error.message}`);
     }
@@ -218,7 +249,8 @@ export async function restockVariantInventory(data: {
   const qty = Math.max(1, data.quantity);
 
   // Fetch current variant stock
-  const { data: variant, error: fetchErr } = await (supabaseAdmin.from("product_variants") as any)
+  const { data: variant, error: fetchErr } = await supabaseAdmin
+    .from("product_variants")
     .select("id, product_id, stock_quantity")
     .eq("id", data.variantId)
     .single();
@@ -230,26 +262,29 @@ export async function restockVariantInventory(data: {
   const newStock = Number(variant.stock_quantity) + qty;
 
   // Update variant stock
-  await (supabaseAdmin.from("product_variants") as any)
+  await supabaseAdmin
+    .from("product_variants")
     .update({ stock_quantity: newStock, updated_at: new Date().toISOString() })
     .eq("id", data.variantId);
 
   // Recalculate and update parent product total stock
-  const { data: allVariants } = await (supabaseAdmin.from("product_variants") as any)
+  const { data: allVariants } = await supabaseAdmin
+    .from("product_variants")
     .select("stock_quantity")
     .eq("product_id", variant.product_id);
 
   const totalProductStock = (allVariants || []).reduce(
-    (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
+    (acc: number, v: { stock_quantity: number }) => acc + (Number(v.stock_quantity) || 0),
     0,
   );
 
-  await (supabaseAdmin.from("products") as any)
-    .update({ stock_quantity: totalProductStock, updated_at: new Date().toISOString() })
+  await supabaseAdmin
+    .from("products")
+    .update({ updated_at: new Date().toISOString() })
     .eq("id", variant.product_id);
 
   // Append-only audit record in inventory_transactions
-  await (supabaseAdmin.from("inventory_transactions") as any).insert({
+  await supabaseAdmin.from("inventory_transactions").insert({
     variant_id: data.variantId,
     delta: qty,
     balance_after: newStock,

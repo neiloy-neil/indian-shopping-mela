@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { stripe } from "@/lib/stripe-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import type { Address } from "@/lib/supabase/types";
+import type { Address, Database } from "@/lib/supabase/types";
 import { calculateMultiSellerShippingQuotes, type ParcelDetails } from "./shipping";
 import {
   reserveInventoryLines,
@@ -102,11 +102,40 @@ export async function loadAuthoritativeCartItems(
   const variantIds = items.map((i) => i.variantId);
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+interface VariantJoinedRow {
+  id: string;
+  title: string;
+  seller_sku: string | null;
+  price: number;
+  sale_price: number | null;
+  sale_start_at: string | null;
+  sale_end_at: string | null;
+  stock_quantity: number;
+  reserved_quantity: number;
+  weight_kg_override: number | null;
+  images: unknown;
+  product: {
+    id: string;
+    title: string;
+    status: string;
+    weight_kg: number;
+    seller_id: string;
+    seller: {
+      id: string;
+      business_name: string;
+      store_name?: string | null;
+      status: string;
+      dispatch_address: unknown;
+    } | null;
+  } | null;
+}
+
   const validUuids = variantIds.filter((id) => uuidRegex.test(id));
   const authoritativeItems: AuthoritativeCartItem[] = [];
 
   if (validUuids.length > 0) {
-    const { data: variants, error } = await (supabaseAdmin.from("product_variants") as any)
+    const { data: rawVariants, error } = await supabaseAdmin
+      .from("product_variants")
       .select(
         `
         id,
@@ -129,7 +158,6 @@ export async function loadAuthoritativeCartItems(
           seller:sellers (
             id,
             business_name,
-            store_name,
             status,
             dispatch_address
           )
@@ -142,7 +170,8 @@ export async function loadAuthoritativeCartItems(
       throw new Error(`Failed to load product pricing: ${error.message}`);
     }
 
-    const variantMap = new Map<string, any>((variants || []).map((v: any) => [v.id, v]));
+    const variants = (rawVariants || []) as unknown as VariantJoinedRow[];
+    const variantMap = new Map<string, VariantJoinedRow>(variants.map((v) => [v.id, v]));
 
     for (const item of items) {
       const variant = variantMap.get(item.variantId);
@@ -317,7 +346,8 @@ export async function createCheckoutOrderTransactional(
     `ord_idem_${params.sessionId}_${params.items.map((i) => `${i.variantId}:${i.quantity}`).join("_")}`;
 
   // 1. Check Idempotency: Return existing master order if already created with this key
-  const { data: existingOrder } = await (supabaseAdmin.from("orders") as any)
+  const { data: existingOrder } = await supabaseAdmin
+    .from("orders")
     .select("id, order_number, total_amount, gst_total, payment_intent_id")
     .eq("idempotency_key", idempotencyKey)
     .maybeSingle();
@@ -396,15 +426,15 @@ export async function createCheckoutOrderTransactional(
     }
 
     // 4. Insert Master Order record
-    const { error: orderErr } = await (supabaseAdmin.from("orders") as any).insert({
+    const { error: orderErr } = await supabaseAdmin.from("orders").insert({
       id: masterOrderId,
       order_number: masterOrderNumber,
       customer_id: params.userId ?? null,
       customer_email: params.customerEmail,
       customer_name: params.customerName,
       customer_phone: params.customerPhone ?? null,
-      shipping_address: params.shippingAddress,
-      billing_address: effectiveBillingAddress,
+      shipping_address: params.shippingAddress as unknown as Database["public"]["Tables"]["orders"]["Insert"]["shipping_address"],
+      billing_address: effectiveBillingAddress as unknown as Database["public"]["Tables"]["orders"]["Insert"]["billing_address"],
       subtotal: itemsSubtotal,
       shipping_total: shippingTotal,
       discount_total: discountTotal,
@@ -431,7 +461,7 @@ export async function createCheckoutOrderTransactional(
         (pkg.subtotalAud + pkg.shippingCostAud - commissionAmount).toFixed(2),
       );
 
-      const { error: subErr } = await (supabaseAdmin.from("sub_orders") as any).insert({
+      const { error: subErr } = await supabaseAdmin.from("sub_orders").insert({
         id: subOrderId,
         master_order_id: masterOrderId,
         seller_id: pkg.sellerId,
@@ -450,7 +480,7 @@ export async function createCheckoutOrderTransactional(
         const itemTotal = Number((item.unitPriceAud * item.quantity).toFixed(2));
         const itemGst = Number((itemTotal / 11).toFixed(2));
 
-        const { error: itemErr } = await (supabaseAdmin.from("order_items") as any).insert({
+        const { error: itemErr } = await supabaseAdmin.from("order_items").insert({
           sub_order_id: subOrderId,
           product_id: item.productId,
           variant_id: item.variantId,
@@ -469,7 +499,7 @@ export async function createCheckoutOrderTransactional(
       }
 
       // Record financial ledger gross allocation
-      await (supabaseAdmin.from("ledger_entries") as any).insert({
+      await supabaseAdmin.from("ledger_entries").insert({
         order_id: masterOrderId,
         sub_order_id: subOrderId,
         seller_id: pkg.sellerId,
@@ -481,7 +511,7 @@ export async function createCheckoutOrderTransactional(
     }
 
     // 6. Insert Payment tracking record
-    await (supabaseAdmin.from("payments") as any).insert({
+    await supabaseAdmin.from("payments").insert({
       order_id: masterOrderId,
       provider: "STRIPE",
       provider_payment_id: paymentIntentId,
@@ -500,13 +530,14 @@ export async function createCheckoutOrderTransactional(
       gstTotalAud: gstTotal,
       idempotent: false,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     // Fail-Closed Rollback: Release all inventory reservations held by this session on error
     await releaseInventoryReservations(params.sessionId).catch((relErr) => {
       console.warn("Failed to auto-release inventory during checkout error rollback:", relErr);
     });
 
-    throw new Error(`Checkout order creation failed: ${error.message}`);
+    throw new Error(`Checkout order creation failed: ${errorMsg}`);
   }
 }
 
@@ -514,17 +545,20 @@ export async function createCheckoutOrderTransactional(
  * Confirm payment success, transition order status, and commit inventory reservations.
  */
 export async function confirmOrderPaymentSuccess(paymentIntentId: string): Promise<void> {
-  const { data: payment } = await (supabaseAdmin.from("payments") as any)
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
     .select("id, order_id")
     .eq("provider_payment_id", paymentIntentId)
     .maybeSingle();
 
   if (payment) {
-    await (supabaseAdmin.from("payments") as any)
+    await supabaseAdmin
+      .from("payments")
       .update({ status: "PAID", updated_at: new Date().toISOString() })
       .eq("id", payment.id);
 
-    await (supabaseAdmin.from("orders") as any)
+    await supabaseAdmin
+      .from("orders")
       .update({ status: "CONFIRMED", payment_status: "PAID", updated_at: new Date().toISOString() })
       .eq("id", payment.order_id);
 

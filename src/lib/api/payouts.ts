@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe-server";
 import { postLedgerEntry } from "./ledger";
-import type { PayoutStatus } from "@/lib/supabase/types";
+import type { Database, PayoutStatus } from "@/lib/supabase/types";
 
 export interface PayoutEligibilityResult {
   sellerId: string;
@@ -91,11 +91,47 @@ export const setManualFinanceHoldServerFn = createServerFn({ method: "POST" })
  * 2. Fetches delivered sub-orders where delivered_at + 14 days <= NOW().
  * 3. Excludes sub-orders with active return requests or dispute holds.
  */
+interface PayoutSubOrderRow {
+  id: string;
+  subtotal: number | null;
+  shipping_cost: number | null;
+  commission_amount: number | null;
+  net_seller_amount: number | null;
+  status: string;
+  delivered_at: string | null;
+  payout_items: Array<{
+    id: string;
+  }> | null;
+}
+
+interface PayoutStatementJoinedRow {
+  id: string;
+  amount_cents: number;
+  currency: string;
+  status: Database["public"]["Enums"]["payout_status"];
+  provider_transfer_id: string | null;
+  payout_batch_id: string | null;
+  paid_at: string | null;
+  created_at: string;
+  payout_items: Array<{
+    id: string;
+    amount_cents: number;
+    ledger_entry_id: string | null;
+  }> | null;
+}
+
+/**
+ * T110 — Authoritative Payout Eligibility & Maturity Calculator.
+ * 1. Checks seller approval and Stripe Connect status.
+ * 2. Fetches delivered sub-orders where delivered_at + 14 days <= NOW().
+ * 3. Excludes sub-orders with active return requests or dispute holds.
+ */
 export async function getSellerPayoutEligibility(
   sellerId: string,
 ): Promise<PayoutEligibilityResult> {
   // 1. Fetch seller record
-  const { data: seller, error: sellerErr } = await (supabaseAdmin.from("sellers") as any)
+  const { data: seller, error: sellerErr } = await supabaseAdmin
+    .from("sellers")
     .select("id, status, stripe_account_id, payouts_enabled, business_name")
     .eq("id", sellerId)
     .single();
@@ -115,7 +151,9 @@ export async function getSellerPayoutEligibility(
   }
 
   const isApproved =
-    seller.status === "APPROVED" || seller.status === "approved" || seller.status === "ACTIVE";
+    (seller.status as string) === "APPROVED" ||
+    (seller.status as string) === "approved" ||
+    (seller.status as string) === "ACTIVE";
   if (!isApproved) {
     return {
       sellerId,
@@ -127,7 +165,7 @@ export async function getSellerPayoutEligibility(
       totalCommissionCents: 0,
       totalNetPayoutCents: 0,
       totalNetPayoutAud: 0,
-      stripeAccountId: seller.stripe_account_id,
+      stripeAccountId: seller.stripe_account_id ?? undefined,
     };
   }
 
@@ -146,7 +184,8 @@ export async function getSellerPayoutEligibility(
   }
 
   // 2. Fetch all sub-orders for this seller
-  const { data: subOrders, error: subOrdersErr } = await (supabaseAdmin.from("sub_orders") as any)
+  const { data: rawSubOrders, error: subOrdersErr } = await supabaseAdmin
+    .from("sub_orders")
     .select(
       `
       id,
@@ -167,6 +206,8 @@ export async function getSellerPayoutEligibility(
     throw new Error(`Failed to query sub-orders: ${subOrdersErr.message}`);
   }
 
+  const subOrders = (rawSubOrders || []) as unknown as PayoutSubOrderRow[];
+
   const now = new Date();
   const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -176,7 +217,7 @@ export async function getSellerPayoutEligibility(
   let totalCommissionCents = 0;
   let totalNetPayoutCents = 0;
 
-  for (const so of subOrders || []) {
+  for (const so of subOrders) {
     // Skip if already settled in a payout batch
     if (so.payout_items && so.payout_items.length > 0) {
       continue;
@@ -230,7 +271,7 @@ export async function getSellerPayoutEligibility(
     totalCommissionCents,
     totalNetPayoutCents,
     totalNetPayoutAud: Number((totalNetPayoutCents / 100).toFixed(2)),
-    stripeAccountId: seller.stripe_account_id,
+    stripeAccountId: seller.stripe_account_id ?? undefined,
   };
 }
 
@@ -256,12 +297,12 @@ export async function executeSellerPayoutTransfer(
 
   // 2. Create PAYOUT_PROCESSING payout batch record in DB
   const payoutBatchId = `PO-${Date.now().toString().slice(-8)}`;
-  const { data: payoutRecord, error: payoutErr } = await (supabaseAdmin.from("payouts") as any)
+  const { data: payoutRecord, error: payoutErr } = await supabaseAdmin
+    .from("payouts")
     .insert({
       seller_id: sellerId,
       payout_batch_id: payoutBatchId,
       amount_cents: amountCents,
-      currency: "AUD",
       status: "PAYOUT_PROCESSING",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -291,13 +332,14 @@ export async function executeSellerPayoutTransfer(
 
   // 4. Insert line items into public.payout_items with canonical ledger_entry_id
   for (const subOrderId of eligibility.eligibleSubOrderIds) {
-    const { data: so } = await (supabaseAdmin.from("sub_orders") as any)
+    const { data: so } = await supabaseAdmin
+      .from("sub_orders")
       .select("subtotal, shipping_cost, commission_amount, net_seller_amount")
       .eq("id", subOrderId)
       .single();
 
     if (so) {
-      await (supabaseAdmin.from("payout_items") as any).insert({
+      await supabaseAdmin.from("payout_items").insert({
         payout_id: payoutId,
         ledger_entry_id: ledgerEntryId,
         amount_cents: Math.round(Number(so.net_seller_amount) * 100),
@@ -309,7 +351,8 @@ export async function executeSellerPayoutTransfer(
   // 5. Initiate real Stripe Connect Transfer
   const isProduction = process.env["NODE_ENV"] === "production";
   if (!stripeAccountId && isProduction) {
-    await (supabaseAdmin.from("payouts") as any)
+    await supabaseAdmin
+      .from("payouts")
       .update({
         status: "CANCELLED",
         failure_reason: "Seller does not have an active, verified Stripe Connect account.",
@@ -344,7 +387,8 @@ export async function executeSellerPayoutTransfer(
       },
     );
     transferId = transfer.id;
-  } catch (stripeErr: any) {
+  } catch (stripeErr: unknown) {
+    const msg = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
     if (
       !isProduction &&
       (!process.env["STRIPE_SECRET_KEY"] || process.env["STRIPE_SECRET_KEY"].includes("dummy"))
@@ -352,20 +396,22 @@ export async function executeSellerPayoutTransfer(
       transferId = `tr_dev_${Date.now()}`;
     } else {
       // Mark payout failed/cancelled
-      await (supabaseAdmin.from("payouts") as any)
+      await supabaseAdmin
+        .from("payouts")
         .update({
           status: "CANCELLED",
-          failure_reason: stripeErr.message,
+          failure_reason: msg,
           updated_at: new Date().toISOString(),
         })
         .eq("id", payoutId);
 
-      throw new Error(`Stripe Connect transfer failed: ${stripeErr.message}`);
+      throw new Error(`Stripe Connect transfer failed: ${msg}`);
     }
   }
 
   // 6. Update payout status to PAID_TO_SELLER
-  await (supabaseAdmin.from("payouts") as any)
+  await supabaseAdmin
+    .from("payouts")
     .update({
       status: "PAID_TO_SELLER",
       provider_transfer_id: transferId,
@@ -376,7 +422,7 @@ export async function executeSellerPayoutTransfer(
     .eq("id", payoutId);
 
   // 7. Audit log
-  await (supabaseAdmin.from("audit_logs") as any).insert({
+  await supabaseAdmin.from("audit_logs").insert({
     action: "SELLER_PAYOUT_TRANSFERRED",
     entity_type: "PAYOUT",
     entity_id: payoutId,
@@ -413,7 +459,8 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
   totalCommissionAud: number;
   csvExport: string;
 }> {
-  const { data: payouts } = await (supabaseAdmin.from("payouts") as any)
+  const { data: rawPayouts } = await supabaseAdmin
+    .from("payouts")
     .select(
       `
       id,
@@ -434,10 +481,12 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
     .eq("seller_id", sellerId)
     .order("created_at", { ascending: false });
 
+  const payouts = (rawPayouts || []) as unknown as PayoutStatementJoinedRow[];
+
   const statementItems: SellerStatementItem[] = [];
   let totalPaidCents = 0;
 
-  for (const po of payouts || []) {
+  for (const po of payouts) {
     const items = po.payout_items || [];
     const netCents = Number(po.amount_cents) || 0;
     const netAud = Number((netCents / 100).toFixed(2));
@@ -497,7 +546,8 @@ export async function setManualFinanceHold(
   holdReason: string,
   adminId?: string | undefined,
 ): Promise<{ success: boolean }> {
-  const { data: subOrder } = await (supabaseAdmin.from("sub_orders") as any)
+  const { data: subOrder } = await supabaseAdmin
+    .from("sub_orders")
     .select("master_order_id, seller_id, net_seller_amount")
     .eq("id", subOrderId)
     .single();
@@ -518,7 +568,7 @@ export async function setManualFinanceHold(
     metadata: { subOrderId, holdReason, adminId },
   });
 
-  await (supabaseAdmin.from("audit_logs") as any).insert({
+  await supabaseAdmin.from("audit_logs").insert({
     action: "MANUAL_FINANCE_HOLD_APPLIED",
     entity_type: "SUB_ORDER",
     entity_id: subOrderId,
@@ -552,7 +602,7 @@ export async function handlePostPayoutRefundRecovery(
     metadata: { subOrderId, refundAmountAud },
   });
 
-  await (supabaseAdmin.from("audit_logs") as any).insert({
+  await supabaseAdmin.from("audit_logs").insert({
     action: "POST_PAYOUT_RECOVERY_DEBIT",
     entity_type: "SELLER_BALANCE",
     entity_id: sellerId,

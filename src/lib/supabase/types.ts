@@ -34,6 +34,7 @@ export type {
   InventoryTxType,
   BulkImportStatus,
   PaymentMethod,
+  ReturnReasonCode,
   // Shared interfaces
   Address,
 } from "./database.types";

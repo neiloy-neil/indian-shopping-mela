@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import type { LedgerEntryType } from "@/lib/supabase/types";
+import type { Database, LedgerEntryType } from "@/lib/supabase/types";
 
 export type CanonicalLedgerEntryType = LedgerEntryType;
 
@@ -64,6 +64,20 @@ export const postLedgerEntryServerFn = createServerFn({ method: "POST" })
     return postLedgerEntry(data);
   });
 
+interface SellerLedgerJoinedRow {
+  id: string;
+  amount_cents: number;
+  entry_type: CanonicalLedgerEntryType;
+  created_at: string;
+  sub_order_id: string | null;
+  sub_orders: {
+    id: string;
+    status: string;
+    delivered_at: string | null;
+    created_at: string;
+  } | null;
+}
+
 export async function postLedgerEntry(
   entry: LedgerEntryInput,
 ): Promise<{ id: string; success: boolean }> {
@@ -73,17 +87,18 @@ export async function postLedgerEntry(
     );
   }
 
-  const { data, error } = await (supabaseAdmin.from("ledger_entries") as any)
+  const { data, error } = await supabaseAdmin
+    .from("ledger_entries")
     .insert({
       order_id: entry.orderId ?? null,
       sub_order_id: entry.subOrderId ?? null,
       seller_id: entry.sellerId ?? null,
-      payout_batch_id: entry.metadata ? entry.metadata["payoutBatchId"] ?? null : null,
+      payout_batch_id: entry.metadata ? (entry.metadata["payoutBatchId"] as string) ?? null : null,
       entry_type: entry.entryType,
       amount_cents: entry.amountCents,
       currency: entry.currency ?? "AUD",
       description: entry.description ?? null,
-      metadata: entry.metadata ?? null,
+      metadata: (entry.metadata as unknown as Database["public"]["Tables"]["ledger_entries"]["Insert"]["metadata"]) ?? null,
     })
     .select("id")
     .single();
@@ -105,7 +120,8 @@ export const reconcileOrderLedgerServerFn = createServerFn({ method: "POST" })
   });
 
 export async function reconcileOrderLedger(orderId: string): Promise<OrderReconciliationResult> {
-  const { data: entries, error } = await (supabaseAdmin.from("ledger_entries") as any)
+  const { data: entries, error } = await supabaseAdmin
+    .from("ledger_entries")
     .select("*")
     .eq("order_id", orderId);
 
@@ -127,13 +143,13 @@ export async function reconcileOrderLedger(orderId: string): Promise<OrderReconc
 
   for (const row of rows) {
     const amount = Number(row.amount_cents) || 0;
-    const type = row.entry_type;
+    const type: string = row.entry_type;
     const sId = row.seller_id;
 
     if (sId && !sellerBreakdowns[sId]) {
       sellerBreakdowns[sId] = {
         sellerId: sId,
-        subOrderId: row.sub_order_id,
+        subOrderId: row.sub_order_id ?? undefined,
         sellerGrossCents: 0,
         commissionCents: 0,
         shippingCents: 0,
@@ -207,7 +223,8 @@ export const getSellerLedgerBalanceServerFn = createServerFn({ method: "POST" })
   });
 
 export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLedgerBalance> {
-  const { data: entries, error } = await (supabaseAdmin.from("ledger_entries") as any)
+  const { data: rawEntries, error } = await supabaseAdmin
+    .from("ledger_entries")
     .select(
       `
       id,
@@ -229,7 +246,7 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
     throw new Error(`Failed to load seller ledger entries for ${sellerId}: ${error.message}`);
   }
 
-  const rows = entries || [];
+  const rows = (rawEntries || []) as unknown as SellerLedgerJoinedRow[];
   let availableBalanceCents = 0;
   let pendingBalanceCents = 0;
   let disputedHoldCents = 0;
@@ -243,7 +260,7 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
 
   for (const row of rows) {
     const amount = Number(row.amount_cents) || 0;
-    const entryType = row.entry_type;
+    const entryType: string = row.entry_type;
 
     if (entryType === "SELLER_GROSS" || entryType === "SELLER_CREDIT") {
       totalEarnedGrossCents += amount;

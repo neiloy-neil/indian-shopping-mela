@@ -53,8 +53,9 @@ export async function createOrGetSellerStripeAccount(params: {
   abn?: string | undefined;
 }): Promise<string> {
   // 1. Check if seller already has a stripe_account_id in DB
-  const { data: seller, error } = await (supabaseAdmin.from("sellers") as any)
-    .select("id, stripe_account_id, email, business_name")
+  const { data: seller, error } = await supabaseAdmin
+    .from("sellers")
+    .select("id, stripe_account_id, business_name")
     .eq("id", params.sellerId)
     .single();
 
@@ -90,7 +91,8 @@ export async function createOrGetSellerStripeAccount(params: {
   });
 
   // 3. Persist stripe_account_id to seller record
-  await (supabaseAdmin.from("sellers") as any)
+  await supabaseAdmin
+    .from("sellers")
     .update({
       stripe_account_id: account.id,
       updated_at: new Date().toISOString(),
@@ -125,7 +127,8 @@ export async function createSellerOnboardingLink(params: {
 export async function syncSellerStripeAccountStatus(
   sellerId: string,
 ): Promise<StripeAccountStatus> {
-  const { data: seller } = await (supabaseAdmin.from("sellers") as any)
+  const { data: seller } = await supabaseAdmin
+    .from("sellers")
     .select("stripe_account_id")
     .eq("id", sellerId)
     .single();
@@ -142,7 +145,8 @@ export async function syncSellerStripeAccountStatus(
     const chargesEnabled = account.charges_enabled ?? false;
 
     // Update seller status in DB
-    await (supabaseAdmin.from("sellers") as any)
+    await supabaseAdmin
+      .from("sellers")
       .update({
         payouts_enabled: payoutsEnabled,
         stripe_details_submitted: detailsSubmitted,
@@ -158,7 +162,7 @@ export async function syncSellerStripeAccountStatus(
       requiresInformation:
         !detailsSubmitted || (account.requirements?.currently_due?.length ?? 0) > 0,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error retrieving Stripe account details:", err);
     return {
       stripeAccountId,
@@ -183,8 +187,9 @@ export async function checkSellerPayoutEligibility(sellerId: string): Promise<{
   eligible: boolean;
   reason?: string;
 }> {
-  const { data: seller } = await (supabaseAdmin.from("sellers") as any)
-    .select("status, onboarding_status, stripe_account_id, payouts_enabled")
+  const { data: seller } = await supabaseAdmin
+    .from("sellers")
+    .select("status, stripe_account_id, payouts_enabled")
     .eq("id", sellerId)
     .single();
 
@@ -192,7 +197,7 @@ export async function checkSellerPayoutEligibility(sellerId: string): Promise<{
     return { eligible: false, reason: "Seller record does not exist." };
   }
 
-  if (seller.status !== "ACTIVE" && seller.status !== "APPROVED") {
+  if ((seller.status as string) !== "ACTIVE" && (seller.status as string) !== "APPROVED") {
     return { eligible: false, reason: `Seller is not active (current status: ${seller.status}).` };
   }
 

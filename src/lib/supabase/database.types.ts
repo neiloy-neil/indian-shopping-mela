@@ -1623,6 +1623,7 @@ export type Database = {
         Row: {
           amount_cents: number;
           created_at: string;
+          currency: string;
           id: string;
           idempotency_key: string | null;
           order_id: string;
@@ -1635,6 +1636,7 @@ export type Database = {
         Insert: {
           amount_cents: number;
           created_at?: string;
+          currency?: string;
           id?: string;
           idempotency_key?: string | null;
           order_id: string;
@@ -1647,6 +1649,7 @@ export type Database = {
         Update: {
           amount_cents?: number;
           created_at?: string;
+          currency?: string;
           id?: string;
           idempotency_key?: string | null;
           order_id?: string;
@@ -2083,6 +2086,7 @@ export type Database = {
           banner_url: string | null;
           business_name: string;
           business_type: string;
+          charges_enabled: boolean;
           commission_rate: number;
           created_at: string;
           dispatch_address: Json;
@@ -2092,10 +2096,13 @@ export type Database = {
           legal_name: string;
           logo_url: string | null;
           owner_id: string;
+          payouts_enabled: boolean;
           return_address: Json;
           risk_flag: boolean | null;
           slug: string;
           status: Database["public"]["Enums"]["onboarding_status"];
+          stripe_account_id: string | null;
+          stripe_details_submitted?: boolean | null;
           terms_accepted_at: string | null;
           terms_accepted_version: string | null;
           updated_at: string;
@@ -2112,6 +2119,7 @@ export type Database = {
           banner_url?: string | null;
           business_name: string;
           business_type?: string;
+          charges_enabled?: boolean;
           commission_rate?: number;
           created_at?: string;
           dispatch_address?: Json;
@@ -2121,10 +2129,13 @@ export type Database = {
           legal_name: string;
           logo_url?: string | null;
           owner_id: string;
+          payouts_enabled?: boolean;
           return_address?: Json;
           risk_flag?: boolean | null;
           slug: string;
           status?: Database["public"]["Enums"]["onboarding_status"];
+          stripe_account_id?: string | null;
+          stripe_details_submitted?: boolean | null;
           terms_accepted_at?: string | null;
           terms_accepted_version?: string | null;
           updated_at?: string;
@@ -2141,6 +2152,7 @@ export type Database = {
           banner_url?: string | null;
           business_name?: string;
           business_type?: string;
+          charges_enabled?: boolean;
           commission_rate?: number;
           created_at?: string;
           dispatch_address?: Json;
@@ -2150,10 +2162,13 @@ export type Database = {
           legal_name?: string;
           logo_url?: string | null;
           owner_id?: string;
+          payouts_enabled?: boolean;
           return_address?: Json;
           risk_flag?: boolean | null;
           slug?: string;
           status?: Database["public"]["Enums"]["onboarding_status"];
+          stripe_account_id?: string | null;
+          stripe_details_submitted?: boolean | null;
           terms_accepted_at?: string | null;
           terms_accepted_version?: string | null;
           updated_at?: string;
@@ -2907,6 +2922,14 @@ export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 
 // Convenience: SellerStatus is an alias for OnboardingStatus
 export type SellerStatus = OnboardingStatus;
+
+export type ReturnReasonCode =
+  | "CHANGED_MIND"
+  | "WRONG_SIZE"
+  | "WRONG_ITEM"
+  | "DAMAGED_IN_TRANSIT"
+  | "DEFECTIVE_FAULTY"
+  | "NOT_AS_DESCRIBED";
 
 export interface Address {
   line1: string;
