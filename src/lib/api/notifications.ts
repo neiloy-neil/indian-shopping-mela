@@ -51,6 +51,7 @@ export async function sendTransactionalNotification(
       const { data: existing } = await (supabaseAdmin.from("notifications") as any)
         .select("id, metadata")
         .filter("metadata->>idempotency_key", "eq", payload.idempotencyKey)
+        .abortSignal(AbortSignal.timeout(500))
         .maybeSingle();
 
       if (existing) {
@@ -127,18 +128,20 @@ export async function sendTransactionalNotification(
       // 5. Record in Supabase notifications table if userId provided
       if (payload.userId) {
         try {
-          await (supabaseAdmin.from("notifications") as any).insert({
-            user_id: payload.userId,
-            title: payload.subject,
-            message: payload.subject,
-            type: payload.notificationType || "order_update",
-            metadata: {
-              idempotency_key: key,
-              message_id: messageId,
-              channel: "email",
-              sent_at: new Date().toISOString(),
-            },
-          });
+          await (supabaseAdmin.from("notifications") as any)
+            .insert({
+              user_id: payload.userId,
+              title: payload.subject,
+              message: payload.subject,
+              type: payload.notificationType || "order_update",
+              metadata: {
+                idempotency_key: key,
+                message_id: messageId,
+                channel: "email",
+                sent_at: new Date().toISOString(),
+              },
+            })
+            .abortSignal(AbortSignal.timeout(500));
         } catch (dbErr: any) {
           console.warn("[Notifications] Failed to persist in-app record:", dbErr.message);
         }

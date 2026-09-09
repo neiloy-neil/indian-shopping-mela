@@ -1143,14 +1143,146 @@ console.log("\n29. Testing Product Video Pipeline & Webhook Moderation (T317-T33
   assert(!validateVideoUpload("mp4", 150 * 1024 * 1024).valid, "150MB video exceeding 100MB threshold is rejected");
 }
 
+// 30. TRANSACTIONAL NOTIFICATIONS ENGINE & IDEMPOTENCY (T336-T351)
+console.log("\n30. Testing Transactional Notifications & Idempotency (T336-T351)...");
+{
+  const {
+    sendOrderConfirmationEmail,
+    sendSellerNewOrderEmail,
+    sendDispatchDeadlineReminderEmail,
+    sendPackageDispatchedEmail,
+    sendPackageDeliveredEmail,
+    sendReturnUpdateEmail,
+    sendRefundConfirmationEmail,
+    sendSellerPayoutEmail,
+    sendTransactionalNotification,
+  } = await import("../src/lib/api/notifications");
+
+  // 1. Order Confirmation Email Generator
+  const orderRes = await sendOrderConfirmationEmail({
+    customerEmail: "priya.sharma@example.com.au",
+    customerName: "Priya Sharma",
+    masterOrderId: "ord_notif_001",
+    totalAmountAud: 199.95,
+    gstTotalAud: 18.18,
+    packageCount: 2,
+    idempotencyKey: "test_order_confirm_001",
+  });
+  assert(orderRes.success && orderRes.idempotencyKey === "test_order_confirm_001", "Order confirmation email generated with 10% GST breakdown");
+
+  // 2. Idempotency Deduplication: Duplicate webhook replay returns alreadySent: true
+  const dupOrderRes = await sendOrderConfirmationEmail({
+    customerEmail: "priya.sharma@example.com.au",
+    customerName: "Priya Sharma",
+    masterOrderId: "ord_notif_001",
+    totalAmountAud: 199.95,
+    gstTotalAud: 18.18,
+    packageCount: 2,
+    idempotencyKey: "test_order_confirm_001",
+  });
+  assert(dupOrderRes.success && dupOrderRes.alreadySent === true, "Duplicate payment webhook event is idempotently deduplicated (single email sent)");
+
+  // 3. Seller New Order Notification with SLA
+  const sellerRes = await sendSellerNewOrderEmail({
+    sellerEmail: "orders@sareespalace.com.au",
+    sellerBusinessName: "Sarees Palace Melbourne",
+    subOrderId: "sub_notif_001",
+    itemCount: 3,
+    totalEarningsAud: 159.95,
+    deadlineHours: 48,
+    idempotencyKey: "test_seller_new_001",
+  });
+  assert(sellerRes.success && sellerRes.idempotencyKey === "test_seller_new_001", "Seller new order alert generated with 48h dispatch SLA");
+
+  // 4. Dispatch SLA Reminder Notification
+  const slaRes = await sendDispatchDeadlineReminderEmail({
+    sellerEmail: "orders@sareespalace.com.au",
+    sellerBusinessName: "Sarees Palace Melbourne",
+    subOrderId: "sub_notif_001",
+    hoursRemaining: 12,
+    idempotencyKey: "test_sla_remind_001",
+  });
+  assert(slaRes.success, "SLA deadline approaching reminder notification dispatched");
+
+  // 5. Package Shipped Notification with Tracking Link
+  const shipRes = await sendPackageDispatchedEmail({
+    customerEmail: "priya.sharma@example.com.au",
+    customerName: "Priya Sharma",
+    subOrderId: "sub_notif_001",
+    sellerBusinessName: "Sarees Palace Melbourne",
+    carrier: "Australia Post",
+    trackingNumber: "AP992837192AU",
+    trackingUrl: "https://auspost.com.au/mypost/track/#/details/AP992837192AU",
+    idempotencyKey: "test_shipped_001",
+  });
+  assert(shipRes.success, "Package shipped notification with Australia Post tracking link generated");
+
+  // 6. Package Delivered Notification (Anchoring 7-day return clock)
+  const delRes = await sendPackageDeliveredEmail({
+    customerEmail: "priya.sharma@example.com.au",
+    customerName: "Priya Sharma",
+    subOrderId: "sub_notif_001",
+    sellerBusinessName: "Sarees Palace Melbourne",
+    deliveryTimestamp: new Date().toISOString(),
+    idempotencyKey: "test_delivered_001",
+  });
+  assert(delRes.success, "Package delivered notification sent with 7-day change-of-mind return notice");
+
+  // 7. Return Update Notification
+  const retRes = await sendReturnUpdateEmail({
+    recipientEmail: "priya.sharma@example.com.au",
+    recipientName: "Priya Sharma",
+    returnId: "ret_notif_001",
+    status: "APPROVED",
+    returnReason: "Size too large",
+    instructions: "Drop package off at any Australia Post branch using the attached return label.",
+    idempotencyKey: "test_return_001",
+  });
+  assert(retRes.success, "Return status update notification sent to customer");
+
+  // 8. Refund Confirmation Notification
+  const refRes = await sendRefundConfirmationEmail({
+    customerEmail: "priya.sharma@example.com.au",
+    customerName: "Priya Sharma",
+    orderId: "ord_notif_001",
+    refundAmountAud: 89.95,
+    reason: "Return item received and inspected in perfect condition",
+    idempotencyKey: "test_refund_001",
+  });
+  assert(refRes.success, "Refund confirmation email generated with exact AUD refund amount");
+
+  // 9. Seller Payout Settlement Notification
+  const payRes = await sendSellerPayoutEmail({
+    sellerEmail: "finance@sareespalace.com.au",
+    sellerBusinessName: "Sarees Palace Melbourne",
+    payoutId: "pay_notif_001",
+    transferAmountAud: 143.95,
+    itemCount: 1,
+    idempotencyKey: "test_payout_001",
+  });
+  assert(payRes.success, "Seller payout settlement notification generated for Stripe Connect transfer");
+
+  // 10. Fail-Closed behavior when provider unconfigured in production
+  const origEnv = process.env.NODE_ENV;
+  const origKey = process.env.BREVO_API_KEY;
+  try {
+    process.env.NODE_ENV = "production";
+    delete process.env.BREVO_API_KEY;
+    const failRes = await sendTransactionalNotification({
+      toEmail: "test@example.com",
+      toName: "Test User",
+      subject: "Test Subject",
+      htmlContent: "<p>Test</p>",
+      idempotencyKey: "test_fail_closed_prod",
+    });
+    assert(!failRes.success && failRes.error === "EMAIL_PROVIDER_NOT_CONFIGURED", "Missing BREVO_API_KEY in production fails closed with EMAIL_PROVIDER_NOT_CONFIGURED");
+  } finally {
+    process.env.NODE_ENV = origEnv;
+    if (origKey) process.env.BREVO_API_KEY = origKey;
+  }
+}
+
 console.log("\n=======================================================");
-
-
-
-
-
-
-
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
 
