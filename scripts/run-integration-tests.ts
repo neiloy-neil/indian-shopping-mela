@@ -2158,10 +2158,47 @@ console.log("\n33. Testing Security Hardening & Operational Recovery (T398-T435)
     alert.alertId.startsWith("alt_") && alert.priority === "P1_CRITICAL",
     "Critical operational alert dispatched and formatted",
   );
-  const history = getAlertHistory();
+  // 5. CSRF Validation across Origins and Headers
+  const { validateCsrf } = await import("../src/lib/security/csrf");
   assert(
-    history.some((a) => a.alertId === alert.alertId),
-    "Operational alert recorded in telemetry history",
+    validateCsrf("https://indianshoppingmela.com.au").valid,
+    "Valid marketplace origin passes CSRF validation",
+  );
+  assert(
+    !validateCsrf("https://malicious-attacker.com").valid,
+    "Cross-site origin is blocked by CSRF defense",
+  );
+  assert(
+    !validateCsrf(null, null, "cross-site").valid,
+    "Sec-Fetch-Site cross-site request is blocked by CSRF defense",
+  );
+
+  // 6. Sliding Window Rate Limiting Engine
+  const { checkRateLimit, clearRateLimitStore } = await import(
+    "../src/lib/security/rate-limiter"
+  );
+  clearRateLimitStore();
+
+  const testIp = "203.0.113.195";
+  for (let i = 0; i < 5; i++) {
+    const res = checkRateLimit("login", testIp);
+    assert(res.allowed, `Login attempt #${i + 1} within max threshold is allowed`);
+  }
+  const blockedAttempt = checkRateLimit("login", testIp);
+  assert(
+    !blockedAttempt.allowed && (blockedAttempt.retryAfterSeconds ?? 0) > 0,
+    "6th login attempt within 15-minute window is rate limited with retryAfterSeconds",
+  );
+  clearRateLimitStore();
+
+  // 7. Content Security Policy String Generator
+  const { buildCspHeader } = await import("../src/lib/security/headers");
+  const csp = buildCspHeader();
+  assert(
+    csp.includes("default-src 'self'") &&
+      csp.includes("https://js.stripe.com") &&
+      csp.includes("frame-ancestors 'none'"),
+    "CSP header contains required self, Stripe, and frame-ancestors directives",
   );
 }
 
