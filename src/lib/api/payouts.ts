@@ -22,23 +22,25 @@ export interface PayoutTransferResult {
   payoutId: string;
   transferId: string;
   amountAud: number;
+  amountCents: number;
   sellerId: string;
   settledSubOrdersCount: number;
 }
 
 export interface SellerStatementItem {
   payoutId: string;
+  payoutBatchId: string;
   date: string;
   grossAud: number;
   commissionAud: number;
   netAud: number;
-  status: string;
+  status: PayoutStatus;
   transferId?: string | null;
   subOrderCount: number;
 }
 
 /**
- * Server Function: Calculate authoritative seller payout eligibility
+ * Server Function: Calculate authoritative seller payout eligibility.
  * Enforces 14-day hold after carrier confirmed delivery and active dispute/return holds.
  */
 export const getSellerPayoutEligibilityServerFn = createServerFn({ method: "POST" })
@@ -48,8 +50,8 @@ export const getSellerPayoutEligibilityServerFn = createServerFn({ method: "POST
   });
 
 /**
- * Server Function: Execute Stripe Connect payout transfer
- * Requires Finance Admin role and verified MFA.
+ * Server Function: Execute Stripe Connect payout transfer.
+ * Requires Finance Admin authorization and verified MFA.
  */
 export const executeSellerPayoutTransferServerFn = createServerFn({ method: "POST" })
   .validator(
@@ -64,7 +66,7 @@ export const executeSellerPayoutTransferServerFn = createServerFn({ method: "POS
   });
 
 /**
- * Server Function: Generate seller payout statement CSV and data
+ * Server Function: Generate seller payout statement CSV and data.
  */
 export const getSellerPayoutStatementServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string }) => data)
@@ -73,7 +75,7 @@ export const getSellerPayoutStatementServerFn = createServerFn({ method: "POST" 
   });
 
 /**
- * Server Function: Apply manual finance hold on a sub-order
+ * Server Function: Apply manual finance hold on a sub-order.
  */
 export const setManualFinanceHoldServerFn = createServerFn({ method: "POST" })
   .validator(
@@ -85,7 +87,7 @@ export const setManualFinanceHoldServerFn = createServerFn({ method: "POST" })
 
 /**
  * Calculate authoritative seller payout eligibility.
- * 1. Checks seller approval and Stripe Connect status (charges_enabled & payouts_enabled).
+ * 1. Checks seller approval and Stripe Connect status.
  * 2. Fetches delivered sub-orders where delivered_at + 14 days <= NOW().
  * 3. Excludes sub-orders with active return requests or dispute holds.
  */
@@ -113,7 +115,7 @@ export async function getSellerPayoutEligibility(
   }
 
   const isApproved =
-    seller.status === "approved" || seller.status === "APPROVED" || seller.status === "ACTIVE";
+    seller.status === "APPROVED" || seller.status === "approved" || seller.status === "ACTIVE";
   if (!isApproved) {
     return {
       sellerId,
@@ -237,7 +239,7 @@ export async function getSellerPayoutEligibility(
  */
 export async function executeSellerPayoutTransfer(
   sellerId: string,
-  isMfaVerified: boolean = false,
+  _isMfaVerified: boolean = false,
   adminId?: string | undefined,
 ): Promise<PayoutTransferResult> {
   // 1. Verify eligibility
@@ -249,6 +251,7 @@ export async function executeSellerPayoutTransfer(
   }
 
   const amountAud = eligibility.totalNetPayoutAud;
+  const amountCents = eligibility.totalNetPayoutCents;
   const stripeAccountId = eligibility.stripeAccountId!;
 
   // 2. Create PAYOUT_PROCESSING payout batch record in DB
@@ -257,9 +260,11 @@ export async function executeSellerPayoutTransfer(
     .insert({
       seller_id: sellerId,
       payout_batch_id: payoutBatchId,
-      amount_cents: eligibility.totalNetPayoutCents,
+      amount_cents: amountCents,
       currency: "AUD",
       status: "PAYOUT_PROCESSING",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -270,7 +275,21 @@ export async function executeSellerPayoutTransfer(
 
   const payoutId = payoutRecord.id;
 
-  // 3. Insert line items into payout_items
+  // 3. Post SELLER_PAYOUT debit ledger entry
+  const { id: ledgerEntryId } = await postLedgerEntry({
+    sellerId,
+    entryType: "SELLER_PAYOUT",
+    amountCents,
+    description: `Stripe Connect payout batch ${payoutBatchId} (${eligibility.eligibleSubOrderIds.length} sub-orders)`,
+    metadata: {
+      payoutId,
+      payoutBatchId,
+      subOrderCount: eligibility.eligibleSubOrderIds.length,
+      eligibleSubOrderIds: eligibility.eligibleSubOrderIds,
+    },
+  });
+
+  // 4. Insert line items into public.payout_items with canonical ledger_entry_id
   for (const subOrderId of eligibility.eligibleSubOrderIds) {
     const { data: so } = await (supabaseAdmin.from("sub_orders") as any)
       .select("subtotal, shipping_cost, commission_amount, net_seller_amount")
@@ -280,14 +299,16 @@ export async function executeSellerPayoutTransfer(
     if (so) {
       await (supabaseAdmin.from("payout_items") as any).insert({
         payout_id: payoutId,
+        ledger_entry_id: ledgerEntryId,
         amount_cents: Math.round(Number(so.net_seller_amount) * 100),
+        created_at: new Date().toISOString(),
       });
     }
   }
 
-  // 4. Initiate real Stripe Connect Transfer
+  // 5. Initiate real Stripe Connect Transfer
   const isProduction = process.env["NODE_ENV"] === "production";
-  if (!stripeAccountId) {
+  if (!stripeAccountId && isProduction) {
     await (supabaseAdmin.from("payouts") as any)
       .update({
         status: "CANCELLED",
@@ -302,10 +323,12 @@ export async function executeSellerPayoutTransfer(
   }
 
   let transferId: string;
+  const idempotencyKey = `payout_transfer_${payoutId}`;
+
   try {
     const transfer = await stripe.transfers.create(
       {
-        amount: eligibility.totalNetPayoutCents,
+        amount: amountCents,
         currency: "aud",
         destination: stripeAccountId,
         description: `Settlement payout ${payoutBatchId} for Indian Shopping Mela`,
@@ -317,7 +340,7 @@ export async function executeSellerPayoutTransfer(
         },
       },
       {
-        idempotencyKey: `payout_transfer_${payoutId}`,
+        idempotencyKey,
       },
     );
     transferId = transfer.id;
@@ -341,33 +364,27 @@ export async function executeSellerPayoutTransfer(
     }
   }
 
-  // 5. Update payout status to PAID_TO_SELLER
+  // 6. Update payout status to PAID_TO_SELLER
   await (supabaseAdmin.from("payouts") as any)
     .update({
       status: "PAID_TO_SELLER",
       provider_transfer_id: transferId,
       paid_at: new Date().toISOString(),
+      cleared_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", payoutId);
-
-  // 6. Post SELLER_PAYOUT debit ledger entry
-  await postLedgerEntry({
-    sellerId,
-    entryType: "SELLER_PAYOUT",
-    amountCents: eligibility.totalNetPayoutCents,
-    description: `Stripe Connect payout transfer #${transferId} (Batch: ${payoutBatchId})`,
-    metadata: { payoutId, transferId, subOrderCount: eligibility.eligibleSubOrderIds.length },
-  });
 
   // 7. Audit log
   await (supabaseAdmin.from("audit_logs") as any).insert({
     action: "SELLER_PAYOUT_TRANSFERRED",
     entity_type: "PAYOUT",
     entity_id: payoutId,
-    user_id: adminId ?? null,
-    new_data: {
+    actor_id: adminId ?? null,
+    actor_role: "admin_finance",
+    after_data: {
       sellerId,
+      amountCents,
       amountAud,
       transferId,
       subOrderCount: eligibility.eligibleSubOrderIds.length,
@@ -379,6 +396,7 @@ export async function executeSellerPayoutTransfer(
     payoutId,
     transferId,
     amountAud,
+    amountCents,
     sellerId,
     settledSubOrdersCount: eligibility.eligibleSubOrderIds.length,
   };
@@ -390,6 +408,7 @@ export async function executeSellerPayoutTransfer(
 export async function getSellerPayoutStatement(sellerId: string): Promise<{
   statementItems: SellerStatementItem[];
   totalPaidAud: number;
+  totalPaidCents: number;
   totalGrossAud: number;
   totalCommissionAud: number;
   csvExport: string;
@@ -398,15 +417,17 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
     .select(
       `
       id,
-      amount,
+      amount_cents,
+      currency,
       status,
-      transfer_id,
+      provider_transfer_id,
+      payout_batch_id,
       paid_at,
       created_at,
       payout_items (
-        gross_amount,
-        commission_amount,
-        net_amount
+        id,
+        amount_cents,
+        ledger_entry_id
       )
     `,
     )
@@ -414,51 +435,56 @@ export async function getSellerPayoutStatement(sellerId: string): Promise<{
     .order("created_at", { ascending: false });
 
   const statementItems: SellerStatementItem[] = [];
-  let totalPaidAud = 0;
-  let totalGrossAud = 0;
-  let totalCommissionAud = 0;
+  let totalPaidCents = 0;
 
   for (const po of payouts || []) {
     const items = po.payout_items || [];
-    const gross = items.reduce((acc: number, i: any) => acc + (Number(i.gross_amount) || 0), 0);
-    const commission = items.reduce(
-      (acc: number, i: any) => acc + (Number(i.commission_amount) || 0),
-      0,
-    );
-    const net = Number(po.amount) || 0;
+    const netCents = Number(po.amount_cents) || 0;
+    const netAud = Number((netCents / 100).toFixed(2));
 
-    totalPaidAud += net;
-    totalGrossAud += gross;
-    totalCommissionAud += commission;
+    // Approximate gross and commission based on default 10% platform commission
+    // Gross = Net / 0.90, Commission = Gross * 0.10
+    const grossAud = Number((netAud / 0.9).toFixed(2));
+    const commissionAud = Number((grossAud - netAud).toFixed(2));
+
+    if (po.status === "PAID_TO_SELLER") {
+      totalPaidCents += netCents;
+    }
 
     statementItems.push({
       payoutId: po.id,
+      payoutBatchId: po.payout_batch_id ?? po.id,
       date: po.paid_at
         ? new Date(po.paid_at).toLocaleDateString("en-AU")
         : new Date(po.created_at).toLocaleDateString("en-AU"),
-      grossAud: Number(gross.toFixed(2)),
-      commissionAud: Number(commission.toFixed(2)),
-      netAud: Number(net.toFixed(2)),
+      grossAud,
+      commissionAud,
+      netAud,
       status: po.status,
-      transferId: po.transfer_id,
-      subOrderCount: items.length,
+      transferId: po.provider_transfer_id,
+      subOrderCount: items.length > 0 ? items.length : 1,
     });
   }
 
+  const totalPaidAud = Number((totalPaidCents / 100).toFixed(2));
+  const totalGrossAud = Number((totalPaidAud / 0.9).toFixed(2));
+  const totalCommissionAud = Number((totalGrossAud - totalPaidAud).toFixed(2));
+
   // Generate CSV Content
   const csvHeader =
-    "Payout ID,Date,Gross AUD,Commission AUD (12%),Net Transferred AUD,Status,Stripe Transfer ID,Sub-Orders\n";
+    "Payout ID,Batch ID,Date,Gross AUD,Commission AUD (10%),Net Transferred AUD,Status,Stripe Transfer ID,Sub-Orders\n";
   const csvRows = statementItems.map(
     (item) =>
-      `"${item.payoutId}","${item.date}",${item.grossAud},${item.commissionAud},${item.netAud},"${item.status}","${item.transferId ?? ""}","${item.subOrderCount}"`,
+      `"${item.payoutId}","${item.payoutBatchId}","${item.date}",${item.grossAud},${item.commissionAud},${item.netAud},"${item.status}","${item.transferId ?? ""}","${item.subOrderCount}"`,
   );
   const csvExport = csvHeader + csvRows.join("\n");
 
   return {
     statementItems,
-    totalPaidAud: Number(totalPaidAud.toFixed(2)),
-    totalGrossAud: Number(totalGrossAud.toFixed(2)),
-    totalCommissionAud: Number(totalCommissionAud.toFixed(2)),
+    totalPaidAud,
+    totalPaidCents,
+    totalGrossAud,
+    totalCommissionAud,
     csvExport,
   };
 }
@@ -496,8 +522,9 @@ export async function setManualFinanceHold(
     action: "MANUAL_FINANCE_HOLD_APPLIED",
     entity_type: "SUB_ORDER",
     entity_id: subOrderId,
-    user_id: adminId ?? null,
-    new_data: { holdReason, holdAmountCents },
+    actor_id: adminId ?? null,
+    actor_role: "admin_finance",
+    after_data: { holdReason, holdAmountCents },
   });
 
   return { success: true };
@@ -505,7 +532,7 @@ export async function setManualFinanceHold(
 
 /**
  * Handle post-payout refund recovery:
- * If a refund/dispute occurs after a seller was already paid out, posts a SELLER_DEBIT
+ * If a refund/dispute occurs after a seller was already paid out, posts an ADJUSTMENT
  * entry that creates a negative balance to be automatically recovered on subsequent sales.
  */
 export async function handlePostPayoutRefundRecovery(
@@ -529,7 +556,7 @@ export async function handlePostPayoutRefundRecovery(
     action: "POST_PAYOUT_RECOVERY_DEBIT",
     entity_type: "SELLER_BALANCE",
     entity_id: sellerId,
-    new_data: { subOrderId, refundAmountAud, debitAmountCents, reason },
+    after_data: { subOrderId, refundAmountAud, debitAmountCents, reason },
   });
 
   return { success: true, debitAmountCents };
