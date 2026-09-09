@@ -575,7 +575,7 @@ export async function getOrderTrackingDetails(orderId: string) {
             shipping: Number(so.shipping_cost ?? 0),
             payout: isDelivered ? "Payout clearing (14-day hold)" : "Payout pending delivery",
             canCancel:
-              so.status === "NEW_ORDER" || so.status === "PROCESSING" || so.status === "PREPARING",
+              so.status === "ORDER_CREATED" || so.status === "PREPARING" || so.status === "PROCESSING",
             canReturn: isDelivered,
             items: (so.items || []).map((it) => ({
               productId: it.product_id,
@@ -588,8 +588,8 @@ export async function getOrderTrackingDetails(orderId: string) {
               { label: "Order placed & payment verified", at: placedDate, done: true },
               {
                 label: "Seller preparing order",
-                at: so.status !== "NEW_ORDER" ? "In progress" : "Pending",
-                done: so.status !== "NEW_ORDER",
+                at: so.status !== "ORDER_CREATED" ? "In progress" : "Pending",
+                done: so.status !== "ORDER_CREATED",
               },
               {
                 label: "Dispatched with Australia Post",
