@@ -67,6 +67,30 @@ export default {
         );
       }
 
+      if (url.pathname === "/api/webhooks/stripe" && request.method === "POST") {
+        const rawBody = await request.text();
+        const signature = request.headers.get("stripe-signature") ?? undefined;
+        try {
+          const { handleStripeWebhookServerFn } = await import("./routes/api.webhooks.stripe");
+          const result = await handleStripeWebhookServerFn({ data: { rawBody, signature } });
+          return new Response(JSON.stringify(result), {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "X-Content-Type-Options": "nosniff",
+            },
+          });
+        } catch (err: any) {
+          return new Response(JSON.stringify({ error: err.message }), {
+            status: 400,
+            headers: {
+              "content-type": "application/json",
+              "X-Content-Type-Options": "nosniff",
+            },
+          });
+        }
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       const normalized = await normalizeCatastrophicSsrResponse(response);

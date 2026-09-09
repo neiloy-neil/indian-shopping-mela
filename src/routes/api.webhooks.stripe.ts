@@ -10,7 +10,7 @@ const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"] ?? "";
 const isProduction = process.env["NODE_ENV"] === "production";
 
 export const handleStripeWebhookServerFn = createServerFn({ method: "POST" })
-  .validator((data: { rawBody: string; signature?: string }) => data)
+  .validator((data: { rawBody: string; signature?: string | undefined }) => data)
   .handler(async ({ data }) => {
     let event: Stripe.Event;
 
