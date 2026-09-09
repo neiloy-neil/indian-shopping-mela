@@ -80,9 +80,11 @@ export const ALLOWED_SELLER_TRANSITIONS: Record<SellerStatus, SellerStatus[]> = 
   SUSPENDED: ["SUSPENDED", "APPROVED"],
 };
 
-export function isValidSellerStatusTransition(from: SellerStatus, to: SellerStatus): boolean {
-  if (from === to) return true;
-  return ALLOWED_SELLER_TRANSITIONS[from]?.includes(to) ?? false;
+export function isValidSellerStatusTransition(from: string, to: string): boolean {
+  const normFrom = (from ?? "").toUpperCase() as SellerStatus;
+  const normTo = (to ?? "").toUpperCase() as SellerStatus;
+  if (normFrom === normTo) return true;
+  return ALLOWED_SELLER_TRANSITIONS[normFrom]?.includes(normTo) ?? false;
 }
 
 /**
