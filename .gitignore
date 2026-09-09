@@ -20,8 +20,9 @@ dist-ssr
 *.local
 supabase/.temp/
 
-# Wrangler / Cloudflare
+# Wrangler / Cloudflare / Vercel
 .wrangler/
+.vercel
 .dev.vars
 
 # Editor directories and files

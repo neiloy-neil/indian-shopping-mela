@@ -1,16 +1,3 @@
-<!-- LOVABLE:BEGIN -->
-
-> [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
->
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
-
-<!-- LOVABLE:END -->
-
 # AGENTS.md — Indian Shopping Mela AI & Developer Guidelines
 
 This repository contains the full-stack codebase for **Indian Shopping Mela (ISM)**, a multi-vendor e-commerce marketplace tailored for the Australian market (AUD currency, 10% GST, ACL 7-day return compliance, Australia Post/Sendle shipping, and Stripe AU payments).

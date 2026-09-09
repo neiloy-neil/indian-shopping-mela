@@ -62,15 +62,13 @@ A task becomes `[x]` only when all applicable items below pass:
 
 ---
 
-## 0.4 Git / Lovable rule
+## 0.4 Git & Vercel Deployment rule
 
-This repository is Lovable-connected.
+This repository is deployed to Vercel and connected to GitHub.
 
-- Never force-push.
-- Never rewrite already-pushed history.
-- Never rebase/amend/squash published commits.
-- Keep commits small and reversible.
-- Keep the connected branch in a working state.
+- Never force-push or delete branch history.
+- Keep commits small, descriptive, and reversible.
+- Keep the main branch in a clean, deployable working state.
 
 Recommended commit style:
 
