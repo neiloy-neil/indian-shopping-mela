@@ -158,6 +158,7 @@ const REQUIRED_RPCS = [
   "commit_inventory_reservation",
   "release_inventory_reservation",
   "release_expired_reservations",
+  "prepare_marketplace_order",
 ];
 
 let missingRpcs = 0;

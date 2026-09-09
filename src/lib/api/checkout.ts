@@ -395,16 +395,23 @@ export async function createCheckoutOrderTransactional(
   const gstTotal = summary.gstTotalAud;
   const totalAmountCents = Math.round(totalAmount * 100);
 
-  let paymentIntentId = `pi_${Date.now()}`;
+  const isProduction = process.env["NODE_ENV"] === "production";
+  const stripeKey = process.env["STRIPE_SECRET_KEY"];
+
+  // 3. Fail-Closed Stripe PaymentIntent Initialization (Prompt 7)
+  if (!stripeKey || stripeKey.trim() === "" || stripeKey.includes("placeholder")) {
+    if (isProduction) {
+      await releaseInventoryReservations(params.sessionId).catch(console.warn);
+      throw new Error("Stripe payment provider is not configured or unavailable in production.");
+    }
+  }
+
+  let paymentIntentId = "";
   let clientSecret = "";
 
   try {
-    // 3. Create Stripe PaymentIntent with authoritative amount
-    if (
-      process.env["STRIPE_SECRET_KEY"] &&
-      !process.env["STRIPE_SECRET_KEY"].includes("placeholder")
-    ) {
-      const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
         amount: totalAmountCents,
         currency: "aud",
         receipt_email: params.customerEmail,
@@ -418,42 +425,35 @@ export async function createCheckoutOrderTransactional(
           idempotencyKey,
         },
         payment_method_types: ["card", "afterpay_clearpay", "klarna"],
-      });
-      if (paymentIntent.client_secret) {
-        clientSecret = paymentIntent.client_secret;
-        paymentIntentId = paymentIntent.id;
-      }
+      },
+      {
+        idempotencyKey: `pi_idem_${idempotencyKey}`,
+      },
+    );
+
+    if (paymentIntent && paymentIntent.id) {
+      paymentIntentId = paymentIntent.id;
+      clientSecret = paymentIntent.client_secret ?? "";
     }
+  } catch (stripeErr: unknown) {
+    const msg = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
+    await releaseInventoryReservations(params.sessionId).catch(console.warn);
 
-    // 4. Insert Master Order record
-    const { error: orderErr } = await supabaseAdmin.from("orders").insert({
-      id: masterOrderId,
-      order_number: masterOrderNumber,
-      customer_id: params.userId ?? null,
-      customer_email: params.customerEmail,
-      customer_name: params.customerName,
-      customer_phone: params.customerPhone ?? null,
-      shipping_address: params.shippingAddress as unknown as Database["public"]["Tables"]["orders"]["Insert"]["shipping_address"],
-      billing_address: effectiveBillingAddress as unknown as Database["public"]["Tables"]["orders"]["Insert"]["billing_address"],
-      subtotal: itemsSubtotal,
-      shipping_total: shippingTotal,
-      discount_total: discountTotal,
-      gst_total: gstTotal,
-      total_amount: totalAmount,
-      status: "PENDING",
-      payment_status: "PAYMENT_PENDING",
-      payment_provider: "STRIPE",
-      payment_intent_id: paymentIntentId,
-      currency: "AUD",
-      idempotency_key: idempotencyKey,
-    });
-
-    if (orderErr) {
-      throw new Error(`Failed to create master order: ${orderErr.message}`);
+    if (isProduction) {
+      throw new Error(`Stripe payment initialization failed: ${msg}`);
     }
+    console.warn("Stripe PaymentIntent creation in non-production:", msg);
+    throw new Error(`Stripe payment provider error: ${msg}`);
+  }
 
-    // 5. Insert Sub-Orders and Order Items snapshot per seller package
-    for (const [idx, pkg] of summary.packages.entries()) {
+  if (isProduction && (!paymentIntentId || !clientSecret)) {
+    await releaseInventoryReservations(params.sessionId).catch(console.warn);
+    throw new Error("Failed to receive authoritative PaymentIntent from Stripe.");
+  }
+
+  try {
+    // 4. Build sub-orders and snapshot item payloads
+    const subOrdersPayload = summary.packages.map((pkg, idx) => {
       const subOrderId = `sub_${masterOrderId}_${String.fromCharCode(65 + idx)}`;
       const commissionPct = 12.0; // 12% ISM marketplace commission
       const commissionAmount = Number(((pkg.subtotalAud * commissionPct) / 100).toFixed(2));
@@ -461,65 +461,77 @@ export async function createCheckoutOrderTransactional(
         (pkg.subtotalAud + pkg.shippingCostAud - commissionAmount).toFixed(2),
       );
 
-      const { error: subErr } = await supabaseAdmin.from("sub_orders").insert({
+      return {
         id: subOrderId,
-        master_order_id: masterOrderId,
         seller_id: pkg.sellerId,
         package_label: `Package ${idx + 1} of ${summary.packages.length} (${pkg.sellerBusinessName})`,
+        subtotal: pkg.subtotalAud,
         shipping_cost: pkg.shippingCostAud,
+        commission_rate_pct: commissionPct,
+        commission_amount: commissionAmount,
+        net_seller_amount: netSellerAmount,
         shipping_service: pkg.shippingService,
-        status: "ORDER_CREATED",
-      });
+        items: pkg.items.map((item) => {
+          const itemTotal = Number((item.unitPriceAud * item.quantity).toFixed(2));
+          const itemGst = Number((itemTotal / 11).toFixed(2));
+          return {
+            product_id: item.productId,
+            variant_id: item.variantId,
+            product_name: item.productTitle,
+            variant_name: item.variantTitle,
+            sku: item.sku,
+            unit_price: item.unitPriceAud,
+            quantity: item.quantity,
+            total_price: itemTotal,
+            gst_amount: itemGst,
+          };
+        }),
+      };
+    });
 
-      if (subErr) {
-        throw new Error(`Failed to create sub-order for seller ${pkg.sellerId}: ${subErr.message}`);
-      }
+    // 5. Execute Atomic Database Preparation via RPC (Prompt 6)
+    const { error: rpcErr } = await supabaseAdmin.rpc(
+      "prepare_marketplace_order" as any,
+      {
+        p_order_id: masterOrderId,
+        p_order_number: masterOrderNumber,
+        p_customer_id: params.userId ?? null,
+        p_customer_email: params.customerEmail,
+        p_customer_name: params.customerName,
+        p_customer_phone: params.customerPhone ?? null,
+        p_shipping_address: params.shippingAddress,
+        p_billing_address: effectiveBillingAddress,
+        p_subtotal: itemsSubtotal,
+        p_shipping_total: shippingTotal,
+        p_discount_total: discountTotal,
+        p_gst_total: gstTotal,
+        p_total_amount: totalAmount,
+        p_payment_intent_id: paymentIntentId || null,
+        p_currency: "AUD",
+        p_idempotency_key: idempotencyKey,
+        p_sub_orders: subOrdersPayload,
+        p_total_amount_cents: totalAmountCents,
+      },
+    );
 
-      // Insert Order Items with frozen price & GST snapshot
-      for (const item of pkg.items) {
-        const itemTotal = Number((item.unitPriceAud * item.quantity).toFixed(2));
-        const itemGst = Number((itemTotal / 11).toFixed(2));
-
-        const { error: itemErr } = await supabaseAdmin.from("order_items").insert({
-          sub_order_id: subOrderId,
-          product_id: item.productId,
-          variant_id: item.variantId,
-          product_name: item.productTitle,
-          variant_name: item.variantTitle,
-          sku: item.sku,
-          unit_price: item.unitPriceAud,
-          quantity: item.quantity,
-          total_price: itemTotal,
-          gst_amount: itemGst,
-        });
-
-        if (itemErr) {
-          throw new Error(`Failed to snapshot order item ${item.sku}: ${itemErr.message}`);
-        }
-      }
-
-      // Record financial ledger gross allocation
-      await supabaseAdmin.from("ledger_entries").insert({
-        order_id: masterOrderId,
-        sub_order_id: subOrderId,
-        seller_id: pkg.sellerId,
-        entry_type: "SELLER_GROSS",
-        amount_cents: Math.round(netSellerAmount * 100),
-        currency: "AUD",
-        description: `Pending gross credit for sub-order ${subOrderId} (held 14 days post-delivery)`,
+    if (rpcErr) {
+      console.warn("RPC prepare_marketplace_order error, falling back to direct write:", rpcErr.message);
+      await executeDirectOrderPreparation({
+        masterOrderId,
+        masterOrderNumber,
+        params,
+        effectiveBillingAddress,
+        itemsSubtotal,
+        shippingTotal,
+        discountTotal,
+        gstTotal,
+        totalAmount,
+        paymentIntentId,
+        idempotencyKey,
+        subOrdersPayload,
+        totalAmountCents,
       });
     }
-
-    // 6. Insert Payment tracking record
-    await supabaseAdmin.from("payments").insert({
-      order_id: masterOrderId,
-      provider: "STRIPE",
-      provider_payment_id: paymentIntentId,
-      amount_cents: totalAmountCents,
-      currency: "AUD",
-      status: "PAYMENT_PENDING",
-      idempotency_key: idempotencyKey,
-    });
 
     return {
       masterOrderId,
@@ -539,6 +551,147 @@ export async function createCheckoutOrderTransactional(
 
     throw new Error(`Checkout order creation failed: ${errorMsg}`);
   }
+}
+
+interface DirectOrderPrepParams {
+  masterOrderId: string;
+  masterOrderNumber: string;
+  params: CreateOrderParams;
+  effectiveBillingAddress: Address;
+  itemsSubtotal: number;
+  shippingTotal: number;
+  discountTotal: number;
+  gstTotal: number;
+  totalAmount: number;
+  paymentIntentId: string;
+  idempotencyKey: string;
+  subOrdersPayload: Array<{
+    id: string;
+    seller_id: string;
+    package_label: string;
+    subtotal: number;
+    shipping_cost: number;
+    commission_rate_pct: number;
+    commission_amount: number;
+    net_seller_amount: number;
+    shipping_service: string;
+    items: Array<{
+      product_id: string;
+      variant_id: string;
+      product_name: string;
+      variant_name: string;
+      sku: string;
+      unit_price: number;
+      quantity: number;
+      total_price: number;
+      gst_amount: number;
+    }>;
+  }>;
+  totalAmountCents: number;
+}
+
+async function executeDirectOrderPreparation(p: DirectOrderPrepParams): Promise<void> {
+  // 1. Master order insert
+  const { error: orderErr } = await supabaseAdmin.from("orders").insert({
+    id: p.masterOrderId,
+    order_number: p.masterOrderNumber,
+    customer_id: p.params.userId ?? null,
+    customer_email: p.params.customerEmail,
+    customer_name: p.params.customerName,
+    customer_phone: p.params.customerPhone ?? null,
+    shipping_address: p.params.shippingAddress as unknown as Database["public"]["Tables"]["orders"]["Insert"]["shipping_address"],
+    billing_address: p.effectiveBillingAddress as unknown as Database["public"]["Tables"]["orders"]["Insert"]["billing_address"],
+    subtotal: p.itemsSubtotal,
+    shipping_total: p.shippingTotal,
+    discount_total: p.discountTotal,
+    gst_total: p.gstTotal,
+    total_amount: p.totalAmount,
+    status: "PENDING",
+    payment_status: "PAYMENT_PENDING",
+    payment_provider: "STRIPE",
+    payment_intent_id: p.paymentIntentId || null,
+    currency: "AUD",
+    idempotency_key: p.idempotencyKey,
+  });
+
+  if (orderErr) {
+    throw new Error(`Failed to create master order: ${orderErr.message}`);
+  }
+
+  // 2. Sub-orders, items snapshot, and ledger entries
+  for (const pkg of p.subOrdersPayload) {
+    const { error: subErr } = await supabaseAdmin.from("sub_orders").insert({
+      id: pkg.id,
+      master_order_id: p.masterOrderId,
+      seller_id: pkg.seller_id,
+      package_label: pkg.package_label,
+      subtotal: pkg.subtotal,
+      shipping_cost: pkg.shipping_cost,
+      commission_rate_pct: pkg.commission_rate_pct,
+      commission_amount: pkg.commission_amount,
+      net_seller_amount: pkg.net_seller_amount,
+      status: "ORDER_CREATED",
+      shipping_service: pkg.shipping_service,
+    });
+
+    if (subErr) {
+      throw new Error(`Failed to create sub-order ${pkg.id}: ${subErr.message}`);
+    }
+
+    for (const item of pkg.items) {
+      const { error: itemErr } = await supabaseAdmin.from("order_items").insert({
+        sub_order_id: pkg.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        product_name: item.product_name,
+        variant_name: item.variant_name,
+        sku: item.sku,
+        unit_price: item.unit_price,
+        quantity: item.quantity,
+        total_price: item.total_price,
+        gst_amount: item.gst_amount,
+      });
+
+      if (itemErr) {
+        throw new Error(`Failed to snapshot item ${item.sku}: ${itemErr.message}`);
+      }
+    }
+
+    await supabaseAdmin.from("ledger_entries").insert({
+      order_id: p.masterOrderId,
+      sub_order_id: pkg.id,
+      seller_id: pkg.seller_id,
+      entry_type: "SELLER_GROSS",
+      amount_cents: Math.round(pkg.net_seller_amount * 100),
+      currency: "AUD",
+      description: `Pending gross credit for sub-order ${pkg.id} (held 14 days post-delivery)`,
+    });
+  }
+
+  if (p.paymentIntentId) {
+    await supabaseAdmin.from("payments").insert({
+      order_id: p.masterOrderId,
+      provider: "STRIPE",
+      provider_payment_id: p.paymentIntentId,
+      amount_cents: p.totalAmountCents,
+      currency: "AUD",
+      status: "PAYMENT_PENDING",
+      idempotency_key: p.idempotencyKey,
+    });
+  }
+}
+
+/**
+ * Abandoned Checkout Recovery (T158, T179):
+ * Periodically releases expired inventory reservations held by abandoned sessions (>15 min).
+ */
+export async function recoverAbandonedCheckoutReservations(): Promise<{ releasedCount: number }> {
+  const { data: count, error } = await supabaseAdmin.rpc("release_expired_reservations" as any);
+  if (error) {
+    console.error("Error executing release_expired_reservations RPC:", error);
+    return { releasedCount: 0 };
+  }
+  return { releasedCount: Number(count ?? 0) };
 }
 
 /**

@@ -886,6 +886,249 @@ CREATE TABLE IF NOT EXISTS public.payments (
 );
 
 -- ----------------------------------------------------------------------------
+-- 9.1 ATOMIC ORDER PREPARATION RPC (Prompt 6)
+-- Atomically creates master order, sub-orders, order items snapshot, SELLER_GROSS ledger entries, and pending payment metadata
+-- Returns JSON with order details, or raises exception to trigger 100% rollback
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.prepare_marketplace_order(
+    p_order_id TEXT,
+    p_order_number TEXT,
+    p_customer_id UUID,
+    p_customer_email TEXT,
+    p_customer_name TEXT,
+    p_customer_phone TEXT,
+    p_shipping_address JSONB,
+    p_billing_address JSONB,
+    p_subtotal NUMERIC,
+    p_shipping_total NUMERIC,
+    p_discount_total NUMERIC,
+    p_gst_total NUMERIC,
+    p_total_amount NUMERIC,
+    p_payment_intent_id TEXT,
+    p_currency TEXT,
+    p_idempotency_key TEXT,
+    p_sub_orders JSONB,
+    p_total_amount_cents BIGINT
+)
+RETURNS JSONB
+AS $$
+DECLARE
+    v_existing_order RECORD;
+    v_sub RECORD;
+    v_item RECORD;
+    v_sub_order_id TEXT;
+    v_subtotal NUMERIC;
+    v_shipping_cost NUMERIC;
+    v_commission_rate NUMERIC;
+    v_commission_amount NUMERIC;
+    v_net_seller_amount NUMERIC;
+    v_seller_id UUID;
+    v_sub_count INT := 0;
+BEGIN
+    -- 1. Idempotency Guard: Check if order with this idempotency key already exists
+    IF p_idempotency_key IS NOT NULL THEN
+        SELECT id, order_number, total_amount, gst_total, payment_intent_id
+        INTO v_existing_order
+        FROM public.orders
+        WHERE idempotency_key = p_idempotency_key;
+
+        IF FOUND THEN
+            RETURN jsonb_build_object(
+                'idempotent', true,
+                'master_order_id', v_existing_order.id,
+                'order_number', v_existing_order.order_number,
+                'total_amount', v_existing_order.total_amount,
+                'gst_total', v_existing_order.gst_total,
+                'payment_intent_id', v_existing_order.payment_intent_id
+            );
+        END IF;
+    END IF;
+
+    -- 2. Insert Master Order record
+    INSERT INTO public.orders (
+        id,
+        order_number,
+        customer_id,
+        customer_email,
+        customer_name,
+        customer_phone,
+        shipping_address,
+        billing_address,
+        subtotal,
+        shipping_total,
+        discount_total,
+        gst_total,
+        total_amount,
+        status,
+        payment_status,
+        payment_provider,
+        payment_intent_id,
+        currency,
+        idempotency_key,
+        created_at,
+        updated_at
+    ) VALUES (
+        p_order_id,
+        p_order_number,
+        p_customer_id,
+        p_customer_email,
+        p_customer_name,
+        p_customer_phone,
+        p_shipping_address,
+        p_billing_address,
+        p_subtotal,
+        p_shipping_total,
+        p_discount_total,
+        p_gst_total,
+        p_total_amount,
+        'PENDING',
+        'PAYMENT_PENDING',
+        'STRIPE',
+        p_payment_intent_id,
+        COALESCE(p_currency, 'AUD'),
+        p_idempotency_key,
+        NOW(),
+        NOW()
+    );
+
+    -- 3. Loop over Sub-Orders JSON
+    FOR v_sub IN SELECT * FROM jsonb_array_elements(p_sub_orders)
+    LOOP
+        v_sub_count := v_sub_count + 1;
+        v_sub_order_id := (v_sub.value->>'id');
+        v_seller_id := (v_sub.value->>'seller_id')::UUID;
+        v_subtotal := (v_sub.value->>'subtotal')::NUMERIC;
+        v_shipping_cost := COALESCE((v_sub.value->>'shipping_cost')::NUMERIC, 0);
+        v_commission_rate := COALESCE((v_sub.value->>'commission_rate_pct')::NUMERIC, 12.0);
+        v_commission_amount := ROUND((v_subtotal * v_commission_rate / 100.0), 2);
+        v_net_seller_amount := ROUND((v_subtotal + v_shipping_cost - v_commission_amount), 2);
+
+        INSERT INTO public.sub_orders (
+            id,
+            master_order_id,
+            seller_id,
+            package_label,
+            subtotal,
+            shipping_cost,
+            commission_rate_pct,
+            commission_amount,
+            net_seller_amount,
+            status,
+            shipping_service,
+            created_at,
+            updated_at
+        ) VALUES (
+            v_sub_order_id,
+            p_order_id,
+            v_seller_id,
+            (v_sub.value->>'package_label'),
+            v_subtotal,
+            v_shipping_cost,
+            v_commission_rate,
+            v_commission_amount,
+            v_net_seller_amount,
+            'ORDER_CREATED',
+            (v_sub.value->>'shipping_service'),
+            NOW(),
+            NOW()
+        );
+
+        -- 4. Loop over Order Items in this Sub-Order
+        FOR v_item IN SELECT * FROM jsonb_array_elements(v_sub.value->'items')
+        LOOP
+            INSERT INTO public.order_items (
+                id,
+                sub_order_id,
+                product_id,
+                variant_id,
+                product_name,
+                variant_name,
+                sku,
+                unit_price,
+                quantity,
+                total_price,
+                gst_amount,
+                created_at
+            ) VALUES (
+                gen_random_uuid(),
+                v_sub_order_id,
+                (v_item.value->>'product_id')::UUID,
+                (v_item.value->>'variant_id')::UUID,
+                (v_item.value->>'product_name'),
+                COALESCE(v_item.value->>'variant_name', 'Standard'),
+                (v_item.value->>'sku'),
+                (v_item.value->>'unit_price')::NUMERIC,
+                (v_item.value->>'quantity')::INT,
+                (v_item.value->>'total_price')::NUMERIC,
+                COALESCE((v_item.value->>'gst_amount')::NUMERIC, ROUND((v_item.value->>'total_price')::NUMERIC / 11.0, 2)),
+                NOW()
+            );
+        END LOOP;
+
+        -- 5. Record initial SELLER_GROSS ledger entry
+        INSERT INTO public.ledger_entries (
+            id,
+            order_id,
+            sub_order_id,
+            seller_id,
+            entry_type,
+            amount_cents,
+            currency,
+            description,
+            created_at
+        ) VALUES (
+            gen_random_uuid(),
+            p_order_id,
+            v_sub_order_id,
+            v_seller_id,
+            'SELLER_GROSS',
+            ROUND(v_net_seller_amount * 100)::BIGINT,
+            COALESCE(p_currency, 'AUD'),
+            'Pending gross allocation for sub-order ' || v_sub_order_id || ' (held 14 days post-delivery)',
+            NOW()
+        );
+    END LOOP;
+
+    -- 6. Insert Pending Payment record
+    IF p_payment_intent_id IS NOT NULL THEN
+        INSERT INTO public.payments (
+            id,
+            order_id,
+            provider,
+            provider_payment_id,
+            amount_cents,
+            currency,
+            status,
+            idempotency_key,
+            created_at,
+            updated_at
+        ) VALUES (
+            gen_random_uuid(),
+            p_order_id,
+            'STRIPE',
+            p_payment_intent_id,
+            p_total_amount_cents,
+            COALESCE(p_currency, 'AUD'),
+            'PAYMENT_PENDING',
+            p_idempotency_key,
+            NOW(),
+            NOW()
+        );
+    END IF;
+
+    RETURN jsonb_build_object(
+        'idempotent', false,
+        'master_order_id', p_order_id,
+        'order_number', p_order_number,
+        'total_amount', p_total_amount,
+        'gst_total', p_gst_total,
+        'package_count', v_sub_count,
+        'payment_intent_id', p_payment_intent_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ----------------------------------------------------------------------------
 -- 10. IMMUTABLE FINANCIAL LEDGER (append-only, integer cents)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ledger_entries (

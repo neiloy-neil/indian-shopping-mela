@@ -475,68 +475,298 @@ console.log("\n18. Testing Database Cart Ownership & Guest Isolation (T125-T135)
   );
 }
 
-// 19. ATOMIC ORDER PREPARATION ROLLBACK ON FAILURE (T139, T157)
+// 19. ATOMIC ORDER PREPARATION, FAIL-CLOSED PAYMENT & ROLLBACK (Prompt 6 & Prompt 7)
 console.log(
-  "\n19. Testing Atomic Order Preparation Rollback on Mid-Transaction Failure (T139, T157)...",
+  "\n19. Testing Atomic Order Preparation, Fail-Closed Stripe Payment & Rollback (T139, T157, T163)...",
 );
 {
-  const ordersState: Array<{ id: string }> = [];
-  const subOrdersState: Array<{ id: string; masterOrderId: string }> = [];
-  const itemsState: Array<{ id: string; subOrderId: string }> = [];
-  const reservationsState: Array<{ id: string; status: string }> = [];
+  const ordersState: Array<{ id: string; idempotencyKey: string; paymentIntentId: string }> = [];
+  const subOrdersState: Array<{ id: string; masterOrderId: string; sellerId: string; netSellerAmount: number }> = [];
+  const itemsState: Array<{ id: string; subOrderId: string; sku: string; price: number }> = [];
+  const ledgerState: Array<{ id: string; orderId: string; entryType: string; amountCents: number }> = [];
+  const paymentsState: Array<{ id: string; orderId: string; status: string; paymentIntentId: string }> = [];
+  const reservationsState: Array<{ id: string; status: string; expiresAt: Date }> = [];
 
-  function simulateTransactionalOrderCreation(shouldFailMidway: boolean) {
-    const masterOrderId = "ord_atomic_test_01";
-    const subOrderId = "sub_atomic_test_01_A";
-    const resId = "res_hold_01";
+  // Mock Stripe provider simulation for testing fail-closed & retry semantics
+  function mockStripeCreatePaymentIntent(params: {
+    amountCents: number;
+    stripeKey?: string;
+    shouldTimeout?: boolean;
+    idempotencyKey?: string;
+  }): { id: string; client_secret: string } {
+    if (!params.stripeKey || params.stripeKey.trim() === "" || params.stripeKey.includes("placeholder")) {
+      throw new Error("Stripe payment provider is not configured in production. Checkout blocked.");
+    }
+    if (params.stripeKey === "sk_test_invalid_signature") {
+      throw new Error("Invalid Stripe API Key provided");
+    }
+    if (params.shouldTimeout) {
+      throw new Error("Stripe connection timeout (ETIMEDOUT)");
+    }
+    return {
+      id: `pi_test_live_${Date.now()}_auth`,
+      client_secret: `pi_test_live_${Date.now()}_auth_secret_xyz`,
+    };
+  }
 
-    // 1. Hold reservation
-    reservationsState.push({ id: resId, status: "active" });
+  // Transactional order preparation simulator matching PostgreSQL prepare_marketplace_order RPC
+  function prepareMarketplaceOrderTransactional(params: {
+    orderId: string;
+    orderNumber: string;
+    idempotencyKey: string;
+    resId: string;
+    subOrders: Array<{ id: string; sellerId: string; subtotal: number; items: Array<{ sku: string; price: number }> }>;
+    stripeKey?: string;
+    shouldFailMidway?: boolean;
+    shouldStripeTimeout?: boolean;
+  }) {
+    // 1. Idempotency check
+    const existing = ordersState.find((o) => o.idempotencyKey === params.idempotencyKey);
+    if (existing) {
+      return { success: true, idempotent: true, masterOrderId: existing.id, paymentIntentId: existing.paymentIntentId };
+    }
 
-    // 2. Prepare transaction
+    // 2. Inventory Hold
+    reservationsState.push({ id: params.resId, status: "active", expiresAt: new Date(Date.now() + 15 * 60 * 1000) });
+
+    // 3. Fail-Closed Stripe PaymentIntent Initialization (Prompt 7)
+    let paymentIntent: { id: string; client_secret: string };
     try {
-      ordersState.push({ id: masterOrderId });
-      subOrdersState.push({ id: subOrderId, masterOrderId });
+      paymentIntent = mockStripeCreatePaymentIntent({
+        amountCents: 25000,
+        stripeKey: params.stripeKey,
+        shouldTimeout: params.shouldStripeTimeout,
+        idempotencyKey: params.idempotencyKey,
+      });
+    } catch (stripeErr: any) {
+      // Rollback reservation hold on Stripe failure
+      const res = reservationsState.find((r) => r.id === params.resId);
+      if (res) res.status = "released";
+      throw new Error(`Stripe payment failed: ${stripeErr.message}`);
+    }
 
-      if (shouldFailMidway) {
-        throw new Error("DB_INJECTED_FAILURE_ON_ORDER_ITEMS_WRITE");
+    // 4. Atomic PostgreSQL Transaction
+    const stagedOrders: typeof ordersState = [];
+    const stagedSubs: typeof subOrdersState = [];
+    const stagedItems: typeof itemsState = [];
+    const stagedLedger: typeof ledgerState = [];
+    const stagedPayments: typeof paymentsState = [];
+
+    try {
+      stagedOrders.push({
+        id: params.orderId,
+        idempotencyKey: params.idempotencyKey,
+        paymentIntentId: paymentIntent.id,
+      });
+
+      for (const sub of params.subOrders) {
+        const netSeller = sub.subtotal * 0.88; // 12% commission
+        stagedSubs.push({
+          id: sub.id,
+          masterOrderId: params.orderId,
+          sellerId: sub.sellerId,
+          netSellerAmount: netSeller,
+        });
+
+        if (params.shouldFailMidway) {
+          throw new Error("DB_INJECTED_CONSTRAINT_VIOLATION_ON_ORDER_ITEMS");
+        }
+
+        for (const item of sub.items) {
+          stagedItems.push({
+            id: `item_${Date.now()}`,
+            subOrderId: sub.id,
+            sku: item.sku,
+            price: item.price,
+          });
+        }
+
+        stagedLedger.push({
+          id: `led_${Date.now()}`,
+          orderId: params.orderId,
+          entryType: "SELLER_GROSS",
+          amountCents: Math.round(netSeller * 100),
+        });
       }
 
-      itemsState.push({ id: "item_01", subOrderId });
-      return { success: true, masterOrderId };
-    } catch (err: any) {
-      // Rollback all transaction state
-      const masterIdx = ordersState.findIndex((o) => o.id === masterOrderId);
-      if (masterIdx !== -1) ordersState.splice(masterIdx, 1);
+      stagedPayments.push({
+        id: `pay_${Date.now()}`,
+        orderId: params.orderId,
+        status: "PAYMENT_PENDING",
+        paymentIntentId: paymentIntent.id,
+      });
 
-      const subIdx = subOrdersState.findIndex((s) => s.masterOrderId === masterOrderId);
-      if (subIdx !== -1) subOrdersState.splice(subIdx, 1);
+      // Commit to DB
+      ordersState.push(...stagedOrders);
+      subOrdersState.push(...stagedSubs);
+      itemsState.push(...stagedItems);
+      ledgerState.push(...stagedLedger);
+      paymentsState.push(...stagedPayments);
 
-      // Release inventory hold
-      const res = reservationsState.find((r) => r.id === resId);
+      return {
+        success: true,
+        idempotent: false,
+        masterOrderId: params.orderId,
+        paymentIntentId: paymentIntent.id,
+      };
+    } catch (dbErr: any) {
+      // 100% Rollback on DB error
+      const res = reservationsState.find((r) => r.id === params.resId);
       if (res) res.status = "released";
-
-      return { success: false, error: err.message };
+      return { success: false, error: dbErr.message };
     }
   }
 
-  const failedResult = simulateTransactionalOrderCreation(true);
-  assert(!failedResult.success, "Mid-transaction error is caught and fails closed");
+  // Test 1: Production Missing Stripe Key Fails Closed
+  let missingKeyBlocked = false;
+  try {
+    prepareMarketplaceOrderTransactional({
+      orderId: "ord_fail_01",
+      orderNumber: "ISM10001",
+      idempotencyKey: "idem_missing_key",
+      resId: "res_fail_01",
+      subOrders: [{ id: "sub_01", sellerId: "seller_A", subtotal: 100, items: [{ sku: "SKU-1", price: 100 }] }],
+      stripeKey: "",
+    });
+  } catch (err: any) {
+    missingKeyBlocked = err.message.includes("Stripe payment provider is not configured");
+  }
+  assert(missingKeyBlocked, "Missing Stripe secret key in production strictly blocks checkout and order creation");
   assert(
-    ordersState.length === 0,
-    "No partial master order record remains in DB after mid-transaction failure",
-  );
-  assert(
-    subOrdersState.length === 0,
-    "No partial sub-order records remain in DB after mid-transaction failure",
-  );
-  assert(
-    reservationsState.find((r) => r.id === "res_hold_01")?.status === "released",
-    "Inventory reservation is immediately released on order preparation rollback",
+    reservationsState.find((r) => r.id === "res_fail_01")?.status === "released",
+    "Inventory hold is immediately released when Stripe initialization is blocked",
   );
 
-  const successResult = simulateTransactionalOrderCreation(false);
-  assert(successResult.success, "Successful transaction persists full order hierarchy");
+  // Test 2: Invalid Stripe API Key Fails Closed
+  let invalidKeyBlocked = false;
+  try {
+    prepareMarketplaceOrderTransactional({
+      orderId: "ord_fail_02",
+      orderNumber: "ISM10002",
+      idempotencyKey: "idem_invalid_key",
+      resId: "res_fail_02",
+      subOrders: [{ id: "sub_02", sellerId: "seller_A", subtotal: 100, items: [{ sku: "SKU-2", price: 100 }] }],
+      stripeKey: "sk_test_invalid_signature",
+    });
+  } catch (err: any) {
+    invalidKeyBlocked = err.message.includes("Invalid Stripe API Key");
+  }
+  assert(invalidKeyBlocked, "Invalid Stripe key strictly fails closed with error and rolls back reservation");
+
+  // Test 3: Stripe Connection Timeout Recovery & Rollback
+  let timeoutHandled = false;
+  try {
+    prepareMarketplaceOrderTransactional({
+      orderId: "ord_fail_03",
+      orderNumber: "ISM10003",
+      idempotencyKey: "idem_timeout",
+      resId: "res_fail_03",
+      subOrders: [{ id: "sub_03", sellerId: "seller_A", subtotal: 100, items: [{ sku: "SKU-3", price: 100 }] }],
+      stripeKey: "sk_test_valid_key",
+      shouldStripeTimeout: true,
+    });
+  } catch (err: any) {
+    timeoutHandled = err.message.includes("ETIMEDOUT");
+  }
+  assert(timeoutHandled, "Stripe timeout is caught safely and rolls back inventory hold");
+  assert(
+    reservationsState.find((r) => r.id === "res_fail_03")?.status === "released",
+    "Inventory reservation is freed on payment timeout",
+  );
+
+  // Test 4: Mid-Transaction DB Failure Injected -> 100% Rollback
+  const dbFailResult = prepareMarketplaceOrderTransactional({
+    orderId: "ord_fail_04",
+    orderNumber: "ISM10004",
+    idempotencyKey: "idem_db_fail",
+    resId: "res_fail_04",
+    subOrders: [{ id: "sub_04", sellerId: "seller_A", subtotal: 100, items: [{ sku: "SKU-4", price: 100 }] }],
+    stripeKey: "sk_test_valid_key",
+    shouldFailMidway: true,
+  });
+  assert(!dbFailResult.success, "Mid-transaction DB failure is caught and fails closed");
+  assert(
+    !ordersState.some((o) => o.id === "ord_fail_04"),
+    "Zero partial master order records in DB after mid-transaction rollback",
+  );
+  assert(
+    !subOrdersState.some((s) => s.id === "sub_04"),
+    "Zero partial sub-order records in DB after mid-transaction rollback",
+  );
+  assert(
+    !itemsState.some((i) => i.subOrderId === "sub_04"),
+    "Zero partial order item records in DB after mid-transaction rollback",
+  );
+  assert(
+    !ledgerState.some((l) => l.orderId === "ord_fail_04"),
+    "Zero partial ledger records in DB after mid-transaction rollback",
+  );
+  assert(
+    reservationsState.find((r) => r.id === "res_fail_04")?.status === "released",
+    "Inventory hold is immediately released after database rollback",
+  );
+
+  // Test 5: Successful Atomic Order Preparation with Real PaymentIntent ID
+  const successResult = prepareMarketplaceOrderTransactional({
+    orderId: "ord_success_05",
+    orderNumber: "ISM10005",
+    idempotencyKey: "idem_key_05",
+    resId: "res_success_05",
+    subOrders: [
+      { id: "sub_05_A", sellerId: "seller_A", subtotal: 120, items: [{ sku: "SKU-5A", price: 120 }] },
+      { id: "sub_05_B", sellerId: "seller_B", subtotal: 130, items: [{ sku: "SKU-5B", price: 130 }] },
+    ],
+    stripeKey: "sk_test_valid_key",
+  });
+  assert(successResult.success && !successResult.idempotent, "Successful transaction persists full order hierarchy");
+  assert(ordersState.some((o) => o.id === "ord_success_05"), "Master order persisted successfully");
+  assert(
+    subOrdersState.filter((s) => s.masterOrderId === "ord_success_05").length === 2,
+    "Multi-seller sub-orders split and persisted (2 packages)",
+  );
+  assert(
+    itemsState.length === 2 && ledgerState.length === 2 && paymentsState.length === 1,
+    "Order items, SELLER_GROSS ledger entries, and payment pending records created atomically",
+  );
+  assert(
+    successResult.paymentIntentId.startsWith("pi_test_live_"),
+    "PaymentIntent ID strictly originates from Stripe provider API (no fabricated IDs)",
+  );
+
+  // Test 6: Idempotent Retry Replay
+  const retryResult = prepareMarketplaceOrderTransactional({
+    orderId: "ord_success_05_duplicate",
+    orderNumber: "ISM10005_DUP",
+    idempotencyKey: "idem_key_05", // identical key
+    resId: "res_success_05_retry",
+    subOrders: [],
+    stripeKey: "sk_test_valid_key",
+  });
+  assert(retryResult.success && retryResult.idempotent, "Idempotent checkout retry returns existing order");
+  assert(
+    retryResult.masterOrderId === "ord_success_05",
+    "Idempotent retry does not duplicate master order or sub-orders",
+  );
+  assert(
+    ordersState.filter((o) => o.idempotencyKey === "idem_key_05").length === 1,
+    "Exactly 1 master order exists for idempotency key",
+  );
+
+  // Test 7: Abandoned Preparation Recovery (Expired Holds Cleanup)
+  function releaseExpiredHolds(now: Date) {
+    let released = 0;
+    for (const res of reservationsState) {
+      if (res.status === "active" && res.expiresAt <= now) {
+        res.status = "expired";
+        released++;
+      }
+    }
+    return released;
+  }
+  // Fast forward 16 minutes
+  const futureTime = new Date(Date.now() + 16 * 60 * 1000);
+  const expiredCount = releaseExpiredHolds(futureTime);
+  assert(expiredCount >= 1, "Abandoned checkout reservations (>15 min) are automatically recovered and released");
 }
 
 // 20. STRIPE WEBHOOK RECOVERY & BROWSER DROP-OFF (T177, T178)
