@@ -29,6 +29,7 @@ import { Route as SellBulkUploadRouteImport } from './routes/sell.bulk-upload'
 import { Route as SellOnboardingRouteImport } from './routes/sell.onboarding'
 import { Route as SellTeamRouteImport } from './routes/sell.team'
 import { Route as SellerSlugRouteImport } from './routes/seller.$slug'
+import { Route as ApiWebhooksMuxRouteImport } from './routes/api.webhooks.mux'
 import { Route as ApiWebhooksStripeRouteImport } from './routes/api.webhooks.stripe'
 
 const IndexRoute = IndexRouteImport.update({
@@ -131,6 +132,11 @@ const SellerSlugRoute = SellerSlugRouteImport.update({
   path: '/seller/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksMuxRoute = ApiWebhooksMuxRouteImport.update({
+  id: '/api/webhooks/mux',
+  path: '/api/webhooks/mux',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksStripeRoute = ApiWebhooksStripeRouteImport.update({
   id: '/api/webhooks/stripe',
   path: '/api/webhooks/stripe',
@@ -158,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/sell/team': typeof SellTeamRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/sell/': typeof SellIndexRoute
+  '/api/webhooks/mux': typeof ApiWebhooksMuxRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
 }
 export interface FileRoutesByTo {
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/sell/team': typeof SellTeamRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/sell': typeof SellIndexRoute
+  '/api/webhooks/mux': typeof ApiWebhooksMuxRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
 }
 export interface FileRoutesById {
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/sell/team': typeof SellTeamRoute
   '/seller/$slug': typeof SellerSlugRoute
   '/sell/': typeof SellIndexRoute
+  '/api/webhooks/mux': typeof ApiWebhooksMuxRoute
   '/api/webhooks/stripe': typeof ApiWebhooksStripeRoute
 }
 export interface FileRouteTypes {
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/sell/team'
     | '/seller/$slug'
     | '/sell/'
+    | '/api/webhooks/mux'
     | '/api/webhooks/stripe'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
     | '/sell/team'
     | '/seller/$slug'
     | '/sell'
+    | '/api/webhooks/mux'
     | '/api/webhooks/stripe'
   id:
     | '__root__'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/sell/team'
     | '/seller/$slug'
     | '/sell/'
+    | '/api/webhooks/mux'
     | '/api/webhooks/stripe'
   fileRoutesById: FileRoutesById
 }
@@ -300,6 +312,7 @@ export interface RootRouteChildren {
   SellTeamRoute: typeof SellTeamRoute
   SellerSlugRoute: typeof SellerSlugRoute
   SellIndexRoute: typeof SellIndexRoute
+  ApiWebhooksMuxRoute: typeof ApiWebhooksMuxRoute
   ApiWebhooksStripeRoute: typeof ApiWebhooksStripeRoute
 }
 
@@ -445,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/mux': {
+      id: '/api/webhooks/mux'
+      path: '/api/webhooks/mux'
+      fullPath: '/api/webhooks/mux'
+      preLoaderRoute: typeof ApiWebhooksMuxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/stripe': {
       id: '/api/webhooks/stripe'
       path: '/api/webhooks/stripe'
@@ -476,6 +496,7 @@ const rootRouteChildren: RootRouteChildren = {
   SellTeamRoute: SellTeamRoute,
   SellerSlugRoute: SellerSlugRoute,
   SellIndexRoute: SellIndexRoute,
+  ApiWebhooksMuxRoute: ApiWebhooksMuxRoute,
   ApiWebhooksStripeRoute: ApiWebhooksStripeRoute,
 }
 export const routeTree = rootRouteImport
