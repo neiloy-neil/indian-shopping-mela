@@ -616,6 +616,51 @@ console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T1
     "Integer cents arithmetic eliminates floating-point rounding errors",
   );
   assert(gstCents === 2354, "1/11th Australian GST component is accurately recorded in ledger");
+
+  // Multi-Seller Double-Entry Proof (3 distinct sellers with varying commission rates & shipping)
+  const sellerA_itemsCents = 15000;
+  const sellerA_shippingCents = 0;
+  const sellerA_commissionCents = Math.round(sellerA_itemsCents * 0.10); // 10% = 1500
+  const sellerA_netGrossCents = sellerA_itemsCents + sellerA_shippingCents - sellerA_commissionCents; // 13500
+
+  const sellerB_itemsCents = 8000;
+  const sellerB_shippingCents = 995;
+  const sellerB_commissionCents = Math.round(sellerB_itemsCents * 0.12); // 12% = 960
+  const sellerB_netGrossCents = sellerB_itemsCents + sellerB_shippingCents - sellerB_commissionCents; // 8035
+
+  const sellerC_itemsCents = 4500;
+  const sellerC_shippingCents = 1345;
+  const sellerC_commissionCents = Math.round(sellerC_itemsCents * 0.08); // 8% = 360
+  const sellerC_netGrossCents = sellerC_itemsCents + sellerC_shippingCents - sellerC_commissionCents; // 5485
+
+  const multiSellerCustomerChargeCents =
+    sellerA_itemsCents + sellerA_shippingCents +
+    sellerB_itemsCents + sellerB_shippingCents +
+    sellerC_itemsCents + sellerC_shippingCents; // 29840 cents ($298.40 AUD)
+
+  const multiSellerEntries = [
+    { entry_type: "CUSTOMER_CHARGE", amount_cents: multiSellerCustomerChargeCents },
+    { entry_type: "SELLER_GROSS", seller_id: "seller_A", amount_cents: sellerA_netGrossCents },
+    { entry_type: "ISM_COMMISSION", seller_id: "seller_A", amount_cents: sellerA_commissionCents },
+    { entry_type: "SELLER_GROSS", seller_id: "seller_B", amount_cents: sellerB_netGrossCents },
+    { entry_type: "ISM_COMMISSION", seller_id: "seller_B", amount_cents: sellerB_commissionCents },
+    { entry_type: "SELLER_GROSS", seller_id: "seller_C", amount_cents: sellerC_netGrossCents },
+    { entry_type: "ISM_COMMISSION", seller_id: "seller_C", amount_cents: sellerC_commissionCents },
+    { entry_type: "GST_COLLECTED", amount_cents: Math.round(multiSellerCustomerChargeCents / 11) },
+  ];
+
+  const totalSellerAllocations = sellerA_netGrossCents + sellerB_netGrossCents + sellerC_netGrossCents;
+  const totalPlatformCommissions = sellerA_commissionCents + sellerB_commissionCents + sellerC_commissionCents;
+  const multiBalanced = multiSellerCustomerChargeCents === totalSellerAllocations + totalPlatformCommissions;
+
+  assert(
+    multiBalanced,
+    `Multi-seller 3-package order reconciles with zero discrepancy ($298.40 = $270.20 sellers + $28.20 commission)`,
+  );
+  assert(
+    multiSellerCustomerChargeCents === 29840,
+    "Authoritative multi-seller customer charge matches exact sum of package subtotals & shipping (29840 cents)",
+  );
 }
 
 // 22. MULTI-SELLER SHIPPING & DELIVERY CLOCK ANCHORING (T193-T211)

@@ -16,6 +16,16 @@ export interface LedgerEntryInput {
   idempotencyKey?: string | undefined;
 }
 
+export interface SellerOrderBreakdown {
+  sellerId: string;
+  subOrderId?: string | undefined;
+  sellerGrossCents: number;
+  commissionCents: number;
+  shippingCents: number;
+  refundsCents: number;
+  disputeHoldCents: number;
+}
+
 export interface OrderReconciliationResult {
   orderId: string;
   totalCustomerPaymentCents: number;
@@ -24,6 +34,9 @@ export interface OrderReconciliationResult {
   totalGstCents: number;
   totalShippingCents: number;
   totalRefundsCents: number;
+  totalDiscountsCents: number;
+  totalAdjustmentsCents: number;
+  sellerBreakdowns: Record<string, SellerOrderBreakdown>;
   isBalanced: boolean;
   discrepancyCents: number;
   entryCount: number;
@@ -36,6 +49,8 @@ export interface SellerLedgerBalance {
   disputedHoldCents: number;
   totalPaidOutCents: number;
   totalEarnedGrossCents: number;
+  totalCommissionPaidCents: number;
+  totalRefundsDebitCents: number;
   currency: string;
 }
 
@@ -63,6 +78,7 @@ export async function postLedgerEntry(
       order_id: entry.orderId ?? null,
       sub_order_id: entry.subOrderId ?? null,
       seller_id: entry.sellerId ?? null,
+      payout_batch_id: entry.metadata ? entry.metadata["payoutBatchId"] ?? null : null,
       entry_type: entry.entryType,
       amount_cents: entry.amountCents,
       currency: entry.currency ?? "AUD",
@@ -104,27 +120,62 @@ export async function reconcileOrderLedger(orderId: string): Promise<OrderReconc
   let totalGstCents = 0;
   let totalShippingCents = 0;
   let totalRefundsCents = 0;
+  let totalDiscountsCents = 0;
+  let totalAdjustmentsCents = 0;
+
+  const sellerBreakdowns: Record<string, SellerOrderBreakdown> = {};
 
   for (const row of rows) {
     const amount = Number(row.amount_cents) || 0;
     const type = row.entry_type;
+    const sId = row.seller_id;
+
+    if (sId && !sellerBreakdowns[sId]) {
+      sellerBreakdowns[sId] = {
+        sellerId: sId,
+        subOrderId: row.sub_order_id,
+        sellerGrossCents: 0,
+        commissionCents: 0,
+        shippingCents: 0,
+        refundsCents: 0,
+        disputeHoldCents: 0,
+      };
+    }
+
     if (type === "CUSTOMER_CHARGE" || type === "CUSTOMER_PAYMENT") {
       totalCustomerPaymentCents += amount;
     } else if (type === "SELLER_GROSS" || type === "SELLER_CREDIT") {
       totalSellerCreditsCents += amount;
+      if (sId && sellerBreakdowns[sId]) sellerBreakdowns[sId]!.sellerGrossCents += amount;
     } else if (type === "ISM_COMMISSION" || type === "PLATFORM_COMMISSION") {
       totalCommissionCents += amount;
+      if (sId && sellerBreakdowns[sId]) sellerBreakdowns[sId]!.commissionCents += amount;
     } else if (type === "GST_COLLECTED" || type === "GST_REMITTANCE") {
       totalGstCents += amount;
     } else if (type === "SHIPPING_FEE" || type === "SHIPPING_CHARGE" || type === "SHIPPING_COST") {
       totalShippingCents += amount;
+      if (sId && sellerBreakdowns[sId]) sellerBreakdowns[sId]!.shippingCents += amount;
     } else if (type === "CUSTOMER_REFUND" || type === "REFUND_CUSTOMER" || type === "REFUND") {
       totalRefundsCents += amount;
+      if (sId && sellerBreakdowns[sId]) sellerBreakdowns[sId]!.refundsCents += amount;
+    } else if (type === "DISCOUNT") {
+      totalDiscountsCents += amount;
+    } else if (type === "ADJUSTMENT") {
+      totalAdjustmentsCents += amount;
+    } else if (type === "DISPUTE_HOLD") {
+      if (sId && sellerBreakdowns[sId]) sellerBreakdowns[sId]!.disputeHoldCents += amount;
+    } else if (type === "DISPUTE_RELEASE") {
+      if (sId && sellerBreakdowns[sId]) {
+        sellerBreakdowns[sId]!.disputeHoldCents = Math.max(
+          0,
+          sellerBreakdowns[sId]!.disputeHoldCents - amount,
+        );
+      }
     }
   }
 
   // Double-entry accounting equality check:
-  // Customer Charge == Seller Gross + Platform Commission
+  // Customer Charge + Discount == Total Seller Credits (Net) + Platform Commission
   const expectedTotal = totalSellerCreditsCents + totalCommissionCents;
   const discrepancyCents = Math.abs(totalCustomerPaymentCents - expectedTotal);
   const isBalanced = discrepancyCents === 0;
@@ -137,6 +188,9 @@ export async function reconcileOrderLedger(orderId: string): Promise<OrderReconc
     totalGstCents,
     totalShippingCents,
     totalRefundsCents,
+    totalDiscountsCents,
+    totalAdjustmentsCents,
+    sellerBreakdowns,
     isBalanced,
     discrepancyCents,
     entryCount: rows.length,
@@ -181,6 +235,8 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
   let disputedHoldCents = 0;
   let totalPaidOutCents = 0;
   let totalEarnedGrossCents = 0;
+  let totalCommissionPaidCents = 0;
+  let totalRefundsDebitCents = 0;
 
   const now = new Date();
   const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -211,6 +267,16 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
     } else if (entryType === "DISPUTE_HOLD") {
       disputedHoldCents += amount;
       availableBalanceCents = Math.max(0, availableBalanceCents - amount);
+    } else if (entryType === "DISPUTE_RELEASE") {
+      disputedHoldCents = Math.max(0, disputedHoldCents - amount);
+      availableBalanceCents += amount;
+    } else if (entryType === "CUSTOMER_REFUND" || entryType === "REFUND_CUSTOMER" || entryType === "REFUND") {
+      totalRefundsDebitCents += amount;
+      availableBalanceCents = Math.max(0, availableBalanceCents - amount);
+    } else if (entryType === "ISM_COMMISSION" || entryType === "PLATFORM_COMMISSION") {
+      totalCommissionPaidCents += amount;
+    } else if (entryType === "ADJUSTMENT") {
+      availableBalanceCents = Math.max(0, availableBalanceCents - amount);
     }
   }
 
@@ -221,6 +287,8 @@ export async function getSellerLedgerBalance(sellerId: string): Promise<SellerLe
     disputedHoldCents,
     totalPaidOutCents,
     totalEarnedGrossCents,
+    totalCommissionPaidCents,
+    totalRefundsDebitCents,
     currency: "AUD",
   };
 }

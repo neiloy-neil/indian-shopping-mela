@@ -90,7 +90,7 @@ export const moderateSellerStatusServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("sellers") as any)
       .update({
-        status: data.status.toLowerCase(),
+        status: data.status,
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.sellerId);
