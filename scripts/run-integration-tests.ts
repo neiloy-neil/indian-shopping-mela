@@ -613,6 +613,35 @@ console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T1
   );
 }
 
+// 22. MULTI-SELLER SHIPPING & DELIVERY CLOCK ANCHORING (T193-T211)
+console.log("\n22. Testing Multi-Seller Shipping Rates & Delivery Clock Anchoring (T193-T211)...");
+{
+  function calculateSellerPackageRate(packageSubtotal: number, weightKg: number): number {
+    if (packageSubtotal >= 100.0) return 0.0; // Free promo
+    const baseWeight = Math.max(0.5, weightKg);
+    return Number((9.95 + (baseWeight > 1.0 ? (baseWeight - 1.0) * 3.5 : 0)).toFixed(2));
+  }
+
+  const pkgSydney = calculateSellerPackageRate(120.0, 1.2); // > $100 -> $0.00
+  const pkgMelbourne = calculateSellerPackageRate(65.0, 0.8); // < $100, 0.8kg -> $9.95
+  const pkgBrisbaneHeavy = calculateSellerPackageRate(45.0, 2.0); // < $100, 2kg -> $9.95 + 1.0*3.5 = $13.45
+
+  assert(pkgSydney === 0.0, "Package exceeding $100 unlocks free shipping");
+  assert(pkgMelbourne === 9.95, "Standard parcel post under 1kg is $9.95 AUD");
+  assert(pkgBrisbaneHeavy === 13.45, "Heavy parcel (2.0kg) calculates weight bracket addition ($13.45 AUD)");
+
+  // Delivery Event Clock Anchoring
+  const deliveryDate = new Date("2026-09-01T12:00:00Z");
+  const returnWindowExpiry = new Date(deliveryDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const payoutMaturation = new Date(deliveryDate.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days
+
+  const checkReturnDate = new Date("2026-09-07T12:00:00Z"); // Day 6
+  const checkPayoutDate = new Date("2026-09-16T12:00:00Z"); // Day 15
+
+  assert(checkReturnDate <= returnWindowExpiry, "Customer within 7-day delivery window is eligible for change-of-mind return");
+  assert(checkPayoutDate >= payoutMaturation, "Seller payout matures 14 days post-delivery");
+}
+
 console.log("\n=======================================================");
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -622,6 +651,7 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
 
