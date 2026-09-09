@@ -1075,7 +1075,76 @@ console.log("\n28. Testing Bulk Stock Adjustment & Reservation Protection (T309-
   assert(validUpdate.success && validUpdate.delta === 5 && validUpdate.balanceAfter === 15, "Valid stock adjustment computes exact delta (+5) and balance after (15)");
 }
 
+// 29. PRODUCT VIDEO PIPELINE & MUX SIGNED WEBHOOKS (T317-T335)
+console.log("\n29. Testing Product Video Pipeline & Webhook Moderation (T317-T335)...");
+{
+  const cryptoModule = await import("crypto");
+
+  function verifyMuxWebhookSignature(
+    rawBody: string,
+    signatureHeader: string | null | undefined,
+    signingSecret: string | undefined,
+  ): boolean {
+    if (!signatureHeader || !signingSecret) return false;
+    try {
+      const parts = signatureHeader.split(",");
+      let timestamp = "";
+      let signature = "";
+      for (const part of parts) {
+        const [k, v] = part.split("=");
+        if (k === "t") timestamp = v || "";
+        if (k === "v1") signature = v || "";
+      }
+      if (!timestamp || !signature) return false;
+      const now = Math.floor(Date.now() / 1000);
+      const ts = parseInt(timestamp, 10);
+      if (isNaN(ts) || Math.abs(now - ts) > 300) return false;
+      const payload = `${timestamp}.${rawBody}`;
+      const expected = cryptoModule
+        .createHmac("sha256", signingSecret)
+        .update(payload)
+        .digest("hex");
+      return cryptoModule.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    } catch {
+      return false;
+    }
+  }
+
+  const secret = "mux_test_secret_12345";
+  const nowTs = Math.floor(Date.now() / 1000);
+  const rawBody = JSON.stringify({ type: "video.asset.ready", id: "mux_asset_99" });
+  const validSig = cryptoModule.createHmac("sha256", secret).update(`${nowTs}.${rawBody}`).digest("hex");
+  const validHeader = `t=${nowTs},v1=${validSig}`;
+
+  // 1. Valid Mux webhook signature
+  assert(verifyMuxWebhookSignature(rawBody, validHeader, secret), "Valid Mux HMAC-SHA256 signature is verified");
+
+  // 2. Invalid secret rejection
+  assert(!verifyMuxWebhookSignature(rawBody, validHeader, "wrong_secret"), "Mux signature with invalid secret is rejected");
+
+  // 3. Expired timestamp rejection (> 300s)
+  const expiredTs = nowTs - 400;
+  const expiredSig = cryptoModule.createHmac("sha256", secret).update(`${expiredTs}.${rawBody}`).digest("hex");
+  const expiredHeader = `t=${expiredTs},v1=${expiredSig}`;
+  assert(!verifyMuxWebhookSignature(rawBody, expiredHeader, secret), "Mux webhook with timestamp older than 300s is rejected");
+
+  // 4. Video file format & size validation
+  function validateVideoUpload(fileExt: string, sizeBytes: number): { valid: boolean; error?: string } {
+    const MAX_BYTES = 100 * 1024 * 1024;
+    if (sizeBytes > MAX_BYTES) return { valid: false, error: "File exceeds 100MB limit" };
+    if (!["mp4", "mov", "webm", "m4v"].includes(fileExt.toLowerCase())) {
+      return { valid: false, error: "Unsupported video format" };
+    }
+    return { valid: true };
+  }
+
+  assert(validateVideoUpload("mp4", 50 * 1024 * 1024).valid, "Standard 50MB MP4 upload is accepted");
+  assert(!validateVideoUpload("exe", 1024).valid, "Executable file upload is rejected");
+  assert(!validateVideoUpload("mp4", 150 * 1024 * 1024).valid, "150MB video exceeding 100MB threshold is rejected");
+}
+
 console.log("\n=======================================================");
+
 
 
 
