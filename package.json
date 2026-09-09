@@ -10,10 +10,11 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "npm run check:schema && npm run check:fallbacks && npm run test:unit && npm run test:integration",
+    "test": "npm run check:schema && npm run check:fallbacks && npm run test:unit && npm run test:integration && npm run test:uat",
     "test:unit": "npx tsx scripts/run-production-tests.ts",
     "test:integration": "npx tsx scripts/run-integration-tests.ts",
     "test:smoke": "npx tsx scripts/run-production-smoke-test.ts",
+    "test:uat": "npx tsx scripts/run-staging-uat.ts",
     "test:e2e": "npx playwright test",
     "check:schema": "npx tsx scripts/check-canonical-schema.ts",
     "check:fallbacks": "npx tsx scripts/check-production-fallbacks.ts"
