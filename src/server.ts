@@ -45,24 +45,23 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 import { applySecurityHeaders } from "./lib/security/headers";
+import { performDeepHealthCheck } from "./lib/monitoring/uptime";
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
       if (url.pathname === "/api/health") {
+        const health = await performDeepHealthCheck();
+        const statusCode = health.status === "unhealthy" ? 503 : 200;
         return new Response(
-          JSON.stringify({
-            status: "healthy",
-            timestamp: new Date().toISOString(),
-            service: "indian-shopping-mela",
-            region: "ap-southeast-2",
-          }),
+          JSON.stringify(health),
           {
-            status: 200,
+            status: statusCode,
             headers: {
               "content-type": "application/json",
               "X-Content-Type-Options": "nosniff",
+              "Cache-Control": "no-store, max-age=0",
             },
           },
         );
