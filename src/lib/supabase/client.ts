@@ -11,12 +11,21 @@ const getEnv = (key: string): string | undefined => {
   return undefined;
 };
 
-const supabaseUrl =
-  getEnv("VITE_SUPABASE_URL") ??
-  getEnv("SUPABASE_URL") ??
-  "https://placeholder-project.supabase.co";
-const supabaseAnonKey =
-  getEnv("VITE_SUPABASE_ANON_KEY") ?? getEnv("SUPABASE_ANON_KEY") ?? "placeholder-anon-key";
+const rawUrl = getEnv("VITE_SUPABASE_URL") ?? getEnv("SUPABASE_URL");
+const rawKey = getEnv("VITE_SUPABASE_ANON_KEY") ?? getEnv("SUPABASE_ANON_KEY");
+
+const isProd =
+  getEnv("NODE_ENV") === "production" ||
+  getEnv("VERCEL_ENV") === "production";
+
+if (isProd && (!rawUrl || !rawKey || rawUrl.includes("placeholder"))) {
+  console.error(
+    "CRITICAL: Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in production environment.",
+  );
+}
+
+const supabaseUrl = rawUrl || "http://127.0.0.1:54321";
+const supabaseAnonKey = rawKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.dev-local-anon-key";
 
 /**
  * Public Supabase client for browser-side queries.

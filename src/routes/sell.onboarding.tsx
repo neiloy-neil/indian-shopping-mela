@@ -78,18 +78,18 @@ function OnboardingPage() {
   const [status, setStatus] = useState<OnboardingStatus>("DRAFT");
   const [sameAsDispatch, setSameAsDispatch] = useState(true);
   const [sellerType, setSellerType] = useState("Sole trader");
-  const [cats, setCats] = useState<string[]>(["women", "jewellery"]);
+  const [cats, setCats] = useState<string[]>([]);
   const [agreed, setAgreed] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
-  const [legalName, setLegalName] = useState("M Shah Enterprises Pty Ltd");
-  const [tradingName, setTradingName] = useState("Mumbai Mirror Boutique");
-  const [abn, setAbn] = useState("12 345 678 901");
-  const [dispatchStreet, setDispatchStreet] = useState("Unit 4, 18 Wigram Street");
-  const [dispatchSuburb, setDispatchSuburb] = useState("Harris Park");
+  const [legalName, setLegalName] = useState("");
+  const [tradingName, setTradingName] = useState("");
+  const [abn, setAbn] = useState("");
+  const [dispatchStreet, setDispatchStreet] = useState("");
+  const [dispatchSuburb, setDispatchSuburb] = useState("");
   const [dispatchState, setDispatchState] = useState("NSW");
-  const [dispatchPostcode, setDispatchPostcode] = useState("2150");
+  const [dispatchPostcode, setDispatchPostcode] = useState("");
 
   const allAgreed = agreed.length === SELLER_AGREEMENTS.length;
 

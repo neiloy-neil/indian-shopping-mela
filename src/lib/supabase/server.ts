@@ -11,10 +11,21 @@ export function createServerSupabaseClient(
   setCookieCallback?: (name: string, value: string, options: CookieOptions) => void,
 ) {
   const env = typeof process !== "undefined" && process.env ? process.env : {};
-  const supabaseUrl =
-    env["SUPABASE_URL"] ?? env["VITE_SUPABASE_URL"] ?? "https://placeholder-project.supabase.co";
+  const isProd =
+    env["NODE_ENV"] === "production" || env["VERCEL_ENV"] === "production";
+
+  const rawUrl = env["SUPABASE_URL"] ?? env["VITE_SUPABASE_URL"];
+  const rawKey = env["VITE_SUPABASE_ANON_KEY"] ?? env["SUPABASE_ANON_KEY"];
+
+  if (isProd && (!rawUrl || !rawKey || rawUrl.includes("placeholder"))) {
+    throw new Error(
+      "CRITICAL: SUPABASE_URL and SUPABASE_ANON_KEY must be configured in production runtime.",
+    );
+  }
+
+  const supabaseUrl = rawUrl || "http://127.0.0.1:54321";
   const supabaseAnonKey =
-    env["VITE_SUPABASE_ANON_KEY"] ?? env["SUPABASE_ANON_KEY"] ?? "placeholder-anon-key";
+    rawKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.dev-local-anon-key";
 
   // Parse cookie header into map
   const cookiesMap = new Map<string, string>();

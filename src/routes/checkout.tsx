@@ -25,8 +25,8 @@ import { useAuth } from "@/hooks/use-auth";
 
 const stripePublishableKey =
   typeof import.meta !== "undefined" && import.meta.env
-    ? (import.meta.env["VITE_STRIPE_PUBLISHABLE_KEY"] as string)
-    : "pk_test_placeholder";
+    ? (import.meta.env["VITE_STRIPE_PUBLISHABLE_KEY"] as string | undefined)
+    : undefined;
 
 const stripePromise =
   stripePublishableKey && stripePublishableKey.startsWith("pk_")

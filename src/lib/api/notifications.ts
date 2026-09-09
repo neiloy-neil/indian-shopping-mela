@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getServerEnv } from "@/lib/config/env";
 
 export interface TransactionalEmailPayload {
   toEmail: string;
@@ -180,8 +181,9 @@ export async function sendOrderConfirmationEmail(params: {
   idempotencyKey?: string | undefined;
   userId?: string | undefined;
 }): Promise<NotificationSendResult> {
+  const env = getServerEnv();
   const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a1a;">
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
       <h1 style="color: #b91c1c; margin-bottom: 4px;">Indian Shopping Mela</h1>
       <p style="font-size: 13px; color: #6b7280; margin-top: 0;">Australia's Premier Indian Multi-Vendor Marketplace</p>
       <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
@@ -192,8 +194,8 @@ export async function sendOrderConfirmationEmail(params: {
       
       <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 16px; border-radius: 6px; margin: 20px 0;">
         <h3 style="margin-top: 0; color: #111827;">Tax Invoice Summary</h3>
-        <p style="margin: 4px 0;"><strong>Marketplace Operator:</strong> Indian Shopping Mela Pty Ltd</p>
-        <p style="margin: 4px 0;"><strong>ABN:</strong> 12 345 678 901</p>
+        <p style="margin: 4px 0;"><strong>Marketplace Operator:</strong> ${env.MARKETPLACE_LEGAL_NAME}</p>
+        <p style="margin: 4px 0;"><strong>ABN:</strong> ${env.MARKETPLACE_ABN}</p>
         <p style="margin: 4px 0;"><strong>Total (GST Inclusive):</strong> $${params.totalAmountAud.toFixed(2)} AUD</p>
         <p style="margin: 4px 0;"><strong>Includes 10% Australian GST:</strong> $${params.gstTotalAud.toFixed(2)} AUD</p>
         <p style="margin: 4px 0;"><strong>Fulfillment:</strong> ${params.packageCount} seller package(s) dispatched separately.</p>
