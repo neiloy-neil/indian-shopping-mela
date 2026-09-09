@@ -39,7 +39,7 @@ async function resolveOrCreateCartId(
     if (userCart?.id) return userCart.id;
 
     const { data: newCart, error } = await (supabaseAdmin.from("carts") as any)
-      .insert({ user_id: userId, currency: "AUD" })
+      .insert({ user_id: userId, status: "ACTIVE" })
       .select("id")
       .single();
 
@@ -47,7 +47,7 @@ async function resolveOrCreateCartId(
     return newCart?.id ?? null;
   }
 
-  if (guestToken && guestToken.trim().length >= 8) {
+  if (guestToken && /^[a-zA-Z0-9_-]{8,64}$/.test(guestToken.trim())) {
     const sanitizedToken = guestToken.trim();
     const { data: guestCart } = await (supabaseAdmin.from("carts") as any)
       .select("id")
@@ -57,7 +57,7 @@ async function resolveOrCreateCartId(
     if (guestCart?.id) return guestCart.id;
 
     const { data: newGuestCart, error } = await (supabaseAdmin.from("carts") as any)
-      .insert({ guest_token: sanitizedToken, currency: "AUD" })
+      .insert({ guest_token: sanitizedToken, status: "ACTIVE" })
       .select("id")
       .single();
 
