@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Lock, ShieldCheck, UserPlus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, SellerShell } from "@/components/ism/SellerShell";
 import { SELLER_PERMISSIONS, type SellerPermission, type StaffMember } from "@/lib/ism-ops";
+import { useAuth } from "@/hooks/use-auth";
 
 import {
   getSellerTeamMembersServerFn,
@@ -68,6 +69,8 @@ const DEFAULT_MEMBERS: StaffMember[] = [
 ];
 
 function TeamPage() {
+  const { user } = useAuth();
+  const sellerId = user?.id || "mumbai-mirror-boutique";
   const [staff, setStaff] = useState<StaffMember[]>(DEFAULT_MEMBERS);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -83,7 +86,7 @@ function TeamPage() {
   const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
-    getSellerTeamMembersServerFn({ data: { sellerId: "mumbai-mirror-boutique" } })
+    getSellerTeamMembersServerFn({ data: { sellerId } })
       .then((members) => {
         if (members && members.length > 0) {
           const mapped: StaffMember[] = members.map((m: any) => ({
@@ -100,7 +103,7 @@ function TeamPage() {
         }
       })
       .catch(() => null);
-  }, []);
+  }, [sellerId]);
 
   const toggle = async (email: string, perm: SellerPermission) => {
     const member = staff.find((m) => m.email === email);
@@ -119,7 +122,7 @@ function TeamPage() {
     try {
       await updateSellerStaffPermissionsServerFn({
         data: {
-          sellerId: "mumbai-mirror-boutique",
+          sellerId,
           memberEmail: email,
           permissions: nextPermissions,
         },
@@ -139,7 +142,7 @@ function TeamPage() {
     try {
       await revokeSellerStaffMemberServerFn({
         data: {
-          sellerId: "mumbai-mirror-boutique",
+          sellerId,
           memberEmail: member.email,
         },
       });
@@ -159,9 +162,9 @@ function TeamPage() {
 
     setIsInviting(true);
     try {
-      const res = await inviteSellerStaffServerFn({
+      await inviteSellerStaffServerFn({
         data: {
-          sellerId: "mumbai-mirror-boutique",
+          sellerId,
           email: inviteEmail,
           name: inviteName,
           role: inviteRole,

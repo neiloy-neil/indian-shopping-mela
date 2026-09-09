@@ -408,13 +408,14 @@ export async function getSellerDocuments(sellerId: string): Promise<SellerDocume
 }
 
 /**
- * Fetch team members for a seller store.
+ * Fetch team members for a seller store from canonical seller_staff table.
  */
 export async function getSellerTeamMembers(sellerId: string): Promise<SellerMemberRow[]> {
   const { data, error } = await (supabaseAdmin as any)
-    .from("seller_members")
-    .select("*, profiles(email, full_name)")
+    .from("seller_staff")
+    .select("*, profiles:user_id(email, full_name)")
     .eq("seller_id", sellerId)
+    .eq("is_active", true)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -450,14 +451,23 @@ export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const inviteToken = `inv_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 
-    const { error } = await (supabaseAdmin as any).from("seller_members").insert({
-      seller_id: data.sellerId,
-      role: data.role,
-      permissions: data.permissions,
-    });
+    // Lookup profile by email if user is already registered
+    const { data: profile } = await (supabaseAdmin.from("profiles") as any)
+      .select("id")
+      .eq("email", data.email.trim().toLowerCase())
+      .maybeSingle();
 
-    if (error) {
-      console.warn("Seller member invite note:", error.message);
+    if (profile?.id) {
+      await (supabaseAdmin.from("seller_staff") as any).upsert(
+        {
+          seller_id: data.sellerId,
+          user_id: profile.id,
+          staff_role: data.role.toLowerCase(),
+          permissions: data.permissions,
+          is_active: true,
+        },
+        { onConflict: "seller_id,user_id" },
+      );
     }
 
     await (supabaseAdmin as any).from("audit_logs").insert({
@@ -485,19 +495,26 @@ export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" }
     if (!log) throw new Error("Invalid or expired staff invite token");
 
     const sellerId = log.entity_id;
-    const role = log.new_data?.role || "member";
+    const role = log.new_data?.role || "staff";
     const permissions = log.new_data?.permissions || ["products", "orders"];
 
     await (supabaseAdmin.from("seller_staff") as any).upsert(
       {
         seller_id: sellerId,
         user_id: data.userId,
-        staff_role: role,
+        staff_role: role.toLowerCase(),
         permissions,
         is_active: true,
       },
       { onConflict: "seller_id,user_id" },
     );
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      action: "SELLER_MEMBER_ACCEPTED",
+      entity_type: "SELLER_MEMBER",
+      entity_id: sellerId,
+      new_data: { userId: data.userId, role },
+    });
 
     return { success: true, sellerId };
   });
@@ -508,6 +525,21 @@ export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" }
 export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string; memberEmail: string; permissions: string[] }) => data)
   .handler(async ({ data }) => {
+    // Find profile
+    const { data: profile } = await (supabaseAdmin.from("profiles") as any)
+      .select("id")
+      .eq("email", data.memberEmail.trim().toLowerCase())
+      .maybeSingle();
+
+    if (profile?.id) {
+      await (supabaseAdmin.from("seller_staff") as any)
+        .update({
+          permissions: data.permissions,
+        })
+        .eq("seller_id", data.sellerId)
+        .eq("user_id", profile.id);
+    }
+
     await (supabaseAdmin as any).from("audit_logs").insert({
       action: "SELLER_PERMISSIONS_UPDATED",
       entity_type: "SELLER_MEMBER",
@@ -524,6 +556,18 @@ export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "PO
 export const removeSellerStaffServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string; memberEmail: string }) => data)
   .handler(async ({ data }) => {
+    const { data: profile } = await (supabaseAdmin.from("profiles") as any)
+      .select("id")
+      .eq("email", data.memberEmail.trim().toLowerCase())
+      .maybeSingle();
+
+    if (profile?.id) {
+      await (supabaseAdmin.from("seller_staff") as any)
+        .update({ is_active: false })
+        .eq("seller_id", data.sellerId)
+        .eq("user_id", profile.id);
+    }
+
     await (supabaseAdmin as any).from("audit_logs").insert({
       action: "SELLER_MEMBER_REMOVED",
       entity_type: "SELLER_MEMBER",
