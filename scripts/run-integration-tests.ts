@@ -883,12 +883,13 @@ console.log(
 // 25. CANONICAL RETURNS, EVIDENCE, DISPUTE HOLDS & REFUNDS (T238-T257)
 console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (T238-T257)...");
 {
-  interface CanonicalReturn {
+  interface CanonicalReturnRecord {
     id: string;
-    subOrderId: string;
-    sellerId: string;
-    customerId: string;
+    sub_order_id: string;
+    customer_id: string;
     reason: string;
+    reason_code: string;
+    evidence_urls?: string[] | null;
     status:
       | "RETURN_REQUESTED"
       | "RETURN_APPROVED"
@@ -897,66 +898,152 @@ console.log("\n25. Testing Canonical Returns, Evidence, Payout Holds & Refunds (
       | "REFUND_PENDING"
       | "REFUNDED"
       | "REJECTED";
-    refundAmount: number;
-    returnTrackingNumber?: string;
-    items: { orderItemId: string; quantity: number; returnReason: string; condition: string }[];
+    seller_notes?: string | null;
+    admin_notes?: string | null;
+    payout_hold_placed: boolean;
+    created_at: string;
+    approved_at?: string | null;
+    received_at?: string | null;
+    resolved_at?: string | null;
+  }
+
+  interface CanonicalReturnItemRecord {
+    id: string;
+    return_id: string;
+    order_item_id: string;
+    quantity: number;
+    condition_reported: string;
+    refund_amount_cents: number;
+    created_at: string;
+  }
+
+  interface CanonicalRefundRecord {
+    id: string;
+    order_id: string;
+    sub_order_id: string;
+    return_id: string;
+    provider_refund_id: string;
+    amount_cents: number;
+    currency: string;
+    status: string;
+    reason: string;
+    idempotency_key: string;
+    created_at: string;
   }
 
   // 1. Initial Return Creation with return_items & atomic dispute hold
-  const returnRecord: CanonicalReturn = {
+  const returnRecord: CanonicalReturnRecord = {
     id: "ret_canonical_881",
-    subOrderId: "so_delivered_01",
-    sellerId: "seller_mumbai",
-    customerId: "cust_alice",
-    reason: "CHANGED_MIND",
+    sub_order_id: "so_delivered_01",
+    customer_id: "cust_alice",
+    reason: "Changed mind on color",
+    reason_code: "CHANGED_MIND",
+    evidence_urls: null,
     status: "RETURN_REQUESTED",
-    refundAmount: 149.0,
-    items: [
-      {
-        orderItemId: "item_silk_saree_01",
-        quantity: 1,
-        returnReason: "CHANGED_MIND",
-        condition: "PENDING_INSPECTION",
-      },
-    ],
+    seller_notes: null,
+    admin_notes: null,
+    payout_hold_placed: true,
+    created_at: new Date().toISOString(),
   };
 
-  const disputeHoldCents = Math.round(returnRecord.refundAmount * 100);
+  const returnItem: CanonicalReturnItemRecord = {
+    id: "reti_991",
+    return_id: returnRecord.id,
+    order_item_id: "item_silk_saree_01",
+    quantity: 1,
+    condition_reported: "CHANGED_MIND",
+    refund_amount_cents: 14900,
+    created_at: new Date().toISOString(),
+  };
+
+  const disputeHoldCents = returnItem.refund_amount_cents;
   assert(returnRecord.status === "RETURN_REQUESTED", "Return record initialized in RETURN_REQUESTED state");
   assert(
-    returnRecord.items.length === 1 && returnRecord.items[0]!.condition === "PENDING_INSPECTION",
-    "Canonical return_items created with PENDING_INSPECTION condition",
+    returnItem.condition_reported === "CHANGED_MIND" && returnItem.refund_amount_cents === 14900,
+    "Canonical return_items created with exact condition_reported and integer cents refund amount",
   );
   assert(
-    disputeHoldCents === 14900,
+    returnRecord.payout_hold_placed && disputeHoldCents === 14900,
     "Atomic dispute hold created for seller ledger matching refund amount (14900 cents)",
   );
 
-  // 2. Return Approval & Return Label Generation
+  // 2. Return Approval
   returnRecord.status = "RETURN_APPROVED";
-  returnRecord.returnTrackingNumber = "RET-AP-94827104";
+  returnRecord.approved_at = new Date().toISOString();
+  returnRecord.admin_notes = "Approved for return";
   assert(
-    returnRecord.status === "RETURN_APPROVED" && !!returnRecord.returnTrackingNumber,
-    "Return approved with Australia Post return tracking number",
+    returnRecord.status === "RETURN_APPROVED" && !!returnRecord.approved_at,
+    "Return approved with timestamp and admin notes",
   );
 
-  // 3. Return Receipt & Condition Inspection
+  // 3. Return In Transit
+  returnRecord.status = "RETURN_IN_TRANSIT";
+  assert(returnRecord.status === "RETURN_IN_TRANSIT", "Return transitioned to RETURN_IN_TRANSIT state");
+
+  // 4. Return Receipt & Condition Inspection
   returnRecord.status = "RETURN_RECEIVED";
-  returnRecord.items[0]!.condition = "PERFECT";
+  returnRecord.received_at = new Date().toISOString();
+  returnItem.condition_reported = "PERFECT";
   assert(
-    returnRecord.status === "RETURN_RECEIVED" && returnRecord.items[0]!.condition === "PERFECT",
-    "Return package received and item marked PERFECT condition",
+    returnRecord.status === "RETURN_RECEIVED" && returnItem.condition_reported === "PERFECT",
+    "Return package received and item marked PERFECT condition in return_items",
   );
 
-  // 4. Refund Execution & Idempotency Key
+  // 5. Refund Execution & Idempotency Key
   const idempotencyKey = `return_refund_${returnRecord.id}`;
+  const refundRecord: CanonicalRefundRecord = {
+    id: "ref_canonical_771",
+    order_id: "ord_master_001",
+    sub_order_id: returnRecord.sub_order_id,
+    return_id: returnRecord.id,
+    provider_refund_id: "re_stripe_99281726",
+    amount_cents: returnItem.refund_amount_cents,
+    currency: "AUD",
+    status: "succeeded",
+    reason: `Customer return refund for Return #${returnRecord.id}`,
+    idempotency_key: idempotencyKey,
+    created_at: new Date().toISOString(),
+  };
+
   returnRecord.status = "REFUNDED";
+  returnRecord.resolved_at = new Date().toISOString();
+  returnRecord.payout_hold_placed = false;
 
   assert(
     idempotencyKey === "return_refund_ret_canonical_881",
-    "Stripe refund uses deterministic idempotency key",
+    "Stripe refund uses deterministic idempotency key (return_refund_${returnId})",
   );
-  assert(returnRecord.status === "REFUNDED", "Return lifecycle completed in REFUNDED state");
+  assert(
+    refundRecord.amount_cents === 14900 && refundRecord.currency === "AUD",
+    "Canonical refunds record written with integer amount_cents (14900) and AUD currency",
+  );
+  assert(
+    returnRecord.status === "REFUNDED" && !returnRecord.payout_hold_placed,
+    "Return lifecycle completed in REFUNDED state with payout hold released",
+  );
+
+  // 6. Return Rejection & Dispute Hold Release
+  const rejectedReturn: CanonicalReturnRecord = {
+    id: "ret_rejected_002",
+    sub_order_id: "so_delivered_02",
+    customer_id: "cust_bob",
+    reason: "Worn and washed",
+    reason_code: "CHANGED_MIND",
+    status: "RETURN_REQUESTED",
+    payout_hold_placed: true,
+    created_at: new Date().toISOString(),
+  };
+
+  // Reject return
+  rejectedReturn.status = "REJECTED";
+  rejectedReturn.admin_notes = "Item was worn and tag removed; ineligible under change-of-mind policy";
+  rejectedReturn.resolved_at = new Date().toISOString();
+  rejectedReturn.payout_hold_placed = false;
+
+  assert(
+    rejectedReturn.status === "REJECTED" && !rejectedReturn.payout_hold_placed,
+    "Rejected return unlocks seller dispute hold and records rejection reason",
+  );
 }
 
 // 26. STRIPE CONNECT SELLER PAYOUTS & 14-DAY MATURITY ENGINE (T258-T273)

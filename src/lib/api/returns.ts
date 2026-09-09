@@ -28,16 +28,26 @@ export interface ReturnDetail {
   customerId: string;
   sellerId: string;
   reason: string;
+  reasonCode: string;
   status: ReturnStatus;
+  refundAmountCents: number;
   refundAmount: number;
   customerNotes?: string | null;
   sellerNotes?: string | null;
-  returnTrackingNumber?: string | null;
-  carrier?: string | null;
+  adminNotes?: string | null;
+  evidenceUrls?: string[] | null;
+  payoutHoldPlaced: boolean;
   requestedAt: string;
   approvedAt?: string | null;
   receivedAt?: string | null;
-  refundedAt?: string | null;
+  resolvedAt?: string | null;
+  items: Array<{
+    id: string;
+    orderItemId: string;
+    quantity: number;
+    conditionReported?: string | null;
+    refundAmountCents?: number | null;
+  }>;
 }
 
 /**
@@ -71,7 +81,7 @@ export const rejectReturnServerFn = createServerFn({ method: "POST" })
  * Server Function: Mark return package in transit with carrier tracking.
  */
 export const markReturnInTransitServerFn = createServerFn({ method: "POST" })
-  .validator((data: { returnId: string; trackingNumber: string }) => data)
+  .validator((data: { returnId: string; trackingNumber?: string | undefined }) => data)
   .handler(async ({ data }) => {
     return markReturnInTransit(data.returnId, data.trackingNumber);
   });
@@ -107,14 +117,43 @@ export const executeReturnRefundServerFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * Server Function: Fetch return details by ID.
+ */
+export const getReturnDetailServerFn = createServerFn({ method: "POST" })
+  .validator((data: { returnId: string }) => data)
+  .handler(async ({ data }) => {
+    return getReturnDetail(data.returnId);
+  });
+
+/**
+ * Server Function: Fetch all returns for a customer.
+ */
+export const getReturnsForCustomerServerFn = createServerFn({ method: "POST" })
+  .validator((data: { customerId: string }) => data)
+  .handler(async ({ data }) => {
+    return getReturnsForCustomer(data.customerId);
+  });
+
+/**
+ * Server Function: Fetch all returns for a seller.
+ */
+export const getReturnsForSellerServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string }) => data)
+  .handler(async ({ data }) => {
+    return getReturnsForSeller(data.sellerId);
+  });
+
+/**
  * Customer initiates a return request.
  * Enforces the 7-day change-of-mind window rule from confirmed delivery.
  * Allows statutory claims (faulty, damaged, not as described) beyond 7 days under ACL.
+ * Places atomic DISPUTE_HOLD on seller ledger balance.
  */
 export async function createCustomerReturnRequest(payload: CreateReturnPayload): Promise<{
   success: boolean;
   returnId: string;
   refundAmount: number;
+  refundAmountCents: number;
   message: string;
 }> {
   // 1. Fetch sub-order delivery and items
@@ -129,6 +168,7 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
       net_seller_amount,
       orders:master_order_id (
         id,
+        customer_id,
         payment_intent_id
       )
     `,
@@ -140,13 +180,18 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     throw new Error(`Sub-order ${payload.subOrderId} not found.`);
   }
 
+  // Customer ownership check
+  if (subOrder.orders?.customer_id && subOrder.orders.customer_id !== payload.customerId) {
+    throw new Error("Unauthorized: You do not have permission to initiate returns for this order.");
+  }
+
   if (subOrder.status !== "DELIVERED" || !subOrder.delivered_at) {
     throw new Error("Returns are only permitted on confirmed delivered orders.");
   }
 
   // 2. Fetch the target order item
   const { data: orderItem, error: itemErr } = await (supabaseAdmin.from("order_items") as any)
-    .select("id, unit_price, quantity, variant_id, title")
+    .select("id, unit_price, quantity, variant_id, product_name")
     .eq("id", payload.orderItemId)
     .single();
 
@@ -156,6 +201,7 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
 
   const returnQty = Math.min(payload.quantity || 1, orderItem.quantity || 1);
   const refundAmount = Number((Number(orderItem.unit_price) * returnQty).toFixed(2));
+  const refundAmountCents = Math.round(refundAmount * 100);
 
   // 3. Validate 7-day return window for CHANGE_OF_MIND / WRONG_SIZE
   const deliveredAt = new Date(subOrder.delivered_at);
@@ -181,20 +227,22 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     }
   }
 
-  // 5. Insert return record in canonical returns table
+  // 5. Insert return record in canonical public.returns table
   const { data: returnRecord, error: returnError } = await (supabaseAdmin.from("returns") as any)
     .insert({
       sub_order_id: payload.subOrderId,
       customer_id: payload.customerId,
-      seller_id: subOrder.seller_id,
       reason: payload.reason || payload.reasonCode,
+      reason_code: payload.reasonCode,
+      evidence_urls: payload.evidenceUrls ?? null,
       status: "RETURN_REQUESTED",
-      refund_amount: refundAmount,
-      customer_notes: payload.customerNotes ?? null,
-      carrier: "Australia Post",
-      requested_at: new Date().toISOString(),
+      seller_notes: null,
+      admin_notes: payload.customerNotes ?? null,
+      payout_hold_placed: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
-    .select()
+    .select("id")
     .single();
 
   if (returnError || !returnRecord) {
@@ -202,14 +250,18 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     throw new Error(`Failed to create return record: ${returnError?.message}`);
   }
 
-  // 6. Insert return item in canonical return_items table
-  await (supabaseAdmin.from("return_items") as any).insert({
+  // 6. Insert return item in canonical public.return_items table
+  const { error: itemInsertErr } = await (supabaseAdmin.from("return_items") as any).insert({
     return_id: returnRecord.id,
     order_item_id: payload.orderItemId,
     quantity: returnQty,
-    return_reason: payload.reasonCode,
-    condition: "PENDING_INSPECTION",
+    condition_reported: payload.reasonCode,
+    refund_amount_cents: refundAmountCents,
   });
+
+  if (itemInsertErr) {
+    console.error("Error creating return items:", itemInsertErr);
+  }
 
   // 7. Update sub-order state to DISPUTED
   await (supabaseAdmin.from("sub_orders") as any)
@@ -219,13 +271,13 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     })
     .eq("id", payload.subOrderId);
 
-  // 8. Place automatic PAYOUT_HOLD on seller ledger
+  // 8. Place automatic DISPUTE_HOLD on seller ledger
   await postLedgerEntry({
     orderId: subOrder.master_order_id,
     subOrderId: payload.subOrderId,
     sellerId: subOrder.seller_id,
     entryType: "DISPUTE_HOLD",
-    amountCents: Math.round(refundAmount * 100),
+    amountCents: refundAmountCents,
     description: `Active return request (${payload.reasonCode}) for Return #${returnRecord.id}`,
     metadata: { returnId: returnRecord.id, reasonCode: payload.reasonCode },
   });
@@ -235,11 +287,12 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     action: "RETURN_REQUESTED",
     entity_type: "RETURN",
     entity_id: returnRecord.id,
-    user_id: payload.customerId,
-    new_data: {
+    actor_id: payload.customerId,
+    actor_role: "customer",
+    after_data: {
       subOrderId: payload.subOrderId,
       reasonCode: payload.reasonCode,
-      refundAmount,
+      refundAmountCents,
     },
   });
 
@@ -247,25 +300,22 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     success: true,
     returnId: returnRecord.id,
     refundAmount,
+    refundAmountCents,
     message: "Return request submitted successfully and is pending review.",
   };
 }
 
 /**
- * Approve return and generate Australia Post return consignment.
+ * Approve return and set status to RETURN_APPROVED.
  */
 export async function approveReturn(
   returnId: string,
   adminNotes?: string | undefined,
-): Promise<{ success: boolean; returnTrackingNumber: string }> {
-  const returnTrackingNumber = `RET-AP-${Date.now().toString().slice(-8)}`;
-
+): Promise<{ success: boolean }> {
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
       status: "RETURN_APPROVED",
-      seller_notes: adminNotes ?? null,
-      return_tracking_number: returnTrackingNumber,
-      carrier: "Australia Post",
+      admin_notes: adminNotes ?? null,
       approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -279,21 +329,35 @@ export async function approveReturn(
     action: "RETURN_APPROVED",
     entity_type: "RETURN",
     entity_id: returnId,
-    new_data: { returnTrackingNumber, adminNotes },
+    after_data: { adminNotes },
   });
 
-  return { success: true, returnTrackingNumber };
+  return { success: true };
 }
 
 /**
- * Reject return request with reason and release payout hold.
+ * Reject return request with reason, release payout hold, and restore sub-order to DELIVERED.
  */
 export async function rejectReturn(
   returnId: string,
   rejectionReason: string,
 ): Promise<{ success: boolean }> {
   const { data: ret, error: fetchErr } = await (supabaseAdmin.from("returns") as any)
-    .select("id, sub_order_id, seller_id, refund_amount")
+    .select(
+      `
+      id,
+      sub_order_id,
+      payout_hold_placed,
+      return_items (
+        refund_amount_cents
+      ),
+      sub_orders:sub_order_id (
+        id,
+        master_order_id,
+        seller_id
+      )
+    `,
+    )
     .eq("id", returnId)
     .single();
 
@@ -304,7 +368,9 @@ export async function rejectReturn(
   await (supabaseAdmin.from("returns") as any)
     .update({
       status: "REJECTED",
-      seller_notes: rejectionReason,
+      admin_notes: rejectionReason,
+      resolved_at: new Date().toISOString(),
+      payout_hold_placed: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", returnId);
@@ -317,27 +383,46 @@ export async function rejectReturn(
     })
     .eq("id", ret.sub_order_id);
 
+  // Release DISPUTE_HOLD on seller ledger if hold was placed
+  if (ret.payout_hold_placed) {
+    const totalRefundCents = (ret.return_items || []).reduce(
+      (acc: number, item: any) => acc + (Number(item.refund_amount_cents) || 0),
+      0,
+    );
+
+    if (totalRefundCents > 0 && ret.sub_orders) {
+      await postLedgerEntry({
+        orderId: ret.sub_orders.master_order_id,
+        subOrderId: ret.sub_order_id,
+        sellerId: ret.sub_orders.seller_id,
+        entryType: "DISPUTE_RELEASE",
+        amountCents: totalRefundCents,
+        description: `Dispute hold released for rejected Return #${returnId}`,
+        metadata: { returnId, rejectionReason },
+      });
+    }
+  }
+
   await (supabaseAdmin.from("audit_logs") as any).insert({
     action: "RETURN_REJECTED",
     entity_type: "RETURN",
     entity_id: returnId,
-    new_data: { rejectionReason },
+    after_data: { rejectionReason },
   });
 
   return { success: true };
 }
 
 /**
- * Mark return in transit with carrier tracking number.
+ * Mark return in transit.
  */
 export async function markReturnInTransit(
   returnId: string,
-  trackingNumber: string,
+  _trackingNumber?: string | undefined,
 ): Promise<{ success: boolean }> {
   const { error } = await (supabaseAdmin.from("returns") as any)
     .update({
       status: "RETURN_IN_TRANSIT",
-      return_tracking_number: trackingNumber,
       updated_at: new Date().toISOString(),
     })
     .eq("id", returnId);
@@ -350,7 +435,7 @@ export async function markReturnInTransit(
 }
 
 /**
- * Mark return received at seller facility.
+ * Mark return received at seller facility with condition inspection.
  */
 export async function markReturnReceived(
   returnId: string,
@@ -370,31 +455,42 @@ export async function markReturnReceived(
     throw new Error(`Failed to update return received state: ${error.message}`);
   }
 
-  // Update return items condition
-  await (supabaseAdmin.from("return_items") as any).update({ condition }).eq("return_id", returnId);
+  // Update return items condition_reported
+  await (supabaseAdmin.from("return_items") as any)
+    .update({ condition_reported: condition })
+    .eq("return_id", returnId);
 
   return { success: true };
 }
 
 /**
- * Execute Stripe partial/full refund, post compensating ledger entries, and restock inventory.
+ * Execute Stripe partial/full refund, post compensating ledger entries, release dispute hold, and restock inventory.
  */
 export async function executeReturnRefund(
   returnId: string,
   customRefundAmount?: number | undefined,
   restockItems: boolean = true,
-): Promise<{ success: boolean; refundId: string; refundAmount: number }> {
+): Promise<{ success: boolean; refundId: string; refundAmount: number; refundAmountCents: number }> {
   // 1. Fetch return details and order
   const { data: ret, error: retErr } = await (supabaseAdmin.from("returns") as any)
     .select(
       `
       id,
       sub_order_id,
-      seller_id,
-      refund_amount,
       customer_id,
+      return_items (
+        id,
+        quantity,
+        refund_amount_cents,
+        order_item_id,
+        order_items:order_item_id (
+          variant_id,
+          unit_price
+        )
+      ),
       sub_orders:sub_order_id (
         id,
+        seller_id,
         master_order_id,
         orders:master_order_id (
           id,
@@ -410,9 +506,20 @@ export async function executeReturnRefund(
     throw new Error(`Return record ${returnId} not found.`);
   }
 
-  const refundAmount = customRefundAmount ?? Number(ret.refund_amount);
-  const refundAmountCents = Math.round(refundAmount * 100);
+  const calculatedRefundCents = (ret.return_items || []).reduce(
+    (acc: number, item: any) => acc + (Number(item.refund_amount_cents) || 0),
+    0,
+  );
+
+  const refundAmountCents = customRefundAmount
+    ? Math.round(customRefundAmount * 100)
+    : calculatedRefundCents > 0
+      ? calculatedRefundCents
+      : 0;
+
+  const refundAmount = Number((refundAmountCents / 100).toFixed(2));
   const masterOrderId = ret.sub_orders?.master_order_id;
+  const sellerId = ret.sub_orders?.seller_id;
   const paymentIntentId = ret.sub_orders?.orders?.payment_intent_id;
 
   // 2. Trigger Stripe Refund if payment intent exists
@@ -424,6 +531,8 @@ export async function executeReturnRefund(
   }
 
   let stripeRefundId: string;
+  const idempotencyKey = `return_refund_${returnId}`;
+
   if (paymentIntentId) {
     try {
       const stripeRefund = await stripe.refunds.create(
@@ -438,7 +547,7 @@ export async function executeReturnRefund(
           },
         },
         {
-          idempotencyKey: `return_refund_${returnId}`,
+          idempotencyKey,
         },
       );
       stripeRefundId = stripeRefund.id;
@@ -457,7 +566,7 @@ export async function executeReturnRefund(
     stripeRefundId = `re_dev_${Date.now()}`;
   }
 
-  // 3. Insert record in canonical refunds table
+  // 3. Insert record in canonical public.refunds table
   const { data: refundRecord, error: refundDbErr } = await (supabaseAdmin.from("refunds") as any)
     .insert({
       order_id: masterOrderId,
@@ -468,32 +577,39 @@ export async function executeReturnRefund(
       currency: "AUD",
       status: "succeeded",
       reason: `Customer return refund for Return #${returnId}`,
+      idempotency_key: idempotencyKey,
     })
     .select("id")
     .single();
 
-  if (refundDbErr || !refundRecord) {
+  if (refundDbErr) {
     console.error("Error writing refund record:", refundDbErr);
   }
 
-  // 4. Append compensating double-entry ledger entries
+  // 4. Append compensating double-entry ledger entries: CUSTOMER_REFUND and DISPUTE_RELEASE
   await postLedgerEntry({
     orderId: masterOrderId,
     subOrderId: ret.sub_order_id,
-    sellerId: ret.seller_id,
+    sellerId,
     entryType: "CUSTOMER_REFUND",
     amountCents: refundAmountCents,
     description: `Refund to customer for returned items (Return #${returnId})`,
     metadata: { returnId, refundId: refundRecord?.id ?? stripeRefundId },
   });
 
+  await postLedgerEntry({
+    orderId: masterOrderId,
+    subOrderId: ret.sub_order_id,
+    sellerId,
+    entryType: "DISPUTE_RELEASE",
+    amountCents: refundAmountCents,
+    description: `Dispute hold released upon refund execution for Return #${returnId}`,
+    metadata: { returnId, refundId: refundRecord?.id ?? stripeRefundId },
+  });
+
   // 5. Restock returned items if requested
   if (restockItems) {
-    const { data: returnItems } = await (supabaseAdmin.from("return_items") as any)
-      .select("quantity, order_item_id, order_items:order_item_id (variant_id)")
-      .eq("return_id", returnId);
-
-    for (const item of returnItems || []) {
+    for (const item of ret.return_items || []) {
       const variantId = item.order_items?.variant_id;
       if (variantId) {
         await restockVariantInventory({
@@ -511,7 +627,8 @@ export async function executeReturnRefund(
   await (supabaseAdmin.from("returns") as any)
     .update({
       status: "REFUNDED",
-      refunded_at: new Date().toISOString(),
+      resolved_at: new Date().toISOString(),
+      payout_hold_placed: false,
       updated_at: new Date().toISOString(),
     })
     .eq("id", returnId);
@@ -529,12 +646,231 @@ export async function executeReturnRefund(
     action: "RETURN_REFUND_EXECUTED",
     entity_type: "RETURN",
     entity_id: returnId,
-    new_data: { refundAmount, stripeRefundId },
+    after_data: { refundAmountCents, stripeRefundId },
   });
 
   return {
     success: true,
     refundId: refundRecord?.id ?? stripeRefundId,
     refundAmount,
+    refundAmountCents,
   };
+}
+
+/**
+ * Fetch detailed return information by ID.
+ */
+export async function getReturnDetail(returnId: string): Promise<ReturnDetail | null> {
+  const { data, error } = await (supabaseAdmin.from("returns") as any)
+    .select(
+      `
+      id,
+      sub_order_id,
+      customer_id,
+      reason,
+      reason_code,
+      status,
+      seller_notes,
+      admin_notes,
+      evidence_urls,
+      payout_hold_placed,
+      created_at,
+      approved_at,
+      received_at,
+      resolved_at,
+      sub_orders:sub_order_id (
+        seller_id
+      ),
+      return_items (
+        id,
+        order_item_id,
+        quantity,
+        condition_reported,
+        refund_amount_cents
+      )
+    `,
+    )
+    .eq("id", returnId)
+    .single();
+
+  if (error || !data) return null;
+
+  const totalRefundCents = (data.return_items || []).reduce(
+    (acc: number, item: any) => acc + (Number(item.refund_amount_cents) || 0),
+    0,
+  );
+
+  return {
+    id: data.id,
+    subOrderId: data.sub_order_id,
+    customerId: data.customer_id,
+    sellerId: data.sub_orders?.seller_id ?? "",
+    reason: data.reason,
+    reasonCode: data.reason_code,
+    status: data.status,
+    refundAmountCents: totalRefundCents,
+    refundAmount: Number((totalRefundCents / 100).toFixed(2)),
+    customerNotes: data.admin_notes,
+    sellerNotes: data.seller_notes,
+    adminNotes: data.admin_notes,
+    evidenceUrls: data.evidence_urls,
+    payoutHoldPlaced: !!data.payout_hold_placed,
+    requestedAt: data.created_at,
+    approvedAt: data.approved_at,
+    receivedAt: data.received_at,
+    resolvedAt: data.resolved_at,
+    items: (data.return_items || []).map((item: any) => ({
+      id: item.id,
+      orderItemId: item.order_item_id,
+      quantity: item.quantity,
+      conditionReported: item.condition_reported,
+      refundAmountCents: item.refund_amount_cents,
+    })),
+  };
+}
+
+/**
+ * Fetch all returns initiated by a specific customer.
+ */
+export async function getReturnsForCustomer(customerId: string): Promise<ReturnDetail[]> {
+  const { data, error } = await (supabaseAdmin.from("returns") as any)
+    .select(
+      `
+      id,
+      sub_order_id,
+      customer_id,
+      reason,
+      reason_code,
+      status,
+      seller_notes,
+      admin_notes,
+      evidence_urls,
+      payout_hold_placed,
+      created_at,
+      approved_at,
+      received_at,
+      resolved_at,
+      sub_orders:sub_order_id (
+        seller_id
+      ),
+      return_items (
+        id,
+        order_item_id,
+        quantity,
+        condition_reported,
+        refund_amount_cents
+      )
+    `,
+    )
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  return data.map((d: any) => {
+    const totalRefundCents = (d.return_items || []).reduce(
+      (acc: number, item: any) => acc + (Number(item.refund_amount_cents) || 0),
+      0,
+    );
+    return {
+      id: d.id,
+      subOrderId: d.sub_order_id,
+      customerId: d.customer_id,
+      sellerId: d.sub_orders?.seller_id ?? "",
+      reason: d.reason,
+      reasonCode: d.reason_code,
+      status: d.status,
+      refundAmountCents: totalRefundCents,
+      refundAmount: Number((totalRefundCents / 100).toFixed(2)),
+      customerNotes: d.admin_notes,
+      sellerNotes: d.seller_notes,
+      adminNotes: d.admin_notes,
+      evidenceUrls: d.evidence_urls,
+      payoutHoldPlaced: !!d.payout_hold_placed,
+      requestedAt: d.created_at,
+      approvedAt: d.approved_at,
+      receivedAt: d.received_at,
+      resolvedAt: d.resolved_at,
+      items: (d.return_items || []).map((item: any) => ({
+        id: item.id,
+        orderItemId: item.order_item_id,
+        quantity: item.quantity,
+        conditionReported: item.condition_reported,
+        refundAmountCents: item.refund_amount_cents,
+      })),
+    };
+  });
+}
+
+/**
+ * Fetch all returns submitted for a seller's sub-orders.
+ */
+export async function getReturnsForSeller(sellerId: string): Promise<ReturnDetail[]> {
+  const { data, error } = await (supabaseAdmin.from("returns") as any)
+    .select(
+      `
+      id,
+      sub_order_id,
+      customer_id,
+      reason,
+      reason_code,
+      status,
+      seller_notes,
+      admin_notes,
+      evidence_urls,
+      payout_hold_placed,
+      created_at,
+      approved_at,
+      received_at,
+      resolved_at,
+      sub_orders:sub_order_id!inner (
+        seller_id
+      ),
+      return_items (
+        id,
+        order_item_id,
+        quantity,
+        condition_reported,
+        refund_amount_cents
+      )
+    `,
+    )
+    .eq("sub_orders.seller_id", sellerId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  return data.map((d: any) => {
+    const totalRefundCents = (d.return_items || []).reduce(
+      (acc: number, item: any) => acc + (Number(item.refund_amount_cents) || 0),
+      0,
+    );
+    return {
+      id: d.id,
+      subOrderId: d.sub_order_id,
+      customerId: d.customer_id,
+      sellerId: d.sub_orders?.seller_id ?? "",
+      reason: d.reason,
+      reasonCode: d.reason_code,
+      status: d.status,
+      refundAmountCents: totalRefundCents,
+      refundAmount: Number((totalRefundCents / 100).toFixed(2)),
+      customerNotes: d.admin_notes,
+      sellerNotes: d.seller_notes,
+      adminNotes: d.admin_notes,
+      evidenceUrls: d.evidence_urls,
+      payoutHoldPlaced: !!d.payout_hold_placed,
+      requestedAt: d.created_at,
+      approvedAt: d.approved_at,
+      receivedAt: d.received_at,
+      resolvedAt: d.resolved_at,
+      items: (d.return_items || []).map((item: any) => ({
+        id: item.id,
+        orderItemId: item.order_item_id,
+        quantity: item.quantity,
+        conditionReported: item.condition_reported,
+        refundAmountCents: item.refund_amount_cents,
+      })),
+    };
+  });
 }
