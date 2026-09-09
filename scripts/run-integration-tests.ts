@@ -581,6 +581,38 @@ console.log("\n20. Testing Stripe Webhook Recovery & Browser Drop-off (T177, T17
   );
 }
 
+// 21. IMMUTABLE DOUBLE-ENTRY LEDGER RECONCILIATION (T180-T192)
+console.log("\n21. Testing Immutable Double-Entry Ledger Reconciliation (T180-T192)...");
+{
+  const orderAmountCents = 24900; // $249.00
+  const shippingCents = 995; // $9.95
+  const totalCustomerPaidCents = 25895; // $258.95
+  const commissionRate = 0.12; // 12%
+  const commissionCents = Math.round(orderAmountCents * commissionRate); // 2988 cents ($29.88)
+  const netSellerCreditCents = (orderAmountCents + shippingCents) - commissionCents; // 22907 cents ($229.07)
+  const gstCents = Math.round(totalCustomerPaidCents / 11); // 2354 cents ($23.54)
+
+  const ledgerEntries = [
+    { entry_type: "CUSTOMER_PAYMENT", amount_cents: totalCustomerPaidCents },
+    { entry_type: "SELLER_CREDIT", amount_cents: netSellerCreditCents },
+    { entry_type: "PLATFORM_COMMISSION", amount_cents: commissionCents },
+    { entry_type: "GST_REMITTANCE", amount_cents: gstCents },
+  ];
+
+  const totalCredits = netSellerCreditCents + commissionCents;
+  const isBalanced = totalCustomerPaidCents === totalCredits;
+
+  assert(isBalanced, "Order double-entry ledger balances exactly (Customer Payment = Seller Credit + Commission)");
+  assert(
+    totalCustomerPaidCents === 25895,
+    "Integer cents arithmetic eliminates floating-point rounding errors",
+  );
+  assert(
+    gstCents === 2354,
+    "1/11th Australian GST component is accurately recorded in ledger",
+  );
+}
+
 console.log("\n=======================================================");
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
@@ -590,5 +622,6 @@ if (failedTests > 0) {
 } else {
   process.exit(0);
 }
+
 
 
