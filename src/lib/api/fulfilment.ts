@@ -156,7 +156,7 @@ export const markSubOrderPackedServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { error } = await (supabaseAdmin.from("sub_orders") as any)
       .update({
-        status: "PACKED",
+        status: "READY_TO_SHIP",
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.subOrderId)
@@ -232,7 +232,7 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
           customerState: state,
           itemCount: Math.max(1, itemCount),
           total,
-          status: so.status || "NEW_ORDER",
+          status: so.status || "ORDER_CREATED",
           carrier: so.carrier,
           trackingNumber: so.tracking_number,
           createdAt: so.created_at,
