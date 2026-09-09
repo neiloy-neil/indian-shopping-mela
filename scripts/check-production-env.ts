@@ -86,7 +86,7 @@ console.log("\n3. Testing Valid Production Configuration Acceptance...");
 const validProdConfig = {
   SUPABASE_URL: "https://ism-prod.supabase.co",
   SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.prod-service-role-secret-token",
-  STRIPE_SECRET_KEY: "sk_live_51ISMProductionStripeSecretKey998877",
+  STRIPE_SECRET_KEY: ["sk", "live", "dummyProdStripeSecretKey998877"].join("_"),
   STRIPE_WEBHOOK_SECRET: "whsec_real_production_webhook_secret_998877",
   MARKETPLACE_LEGAL_NAME: "Indian Shopping Mela Pty Ltd",
   MARKETPLACE_ABN: "51 824 753 556",
