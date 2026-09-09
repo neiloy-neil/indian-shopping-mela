@@ -74,6 +74,21 @@ const FORBIDDEN_RULES: Array<{
     regex: /re_demo|re_mock|re_fake/i,
     reason: "Refunds must be processed through real Stripe Refunds API with real refund IDs.",
   },
+  {
+    name: "Fake Shipping Tracking / Label Simulation",
+    regex: /mock_auspost_label|fake_tracking_number|track_mock/i,
+    reason: "Shipping labels and tracking IDs must be generated via authoritative carrier integration.",
+  },
+  {
+    name: "Fake Video Moderation Pass",
+    regex: /mock_mux_asset_id|fake_passthrough_video/i,
+    reason: "Video moderation and asset IDs must proceed through authoritative Mux webhooks.",
+  },
+  {
+    name: "Fake Bulk Import Success Simulation",
+    regex: /fake_import_batch|mock_bulk_success/i,
+    reason: "Bulk product imports must proceed through authoritative PostgreSQL batch parser.",
+  },
 ];
 
 function scanDirectory(dir: string, fileList: string[] = []): string[] {

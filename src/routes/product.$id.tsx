@@ -609,37 +609,10 @@ function ProductReviewsSection({
     try {
       setLoading(true);
       const data = await getProductReviewsServerFn({ data: { productId } });
-      if (data && data.length > 0) {
-        setReviews(data);
-      } else {
-        // Sample verified reviews fallback for display
-        setReviews([
-          {
-            id: "rev-1",
-            productId,
-            userId: "u-1",
-            userName: "Priya Sharma",
-            rating: 5,
-            title: "Exceptional fabric quality and authentic zari work",
-            body: "The zari work is even more vibrant in person than the photos. Dispatched and delivered quickly to Melbourne.",
-            isVerifiedPurchase: true,
-            createdAt: "2026-08-15T10:00:00.000Z",
-          },
-          {
-            id: "rev-2",
-            productId,
-            userId: "u-2",
-            userName: "Ananya Patel",
-            rating: 5,
-            title: "True to size and beautifully packaged",
-            body: "Loved the drape and stitching. Highly recommend this seller!",
-            isVerifiedPurchase: true,
-            createdAt: "2026-08-10T14:30:00.000Z",
-          },
-        ]);
-      }
+      setReviews(data || []);
     } catch (err) {
       console.error("Error loading product reviews:", err);
+      setReviews([]);
     } finally {
       setLoading(false);
     }
