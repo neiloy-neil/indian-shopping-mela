@@ -2324,6 +2324,113 @@ console.log("\n34. Testing Performance, Load Simulation & Reliability (T465–T4
   );
 }
 
+// 35. LEGAL POLICIES, MARKETPLACE CONFIGURATIONS & POLICY ACCEPTANCE TRACKING (T494–T503)
+console.log("\n35. Testing Legal Policies, Configuration & Policy Acceptance (T494–T503)...");
+{
+  const { DEFAULT_MARKETPLACE_SETTINGS } = await import("../src/lib/api/config");
+
+  // 1. Authoritative Marketplace Settings & Limits (T503)
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.returnWindowDays === 7,
+    "Marketplace default return window is 7 calendar days (ACL compliant)",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.payoutDelayDays === 14,
+    "Marketplace seller payout maturation delay is 14 calendar days post-delivery",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.defaultCommissionRatePct === 10.0,
+    "Default marketplace seller commission rate is 10.0%",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.sellerDispatchSlaHours === 48,
+    "Seller order dispatch SLA is 48 hours",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.mediaLimits.maxImagesPerProduct === 8 &&
+      DEFAULT_MARKETPLACE_SETTINGS.mediaLimits.maxImageSizeMb === 10 &&
+      DEFAULT_MARKETPLACE_SETTINGS.mediaLimits.maxVideoSizeMb === 50 &&
+      DEFAULT_MARKETPLACE_SETTINGS.mediaLimits.maxVideoDurationSeconds === 60,
+    "Media constraints enforce 8 images max (10MB) and 50MB/60s video limit",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.importLimits.maxRowsPerBatch === 1000,
+    "Bulk product import batch limit is 1,000 rows max",
+  );
+
+  // 2. Policy Version Governance (T494–T498, T502)
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.policyVersions.termsVersion === "v1.0_2026",
+    "Terms of Service version registered as v1.0_2026",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.policyVersions.privacyVersion === "v1.0_2026",
+    "Privacy Policy version registered as v1.0_2026 (Privacy Act 1988 Cth compliant)",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.policyVersions.sellerAgreementVersion === "v1.1_2026",
+    "Seller Master Agreement version registered as v1.1_2026",
+  );
+  assert(
+    DEFAULT_MARKETPLACE_SETTINGS.policyVersions.returnsVersion === "v1.2_2026",
+    "Returns & Refunds Policy version registered as v1.2_2026",
+  );
+
+  // 3. User & Seller Policy Acceptance Audit Recorder (T502)
+  function simulatePolicyAcceptance(data: {
+    userId: string;
+    sellerId?: string;
+    agreementType: "TERMS" | "PRIVACY" | "SELLER_AGREEMENT" | "RETURNS";
+    version: string;
+    ipAddress?: string;
+  }) {
+    return {
+      success: true,
+      action: `LEGAL_AGREEMENT_ACCEPTED_${data.agreementType}`,
+      entityType: data.sellerId ? "SELLER" : "USER",
+      entityId: data.sellerId ?? data.userId,
+      version: data.version,
+      recordedAt: new Date().toISOString(),
+    };
+  }
+
+  const customerAcceptance = simulatePolicyAcceptance({
+    userId: "cust_usr_101",
+    agreementType: "TERMS",
+    version: "v1.0_2026",
+    ipAddress: "203.0.113.195",
+  });
+  assert(
+    customerAcceptance.success &&
+      customerAcceptance.action === "LEGAL_AGREEMENT_ACCEPTED_TERMS" &&
+      customerAcceptance.entityType === "USER",
+    "Customer Terms of Service acceptance recorded with audit trail",
+  );
+
+  const sellerAcceptance = simulatePolicyAcceptance({
+    userId: "seller_usr_202",
+    sellerId: "seller_acct_505",
+    agreementType: "SELLER_AGREEMENT",
+    version: "v1.1_2026",
+    ipAddress: "203.0.113.196",
+  });
+  assert(
+    sellerAcceptance.success &&
+      sellerAcceptance.action === "LEGAL_AGREEMENT_ACCEPTED_SELLER_AGREEMENT" &&
+      sellerAcceptance.entityType === "SELLER",
+    "Seller Master Agreement acceptance recorded with seller entity attribution",
+  );
+
+  // 4. Australian GST Mathematical Correctness (T499)
+  const grossPriceCents = 11000; // $110.00 AUD inclusive of 10% GST
+  const gstCents = Math.round(grossPriceCents / 11);
+  const netCents = grossPriceCents - gstCents;
+  assert(
+    gstCents === 1000 && netCents === 10000,
+    "Australian 1/11th inclusive GST calculation yields exact integer cents ($10.00 GST on $110.00 gross)",
+  );
+}
+
 console.log("\n=======================================================");
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");

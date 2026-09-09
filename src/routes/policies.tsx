@@ -37,9 +37,9 @@ function PoliciesPage() {
               Marketplace Policies & Legal Terms
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Indian Shopping Mela Pty Ltd (ABN 00 000 000 000) operates an Australian multi-vendor
-              marketplace connecting verified Australian-based Indian boutiques, artisans, and
-              sellers with Australian consumers.
+              Indian Shopping Mela Pty Ltd operates an Australian multi-vendor marketplace
+              connecting verified Australian-based Indian boutiques, artisans, and sellers with
+              Australian consumers.
             </p>
           </div>
 

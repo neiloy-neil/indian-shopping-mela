@@ -98,7 +98,7 @@ export function Footer() {
 
         <div className="relative border-t border-gold/25">
           <div className="ism-container flex flex-col gap-2 py-5 text-xs text-primary-foreground/70 md:flex-row md:items-center md:justify-between">
-            <p>© 2026 Indian Shopping Mela Pty Ltd · ABN 00 000 000 000</p>
+            <p>© 2026 Indian Shopping Mela Pty Ltd · All Rights Reserved</p>
             <div className="flex flex-wrap gap-4">
               <Link to="/policies" className="hover:text-gold hover:underline">
                 Privacy Policy
