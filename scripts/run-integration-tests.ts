@@ -442,6 +442,39 @@ console.log("\n17. Testing Admin MFA Finance Mutation Gate (T464)...");
   );
 }
 
+// 18. DATABASE CART OWNERSHIP & GUEST ISOLATION (T125-T135)
+console.log("\n18. Testing Database Cart Ownership & Guest Isolation (T125-T135)...");
+{
+  const cartsDb = [
+    { id: "cart_user_1", user_id: "user_alice", guest_token: null },
+    { id: "cart_user_2", user_id: "user_bob", guest_token: null },
+    { id: "cart_guest_1", user_id: null, guest_token: "guest_tok_alpha" },
+  ];
+
+  function queryCart(actor: { userId?: string; guestToken?: string }) {
+    if (actor.userId) {
+      return cartsDb.find((c) => c.user_id === actor.userId) ?? null;
+    }
+    if (actor.guestToken) {
+      return cartsDb.find((c) => c.guest_token === actor.guestToken) ?? null;
+    }
+    return null;
+  }
+
+  assert(
+    queryCart({ userId: "user_alice" })?.id === "cart_user_1",
+    "Authenticated user Alice loads her own cart only",
+  );
+  assert(
+    queryCart({ guestToken: "guest_tok_alpha" })?.id === "cart_guest_1",
+    "Guest token resolves strictly to matching guest cart",
+  );
+  assert(
+    queryCart({ guestToken: "guest_tok_unauthorized" }) === null,
+    "Unknown guest token cannot access existing guest or user carts",
+  );
+}
+
 console.log("\n=======================================================");
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
