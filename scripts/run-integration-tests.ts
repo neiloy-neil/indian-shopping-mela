@@ -1453,6 +1453,52 @@ console.log("\n32. Testing Background Processing & Dead-Letter Queue (T387-T397)
   assert(expired.length === 1 && expired[0] === "res_old", "Only active reservations past expires_at are flagged for expiration");
 }
 
+// 33. SECURITY HARDENING & OPERATIONAL DISASTER RECOVERY (T398-T435)
+console.log("\n33. Testing Security Hardening & Operational Recovery (T398-T435)...");
+{
+  const { redactSensitiveData, maskSensitiveString } = await import("../src/lib/security/logger-redaction");
+  const { escapeHtml } = await import("../src/lib/security/sanitizer");
+  const { validateRemoteUrl } = await import("../src/lib/security/ssrf");
+  const { dispatchOperationalAlert, getAlertHistory } = await import("../src/lib/monitoring/alerts");
+
+  // 1. Logger PII & Secret Redaction
+  const sensitivePayload = {
+    apiKey: "sk_live_1234567890abcdef",
+    password: "SuperSecretPassword123!",
+    cardNumber: "4111 2222 3333 4444",
+    safeField: "ISM-AU-100",
+  };
+  const redacted = redactSensitiveData(sensitivePayload) as any;
+  assert(redacted.apiKey.endsWith("cdef") && redacted.apiKey.includes("*"), "API keys masked in log payload");
+  assert(redacted.password.includes("*"), "Passwords masked in log payload");
+  assert(redacted.safeField === "ISM-AU-100", "Safe fields preserved in log payload");
+  assert(maskSensitiveString("short") === "*hort", "Sensitive string masking works");
+
+  // 2. HTML / Template Injection Sanitization
+  const dirtyHtml = '<script>alert("xss")</script><b>Valid Content</b>';
+  const cleanText = escapeHtml(dirtyHtml);
+  assert(cleanText.includes("&lt;script&gt;"), "HTML script tags escaped for injection safety");
+
+  // 3. SSRF Defense: Private IP ranges, localhost, and metadata IPs
+  assert(!validateRemoteUrl("http://169.254.169.254/latest/meta-data/", true).safe, "Cloud instance metadata URL blocked by SSRF defense");
+  assert(!validateRemoteUrl("http://127.0.0.1:8080/admin", true).safe, "Localhost URL blocked by SSRF defense");
+  assert(!validateRemoteUrl("http://192.168.1.1/router", true).safe, "RFC1918 private network URL blocked by SSRF defense");
+  assert(validateRemoteUrl("https://images.unsplash.com/photo-123.jpg").safe, "Public HTTPS media URL allowed by SSRF defense");
+
+  // 4. Operational Alert Dispatch across Categories & Priorities
+  const alert = await dispatchOperationalAlert({
+    type: "PAYMENT_WEBHOOK_FAILURE",
+    priority: "P1_CRITICAL",
+    title: "Stripe Signature Verification Outage",
+    description: "Invalid webhook secret in production",
+    actionRequired: "Rotate STRIPE_WEBHOOK_SECRET in Vercel environment",
+    metadata: { attemptCount: 3, provider: "stripe" },
+  });
+  assert(alert.alertId.startsWith("alt_") && alert.priority === "P1_CRITICAL", "Critical operational alert dispatched and formatted");
+  const history = getAlertHistory();
+  assert(history.some((a) => a.alertId === alert.alertId), "Operational alert recorded in telemetry history");
+}
+
 console.log("\n=======================================================");
 console.log(`  INTEGRATION RESULTS: ${passedTests}/${totalTests} PASSED (${failedTests} FAILED)`);
 console.log("=======================================================\n");
