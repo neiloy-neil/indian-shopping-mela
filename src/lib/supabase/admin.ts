@@ -29,7 +29,12 @@ const getSupabaseUrl = (): string => {
     if (url && url.trim() !== "") return url;
   }
   if (process.env["NODE_ENV"] === "production") {
-    throw new Error("SUPABASE_URL or VITE_SUPABASE_URL is required in production runtime.");
+    const envKeys = Object.keys(process.env)
+      .filter((k) => k.toUpperCase().includes("SUPABASE"))
+      .join(",");
+    throw new Error(
+      `SUPABASE_URL or VITE_SUPABASE_URL is required in production runtime. [DEBUG visible SUPABASE-related keys: ${envKeys || "NONE"}]`,
+    );
   }
   return "http://127.0.0.1:54321";
 };
