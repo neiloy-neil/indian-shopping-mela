@@ -56,27 +56,54 @@ export interface SearchCatalogParams {
  */
 export function mapDbProductToIsm(dbItem: any): Product {
   const variants = dbItem.variants ?? [];
-  const minPrice =
+  const now = new Date();
+
+  // Effective price per variant: the active sale_price (within its sale window) if lower
+  // than the regular price, otherwise the regular price. Both columns live on
+  // public.product_variants — there is no price_aud_cents column in the canonical schema.
+  const effectivePrice = (v: any): number => {
+    const regular = Number(v.price ?? 0);
+    const hasActiveSale =
+      v.sale_price != null &&
+      (!v.sale_start_at || new Date(v.sale_start_at) <= now) &&
+      (!v.sale_end_at || new Date(v.sale_end_at) >= now);
+    return hasActiveSale ? Number(v.sale_price) : regular;
+  };
+
+  const cheapestVariant =
     variants.length > 0
-      ? Math.min(...variants.map((v: any) => Number(v.price ?? dbItem.price ?? 0)))
-      : Number(dbItem.price ?? 0);
+      ? variants.reduce((min: any, v: any) => (effectivePrice(v) < effectivePrice(min) ? v : min))
+      : null;
 
+  const minPrice = cheapestVariant ? effectivePrice(cheapestVariant) : Number(dbItem.price ?? 0);
   const compareAtPrice =
-    variants.length > 0 && variants[0].compare_at_price
-      ? Number(variants[0].compare_at_price)
-      : dbItem.sale_price
-        ? Number(dbItem.sale_price)
-        : undefined;
+    cheapestVariant && Number(cheapestVariant.price ?? 0) > minPrice
+      ? Number(cheapestVariant.price)
+      : undefined;
 
-  const images =
-    (dbItem.media_urls as string[]) ?? (dbItem.media?.map((m: any) => m.url) as string[]) ?? [];
-  const firstImage = images.length > 0 ? images[0] : "sarees";
+  // public.product_media (joined as `media`) is the canonical source of product imagery —
+  // there is no media_urls column on products. Photo moderation isn't implemented anywhere
+  // in this codebase, so gating images on moderation_status would hide every product photo;
+  // show all images. Videos DO go through admin moderation (see admin-finance.ts's
+  // moderateProductVideoServerFn), so only an "approved" video is ever exposed here.
+  const allMedia = (dbItem.media as any[]) ?? [];
+  const productImages = allMedia
+    .filter((m) => m.media_type === "image")
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const firstImageUrl = productImages.length > 0 ? productImages[0].url : undefined;
+  const approvedVideo = allMedia.find(
+    (m) => m.media_type === "video" && m.moderation_status === "approved",
+  );
 
   const allSizes = Array.from(
-    new Set(variants.map((v: any) => v.size || v.title).filter(Boolean)),
+    new Set(
+      variants
+        .flatMap((v: any) => [v.attributes?.size, v.attributes?.Size, v.title])
+        .filter(Boolean),
+    ),
   ) as string[];
   const allColours = Array.from(
-    new Set(variants.map((v: any) => v.colour).filter(Boolean)),
+    new Set(variants.map((v: any) => v.attributes?.colour ?? v.attributes?.color).filter(Boolean)),
   ) as string[];
 
   const totalStock =
@@ -91,10 +118,14 @@ export function mapDbProductToIsm(dbItem: any): Product {
     category: dbItem.department ?? "women-ethnic",
     subcategory: dbItem.subcategory ?? dbItem.category?.name ?? "Sarees",
     price: minPrice > 0 ? minPrice : Number(dbItem.price ?? 0),
-    compareAt: compareAtPrice && compareAtPrice > minPrice ? compareAtPrice : undefined,
-    rating: Number(dbItem.rating_avg ?? 0),
+    compareAt: compareAtPrice,
+    rating: Number(dbItem.rating_average ?? 0),
     reviews: Number(dbItem.rating_count ?? 0),
-    image: (firstImage as ImageKey) || "sarees",
+    // ImageKey is a closed set of bundled static assets; the catalogue has no way yet
+    // to render arbitrary live media URLs through this field (tracked separately —
+    // see ProductCard's `IMAGES[product.image]` lookup). Falls back to a category
+    // placeholder key until Product.image is widened to accept real URLs.
+    image: (firstImageUrl as ImageKey) || "sarees",
     badge: dbItem.badge_text ?? undefined,
     tags: (dbItem.tags as string[]) ?? [],
     colours: allColours.length > 0 ? allColours : ["Standard"],
@@ -106,6 +137,8 @@ export function mapDbProductToIsm(dbItem: any): Product {
     festival: dbItem.festival ?? undefined,
     readyToShip: dbItem.is_ready_to_ship ?? true,
     stock: totalStock,
+    hasVideo: Boolean(approvedVideo),
+    videoUrl: approvedVideo?.url,
   };
 }
 
@@ -125,6 +158,7 @@ export async function getHomepageFeed(): Promise<HomepageFeed> {
         `
         *,
         variants:product_variants(*),
+        media:product_media(url, media_type, moderation_status, sort_order),
         seller:sellers(business_name, slug, dispatch_address)
       `,
       )
@@ -296,6 +330,7 @@ export async function getCategoryCatalogue(categorySlug: string): Promise<{
         `
         *,
         variants:product_variants(*),
+        media:product_media(url, media_type, moderation_status, sort_order),
         seller:sellers(business_name, slug, dispatch_address)
       `,
       )
@@ -357,6 +392,7 @@ export async function getSellerStorefrontData(sellerSlug: string): Promise<{
           `
           *,
           variants:product_variants(*),
+          media:product_media(url, media_type, moderation_status, sort_order),
           seller:sellers(business_name, slug, dispatch_address)
         `,
         )
@@ -420,6 +456,7 @@ export async function getProductDetailPageData(idOrSlug: string): Promise<{
     const query = (supabase.from("products") as any).select(`
         *,
         variants:product_variants(*),
+        media:product_media(url, media_type, moderation_status, sort_order),
         seller:sellers(*)
       `);
 
@@ -505,6 +542,7 @@ export async function searchCatalogueItems(params: SearchCatalogParams): Promise
           `
           *,
           variants:product_variants(*),
+          media:product_media(url, media_type, moderation_status, sort_order),
           seller:sellers(business_name, slug, dispatch_address)
         `,
         )

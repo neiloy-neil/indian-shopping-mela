@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import * as XLSX from "xlsx";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveSellerRowId } from "./sellers";
 
 export interface BulkUploadRow {
   seller_sku: string;
@@ -486,6 +487,28 @@ export function generateErrorReportCsv(errors: BulkValidationError[]): string {
 }
 
 /**
+ * Resolve a free-text category/department name from the spreadsheet to a real
+ * public.categories.id. Falls back to the seller's/marketplace's first category
+ * row when no name match is found, mirroring the fallback in products.ts.
+ */
+async function resolveCategoryId(categoryName: string | undefined): Promise<string> {
+  if (categoryName && categoryName.trim()) {
+    const { data: match } = await (supabaseAdmin.from("categories") as any)
+      .select("id")
+      .ilike("name", categoryName.trim())
+      .limit(1)
+      .maybeSingle();
+    if (match?.id) return match.id;
+  }
+
+  const { data: fallback } = await (supabaseAdmin.from("categories") as any)
+    .select("id")
+    .limit(1)
+    .maybeSingle();
+  return fallback?.id ?? "00000000-0000-0000-0000-000000000001";
+}
+
+/**
  * Ingest valid rows in serverless chunks into Supabase products, product_variants, and product_media.
  */
 export async function commitBulkImportChunk(
@@ -498,21 +521,30 @@ export async function commitBulkImportChunk(
   let updated = 0;
   let failed = 0;
 
-  // 1. Create a tracking batch in bulk_import_batches
+  // 1. Create a tracking batch in bulk_import_batches (real columns: filename, mode,
+  // total_rows, created_count/updated_count/failed_count — not file_name/import_mode/valid_rows/error_rows)
   const { data: batch } = await (supabaseAdmin.from("bulk_import_batches") as any)
     .insert({
       seller_id: sellerId,
-      file_name: `batch_${Date.now()}.csv`,
-      import_mode: mode.toLowerCase(),
+      filename: `batch_${Date.now()}.csv`,
+      mode: mode === "UPDATE" ? "update_only" : "create_only",
+      template_version: "v1",
       total_rows: rows.length,
-      valid_rows: rows.length,
-      error_rows: 0,
       status: "IMPORTING",
     })
     .select("id")
     .single();
 
   const batchId = batch?.id ?? `batch_${Date.now()}`;
+  const rowRecords: Array<{
+    row_number: number;
+    sku: string;
+    raw_data: BulkUploadRow;
+    is_valid: boolean;
+    validation_errors: string[] | null;
+    imported_product_id: string | null;
+    imported_variant_id: string | null;
+  }> = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
@@ -520,11 +552,11 @@ export async function commitBulkImportChunk(
 
     try {
       if (mode === "UPDATE") {
-        // Find existing variant by SKU
+        // Find existing variant by seller_sku (product_variants has no `sku` column)
         const { data: existingVariant } = await (supabaseAdmin.from("product_variants") as any)
-          .select("id, product_id, price, compare_at_price, stock_quantity")
-          .eq("sku", row.seller_sku)
-          .single();
+          .select("id, product_id, price, sale_price, stock_quantity")
+          .eq("seller_sku", row.seller_sku)
+          .maybeSingle();
 
         if (existingVariant) {
           const updatePayload: Record<string, any> = {
@@ -534,13 +566,13 @@ export async function commitBulkImportChunk(
           };
 
           if (row.sale_price !== undefined) {
-            updatePayload["compare_at_price"] = row.sale_price;
+            updatePayload["sale_price"] = row.sale_price;
           } else if (blankPolicy === "clear") {
-            updatePayload["compare_at_price"] = null;
+            updatePayload["sale_price"] = null;
           }
 
           if (row.weight_kg) {
-            updatePayload["weight_grams"] = Math.round(row.weight_kg * 1000);
+            updatePayload["weight_kg_override"] = row.weight_kg;
           }
 
           await (supabaseAdmin.from("product_variants") as any)
@@ -557,100 +589,175 @@ export async function commitBulkImportChunk(
             .eq("id", existingVariant.product_id);
 
           updated++;
+          rowRecords.push({
+            row_number: rowNumber,
+            sku: row.seller_sku,
+            raw_data: row,
+            is_valid: true,
+            validation_errors: null,
+            imported_product_id: existingVariant.product_id,
+            imported_variant_id: existingVariant.id,
+          });
           continue;
         }
       }
 
       // CREATE mode or new variant
       const slug = `${row.product_title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Math.random().toString(36).substring(2, 7)}`;
+      const categoryId = await resolveCategoryId(row.category);
 
-      // 1. Insert product
+      // 1. Insert product (products has no stock_quantity column — that lives on product_variants)
       const { data: product, error: productError } = await (supabaseAdmin.from("products") as any)
         .insert({
           seller_id: sellerId,
+          category_id: categoryId,
+          department: row.department,
+          subcategory: row.subcategory ?? null,
           title: row.product_title,
           slug,
           description: row.description,
+          weight_kg: row.weight_kg,
+          length_cm: row.length_cm ?? null,
+          width_cm: row.width_cm ?? null,
+          height_cm: row.height_cm ?? null,
+          handling_days: row.handling_days ?? 2,
+          return_eligible: row.return_eligible ?? true,
           status: "LIVE",
-          stock_quantity: row.stock_qty,
         })
         .select("id")
         .single();
 
       if (productError || !product) {
         failed++;
+        rowRecords.push({
+          row_number: rowNumber,
+          sku: row.seller_sku,
+          raw_data: row,
+          is_valid: false,
+          validation_errors: [productError?.message ?? "Failed to insert product"],
+          imported_product_id: null,
+          imported_variant_id: null,
+        });
         continue;
       }
 
       const productId = product.id;
-      const weightGrams = Math.round(row.weight_kg * 1000);
       const variantTitle =
         row.size || row.colour ? `${row.size ?? ""} ${row.colour ?? ""}`.trim() : "Standard";
+      const variantImages = [row.image_1_url, row.image_2_url].filter(Boolean) as string[];
 
-      // 2. Insert variant
+      // 2. Insert variant (real columns: seller_sku, sale_price, weight_kg_override — no
+      // `sku`, `compare_at_price`, `weight_grams`, or `is_active` columns exist on this table)
       const { data: variant, error: variantError } = await (
         supabaseAdmin.from("product_variants") as any
       )
         .insert({
           product_id: productId,
-          sku: row.seller_sku,
+          seller_sku: row.seller_sku,
           title: variantTitle,
           price: row.price,
-          compare_at_price: row.sale_price ?? null,
+          sale_price: row.sale_price ?? null,
           stock_quantity: row.stock_qty,
-          weight_grams: weightGrams,
-          is_active: true,
+          weight_kg_override: row.weight_kg ?? null,
+          attributes: {
+            size: row.size ?? null,
+            colour: row.colour ?? null,
+            material: row.material ?? null,
+          },
+          images: variantImages,
         })
         .select("id")
         .single();
 
       if (variantError || !variant) {
         failed++;
+        rowRecords.push({
+          row_number: rowNumber,
+          sku: row.seller_sku,
+          raw_data: row,
+          is_valid: false,
+          validation_errors: [variantError?.message ?? "Failed to insert variant"],
+          imported_product_id: productId,
+          imported_variant_id: null,
+        });
         continue;
       }
 
-      // 3. Insert primary media
+      // 3. Insert media (product_media has no is_primary/alt_text columns — ordering is via
+      // sort_order, and status must be a valid media_status enum value, not "APPROVED")
+      const mediaRows: Array<Record<string, any>> = [];
       if (row.image_1_url) {
-        await (supabaseAdmin.from("product_media") as any).insert({
+        mediaRows.push({
           product_id: productId,
+          variant_id: variant.id,
           media_type: "image",
           url: row.image_1_url,
-          is_primary: true,
-          alt_text: row.product_title,
+          status: "READY",
+          sort_order: 0,
         });
       }
-
-      // 4. Insert secondary media
       if (row.image_2_url) {
-        await (supabaseAdmin.from("product_media") as any).insert({
+        mediaRows.push({
           product_id: productId,
+          variant_id: variant.id,
           media_type: "image",
           url: row.image_2_url,
-          is_primary: false,
-          alt_text: `${row.product_title} - view 2`,
+          status: "READY",
+          sort_order: 1,
         });
       }
-
       if (row.video_url) {
-        await (supabaseAdmin.from("product_media") as any).insert({
+        mediaRows.push({
           product_id: productId,
+          variant_id: variant.id,
           media_type: "video",
           url: row.video_url,
-          is_primary: false,
-          alt_text: `${row.product_title} video showcase`,
+          status: "READY",
+          sort_order: 2,
         });
+      }
+      if (mediaRows.length > 0) {
+        await (supabaseAdmin.from("product_media") as any).insert(mediaRows);
       }
 
       inserted++;
-    } catch {
+      rowRecords.push({
+        row_number: rowNumber,
+        sku: row.seller_sku,
+        raw_data: row,
+        is_valid: true,
+        validation_errors: null,
+        imported_product_id: productId,
+        imported_variant_id: variant.id,
+      });
+    } catch (err) {
       failed++;
+      rowRecords.push({
+        row_number: rowNumber,
+        sku: row.seller_sku,
+        raw_data: row,
+        is_valid: false,
+        validation_errors: [err instanceof Error ? err.message : "Unknown error"],
+        imported_product_id: null,
+        imported_variant_id: null,
+      });
     }
   }
 
-  // Update batch completion status
+  // Persist a row-level audit trail for this batch (used by the error report download)
+  if (rowRecords.length > 0) {
+    await (supabaseAdmin.from("bulk_import_rows") as any).insert(
+      rowRecords.map((r) => ({ ...r, batch_id: batchId })),
+    );
+  }
+
+  // Update batch completion status and final counts
   await (supabaseAdmin.from("bulk_import_batches") as any)
     .update({
       status: "COMPLETED",
+      created_count: inserted,
+      updated_count: updated,
+      failed_count: failed,
       completed_at: new Date().toISOString(),
     })
     .eq("id", batchId);
@@ -676,9 +783,12 @@ export const getSellerStockListServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId?: string | undefined }) => data)
   .handler(async ({ data }): Promise<SellerStockItem[]> => {
     try {
+      const resolvedSellerId = data?.sellerId
+        ? await resolveSellerRowId(data.sellerId)
+        : undefined;
       let query = (supabaseAdmin.from("product_variants") as any).select(`
           id,
-          sku,
+          seller_sku,
           stock_quantity,
           price,
           products!inner (
@@ -688,8 +798,8 @@ export const getSellerStockListServerFn = createServerFn({ method: "POST" })
           )
         `);
 
-      if (data?.sellerId) {
-        query = query.eq("products.seller_id", data.sellerId);
+      if (resolvedSellerId) {
+        query = query.eq("products.seller_id", resolvedSellerId);
       }
 
       const { data: variants, error } = await query;
@@ -719,7 +829,7 @@ export const getSellerStockListServerFn = createServerFn({ method: "POST" })
         return {
           id: v.id,
           variantId: v.id,
-          sku: v.sku ?? "NO-SKU",
+          sku: v.seller_sku ?? "NO-SKU",
           productName: v.products?.title ?? "Product",
           stockOnHand,
           reservedUnits,
@@ -758,6 +868,9 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<BulkStockUpdateResult> => {
     let updatedCount = 0;
     const errors: BulkStockUpdateError[] = [];
+    const resolvedSellerId = data.sellerId
+      ? await resolveSellerRowId(data.sellerId)
+      : undefined;
 
     for (const item of data.updates) {
       const skuOrId = item.sku || item.variantId || "UNKNOWN";
@@ -786,7 +899,7 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
       // 2. Fetch current variant + product ownership
       let fetchQuery = (supabaseAdmin.from("product_variants") as any).select(`
           id,
-          sku,
+          seller_sku,
           stock_quantity,
           product_id,
           products!inner (
@@ -799,7 +912,7 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
       if (item.variantId) {
         fetchQuery = fetchQuery.eq("id", item.variantId);
       } else if (item.sku) {
-        fetchQuery = fetchQuery.eq("sku", item.sku);
+        fetchQuery = fetchQuery.eq("seller_sku", item.sku);
       } else {
         errors.push({ sku: skuOrId, error: "Missing SKU or variant ID", rowNumber: rowNum });
         continue;
@@ -815,12 +928,12 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
 
       // 3. Validate seller ownership if sellerId provided
       if (
-        data.sellerId &&
+        resolvedSellerId &&
         variant.products?.seller_id &&
-        variant.products.seller_id !== data.sellerId
+        variant.products.seller_id !== resolvedSellerId
       ) {
         errors.push({
-          sku: variant.sku || skuOrId,
+          sku: variant.seller_sku || skuOrId,
           error: "Unauthorized: SKU belongs to another seller's store",
           rowNumber: rowNum,
         });
@@ -841,7 +954,7 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
 
       if (targetStock < totalReserved) {
         errors.push({
-          sku: variant.sku || skuOrId,
+          sku: variant.seller_sku || skuOrId,
           error: `Cannot reduce stock to ${targetStock}; ${totalReserved} unit(s) are currently locked in active checkout reservations`,
           rowNumber: rowNum,
         });
@@ -860,34 +973,21 @@ export const updateStockBatchServerFn = createServerFn({ method: "POST" })
         .eq("id", variant.id);
 
       if (updateErr) {
-        errors.push({ sku: variant.sku || skuOrId, error: updateErr.message, rowNumber: rowNum });
+        errors.push({ sku: variant.seller_sku || skuOrId, error: updateErr.message, rowNumber: rowNum });
         continue;
       }
 
-      // 6. Recalculate and update parent product total stock
-      const { data: allVariants } = await (supabaseAdmin.from("product_variants") as any)
-        .select("stock_quantity")
-        .eq("product_id", variant.product_id);
-
-      const totalProductStock = (allVariants || []).reduce(
-        (acc: number, v: any) => acc + (Number(v.stock_quantity) || 0),
-        0,
-      );
-
-      await (supabaseAdmin.from("products") as any)
-        .update({ stock_quantity: totalProductStock, updated_at: new Date().toISOString() })
-        .eq("id", variant.product_id);
-
-      // 7. Append audit transaction to inventory_transactions
+      // 6. Append audit transaction to inventory_transactions (real columns: delta, reason,
+      // note, actor_id — there is no transaction_type/quantity/reference_id/notes/created_by,
+      // and public.products has no stock_quantity column to roll up onto)
       if (delta !== 0) {
         await (supabaseAdmin.from("inventory_transactions") as any).insert({
           variant_id: variant.id,
-          transaction_type: "MANUAL_ADJUSTMENT",
-          quantity: delta,
+          delta,
           balance_after: targetStock,
-          reference_id: `BULK_STOCK_${new Date().toISOString().slice(0, 10)}`,
-          notes: `Bulk stock adjustment from ${oldStock} to ${targetStock} (delta: ${delta > 0 ? "+" + delta : delta})`,
-          created_by: data.sellerId || null,
+          reason: "MANUAL_ADJUSTMENT",
+          note: `Bulk stock adjustment from ${oldStock} to ${targetStock} (delta: ${delta > 0 ? "+" + delta : delta})`,
+          actor_id: data.sellerId || null,
         });
       }
 

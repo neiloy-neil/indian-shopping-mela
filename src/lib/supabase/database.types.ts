@@ -740,6 +740,7 @@ export type Database = {
       };
       notifications: {
         Row: {
+          attempts: number;
           channel: string;
           created_at: string;
           entity_id: string;
@@ -747,6 +748,7 @@ export type Database = {
           error_message: string | null;
           id: string;
           idempotency_key: string | null;
+          payload: Json | null;
           provider_message_id: string | null;
           recipient_email: string | null;
           recipient_phone: string | null;
@@ -755,6 +757,7 @@ export type Database = {
           template_name: string;
         };
         Insert: {
+          attempts?: number;
           channel?: string;
           created_at?: string;
           entity_id: string;
@@ -762,6 +765,7 @@ export type Database = {
           error_message?: string | null;
           id?: string;
           idempotency_key?: string | null;
+          payload?: Json | null;
           provider_message_id?: string | null;
           recipient_email?: string | null;
           recipient_phone?: string | null;
@@ -770,6 +774,7 @@ export type Database = {
           template_name: string;
         };
         Update: {
+          attempts?: number;
           channel?: string;
           created_at?: string;
           entity_id?: string;
@@ -777,6 +782,7 @@ export type Database = {
           error_message?: string | null;
           id?: string;
           idempotency_key?: string | null;
+          payload?: Json | null;
           provider_message_id?: string | null;
           recipient_email?: string | null;
           recipient_phone?: string | null;
@@ -1510,6 +1516,8 @@ export type Database = {
           id: string;
           key_features: string[] | null;
           length_cm: number | null;
+          rating_average: number;
+          rating_count: number;
           return_eligible: boolean;
           seller_id: string;
           slug: string;
@@ -1533,6 +1541,8 @@ export type Database = {
           id?: string;
           key_features?: string[] | null;
           length_cm?: number | null;
+          rating_average?: number;
+          rating_count?: number;
           return_eligible?: boolean;
           seller_id: string;
           slug: string;
@@ -1556,6 +1566,8 @@ export type Database = {
           id?: string;
           key_features?: string[] | null;
           length_cm?: number | null;
+          rating_average?: number;
+          rating_count?: number;
           return_eligible?: boolean;
           seller_id?: string;
           slug?: string;
@@ -2069,6 +2081,62 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      seller_staff_invites: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          created_at: string;
+          email: string;
+          expires_at: string;
+          id: string;
+          invite_token: string;
+          invited_by: string | null;
+          invited_name: string | null;
+          permissions: string[];
+          seller_id: string;
+          staff_role: string;
+          status: string;
+        };
+        Insert: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          created_at?: string;
+          email: string;
+          expires_at: string;
+          id?: string;
+          invite_token: string;
+          invited_by?: string | null;
+          invited_name?: string | null;
+          permissions?: string[];
+          seller_id: string;
+          staff_role?: string;
+          status?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          created_at?: string;
+          email?: string;
+          expires_at?: string;
+          id?: string;
+          invite_token?: string;
+          invited_by?: string | null;
+          invited_name?: string | null;
+          permissions?: string[];
+          seller_id?: string;
+          staff_role?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "seller_staff_invites_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "sellers";
             referencedColumns: ["id"];
           },
         ];

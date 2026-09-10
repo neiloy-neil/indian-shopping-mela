@@ -44,6 +44,8 @@ import {
   moderateSellerStatusServerFn,
   getAdminProductsServerFn,
   moderateProductStatusServerFn,
+  getPendingVideoModerationServerFn,
+  moderateProductVideoServerFn,
   getAdminOrdersServerFn,
   getAdminReturnsServerFn,
   moderateReturnServerFn,
@@ -188,6 +190,7 @@ function AdminPage() {
   const [financeMetrics, setFinanceMetrics] = useState<FinanceSummaryMetrics | null>(null);
   const [sellersList, setSellersList] = useState<any[]>([]);
   const [productsList, setProductsList] = useState<any[]>([]);
+  const [pendingVideos, setPendingVideos] = useState<any[]>([]);
   const [ordersList, setOrdersList] = useState<any[]>([]);
   const [returnsList, setReturnsList] = useState<any[]>([]);
   const [ledgerList, setLedgerList] = useState<any[]>([]);
@@ -216,6 +219,9 @@ function AdminPage() {
       .catch(() => null);
     getAdminProductsServerFn()
       .then(setProductsList)
+      .catch(() => null);
+    getPendingVideoModerationServerFn()
+      .then(setPendingVideos)
       .catch(() => null);
     getAdminOrdersServerFn()
       .then(setOrdersList)
@@ -299,6 +305,16 @@ function AdminPage() {
     }
   };
 
+  const handleModerateVideo = async (mediaId: string, decision: "approved" | "rejected") => {
+    try {
+      await moderateProductVideoServerFn({ data: { mediaId, decision } });
+      toast.success(decision === "approved" ? "Video approved" : "Video rejected");
+      getPendingVideoModerationServerFn().then(setPendingVideos);
+    } catch (err: any) {
+      toast.error("Action failed", { description: err.message });
+    }
+  };
+
   const handleModerateReturn = async (
     returnId: string,
     action: "APPROVE" | "REJECT" | "REFUND",
@@ -327,7 +343,7 @@ function AdminPage() {
   const handleExecutePayout = (sellerId: string, sellerName: string) => {
     executeWithMfaProtection(async () => {
       const res = await executeSellerStripePayoutServerFn({
-        data: { sellerId, isMfaVerified: true },
+        data: { sellerId },
       });
       toast.success(`Stripe Payout Transferred: ${formatAUD(res.amountAud)}`, {
         description: `Transfer ID: ${res.transferId} for ${sellerName}`,
@@ -468,7 +484,7 @@ function AdminPage() {
                       .map((s) => (
                         <div key={s.id} className="flex items-center justify-between gap-3 py-2.5">
                           <div>
-                            <p className="font-medium">{s.business_name || s.store_name}</p>
+                            <p className="font-medium">{s.business_name}</p>
                             <p className="text-xs text-muted-foreground">
                               ABN: {s.abn || "N/A"} · {s.email}
                             </p>
@@ -581,7 +597,7 @@ function AdminPage() {
                       .slice((page - 1) * pageSize, page * pageSize)
                       .map((s) => (
                         <tr key={s.id}>
-                          <td className="py-2.5 font-medium">{s.business_name || s.store_name}</td>
+                          <td className="py-2.5 font-medium">{s.business_name}</td>
                           <td className="text-muted-foreground font-mono text-xs">
                             {s.abn || "Pending"}
                           </td>
@@ -646,7 +662,62 @@ function AdminPage() {
 
           {/* Section: Products */}
           {section === "products" && (
-            <Card title="Catalogue & Moderation Queue">
+            <>
+              {pendingVideos.length > 0 && (
+                <Card title={`Pending Video Moderation (${pendingVideos.length})`}>
+                  <div className="max-h-[40vh] overflow-auto">
+                    <table className="w-full min-w-[640px] text-sm">
+                      <thead className="sticky top-0 z-10 bg-card text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="pb-2">Product</th>
+                          <th className="pb-2">Seller</th>
+                          <th className="pb-2">Preview</th>
+                          <th className="pb-2">Submitted</th>
+                          <th className="pb-2 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {pendingVideos.map((v) => (
+                          <tr key={v.id}>
+                            <td className="py-2.5 font-medium">{v.product?.title ?? "Product"}</td>
+                            <td className="text-muted-foreground">
+                              {v.product?.seller?.business_name ?? "Seller"}
+                            </td>
+                            <td>
+                              <a
+                                href={v.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-rani underline"
+                              >
+                                View video
+                              </a>
+                            </td>
+                            <td className="text-muted-foreground">
+                              {new Date(v.created_at).toLocaleDateString("en-AU")}
+                            </td>
+                            <td className="text-right space-x-2">
+                              <button
+                                onClick={() => handleModerateVideo(v.id, "approved")}
+                                className="rounded-sm border border-teal/40 px-2.5 py-1 text-[11px] font-bold uppercase text-teal hover:bg-teal/10"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleModerateVideo(v.id, "rejected")}
+                                className="rounded-sm border border-rani/40 px-2.5 py-1 text-[11px] font-bold uppercase text-rani hover:bg-rani/10"
+                              >
+                                Reject
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+              <Card title="Catalogue & Moderation Queue">
               <div className="mb-3 flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 text-muted-foreground" size={14} />
@@ -731,7 +802,8 @@ function AdminPage() {
                 }
                 onPageChange={setPage}
               />
-            </Card>
+              </Card>
+            </>
           )}
 
           {/* Section: Categories */}
@@ -1098,7 +1170,7 @@ function AdminPage() {
                         .slice((page - 1) * pageSize, page * pageSize)
                         .map((s) => (
                           <tr key={s.id}>
-                            <td className="py-2.5 font-medium">{s.business_name || s.store_name}</td>
+                            <td className="py-2.5 font-medium">{s.business_name}</td>
                             <td className="font-mono text-xs">
                               {s.stripe_account_id ? (
                                 <span className="text-teal">{s.stripe_account_id}</span>
@@ -1678,8 +1750,8 @@ function SettingsPanel({
         if (dbConfigs && dbConfigs.length > 0) {
           setConfig((prev) =>
             prev.map((c) => {
-              const matched = dbConfigs.find((db) => db.key === c.id);
-              return matched ? { ...c, value: matched.value } : c;
+              const matched = dbConfigs.find((db) => db.config_key === c.id);
+              return matched ? { ...c, value: matched.config_value } : c;
             }),
           );
         }

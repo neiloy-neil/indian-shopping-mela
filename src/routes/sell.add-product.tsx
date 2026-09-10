@@ -55,10 +55,13 @@ function AddProduct() {
     async function fetchSeller() {
       try {
         const seller = await getCurrentSellerProfile();
+        // No fallback to user.id here: products.seller_id is a foreign key into
+        // public.sellers, not auth.users — a raw user id would either violate that
+        // FK on insert or, worse, silently misattribute a product to the wrong owner
+        // if it happened to collide with a real sellers.id. Leave resolvedSellerId
+        // null when no seller row exists yet; callers must check for that themselves.
         if (seller?.id) {
           setResolvedSellerId(seller.id);
-        } else if (user?.id) {
-          setResolvedSellerId(user.id);
         }
       } catch (err) {
         console.error("Error resolving seller profile:", err);
@@ -67,6 +70,8 @@ function AddProduct() {
     fetchSeller();
   }, [user?.id]);
 
+  // Storage-path namespacing only (not a DB foreign key), so falling back to the
+  // user id here is safe even before seller onboarding completes.
   const sellerId = resolvedSellerId ?? user?.id ?? "00000000-0000-0000-0000-000000000001";
 
   const handleImageUpload = async (file: File, index: number) => {
@@ -151,10 +156,16 @@ function AddProduct() {
   };
 
   const handleSaveDraft = async () => {
+    if (!resolvedSellerId) {
+      toast.error("Seller account required", {
+        description: "Complete seller onboarding before creating product listings.",
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await createProductWithVariants({
-        sellerId,
+        sellerId: resolvedSellerId,
         title: title || "Untitled Draft Listing",
         department: department.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         subcategory,
@@ -199,10 +210,16 @@ function AddProduct() {
       toast.error("Please provide a detailed description (min 20 characters)");
       return;
     }
+    if (!resolvedSellerId) {
+      toast.error("Seller account required", {
+        description: "Complete seller onboarding before creating product listings.",
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await createProductWithVariants({
-        sellerId,
+        sellerId: resolvedSellerId,
         title,
         department: department.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         subcategory,

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabase/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdminSession, requireVerifiedSellerAccess } from "./server-auth";
 import type { Database, ProductStatus } from "@/lib/supabase/types";
 
 export type ProductRow = Database["public"]["Tables"]["products"]["Row"];
@@ -70,6 +71,10 @@ export interface SaveProductInput {
 export const saveProductDraftServerFn = createServerFn({ method: "POST" })
   .validator((data: SaveProductInput) => data)
   .handler(async ({ data }) => {
+    // Without this check, a client could create/edit a product under an arbitrary
+    // sellerId it doesn't own — the update path is scoped by seller_id too, but nothing
+    // previously verified the caller actually has that seller's authorization to begin with.
+    await requireVerifiedSellerAccess(data.sellerId, "products:manage");
     return saveProductTransactional({
       ...data,
       status: "DRAFT",
@@ -82,6 +87,7 @@ export const saveProductDraftServerFn = createServerFn({ method: "POST" })
 export const submitProductForReviewServerFn = createServerFn({ method: "POST" })
   .validator((data: SaveProductInput) => data)
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "products:manage");
     // Validate required fields for review submission
     if (!data.title || data.title.trim().length < 3) {
       throw new Error("Product title must be at least 3 characters.");
@@ -105,6 +111,7 @@ export const submitProductForReviewServerFn = createServerFn({ method: "POST" })
 export const getSellerProductsServerFn = createServerFn({ method: "GET" })
   .validator((data: { sellerId: string; status?: ProductStatus | undefined }) => data)
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "products:view");
     let query = (supabaseAdmin.from("products") as any)
       .select(
         `
@@ -135,6 +142,7 @@ export const getSellerProductsServerFn = createServerFn({ method: "GET" })
 export const cloneProductServerFn = createServerFn({ method: "POST" })
   .validator((data: { productId: string; sellerId: string }) => data)
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "products:manage");
     const original = await getProductByIdOrSlug(data.productId);
     if (!original) {
       throw new Error("Product to clone not found.");
@@ -192,6 +200,7 @@ export const cloneProductServerFn = createServerFn({ method: "POST" })
 export const archiveProductServerFn = createServerFn({ method: "POST" })
   .validator((data: { productId: string; sellerId: string }) => data)
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "products:manage");
     const { error } = await (supabaseAdmin.from("products") as any)
       .update({ status: "ARCHIVED", updated_at: new Date().toISOString() })
       .eq("id", data.productId)
@@ -205,7 +214,7 @@ export const archiveProductServerFn = createServerFn({ method: "POST" })
       action: "PRODUCT_ARCHIVED",
       entity_type: "PRODUCT",
       entity_id: data.productId,
-      payload: { sellerId: data.sellerId },
+      after_data: { sellerId: data.sellerId },
     });
 
     return { success: true };
@@ -219,6 +228,7 @@ export const moderateProductServerFn = createServerFn({ method: "POST" })
     (data: { productId: string; toStatus: ProductStatus; reason?: string | undefined }) => data,
   )
   .handler(async ({ data }) => {
+    const admin = await requireAdminSession();
     const { data: currentProduct, error: fetchErr } = await (supabaseAdmin.from("products") as any)
       .select("status, title, seller_id")
       .eq("id", data.productId)
@@ -239,6 +249,7 @@ export const moderateProductServerFn = createServerFn({ method: "POST" })
     // Insert to product moderation logs
     await (supabaseAdmin.from("product_moderation_logs") as any).insert({
       product_id: data.productId,
+      admin_id: admin.id,
       from_status: currentProduct.status,
       to_status: data.toStatus,
       reason: data.reason ?? null,
@@ -246,10 +257,12 @@ export const moderateProductServerFn = createServerFn({ method: "POST" })
 
     // Record in global audit logs
     await (supabaseAdmin.from("audit_logs") as any).insert({
+      actor_id: admin.id,
+      actor_role: admin.role,
       action: `PRODUCT_MODERATED_${data.toStatus}`,
       entity_type: "PRODUCT",
       entity_id: data.productId,
-      payload: {
+      after_data: {
         fromStatus: currentProduct.status,
         toStatus: data.toStatus,
         reason: data.reason ?? null,
@@ -420,16 +433,22 @@ export async function saveProductTransactional(payload: SaveProductInput): Promi
     const mediaInserts = payload.media.map((m, idx) => {
       const isPrimary = !hasPrimary && (m.isPrimary || idx === 0);
       if (isPrimary) hasPrimary = true;
+      const mediaType = m.mediaType ?? (m.url.endsWith(".mp4") ? "video" : "image");
 
       return {
         product_id: productId,
         variant_id: m.variantId ?? null,
         url: m.url,
         thumbnail_url: m.thumbnailUrl ?? null,
-        media_type: m.mediaType ?? (m.url.endsWith(".mp4") ? "video" : "image"),
+        media_type: mediaType,
         sort_order: m.sortOrder ?? idx,
-        status: "APPROVED",
-        moderation_status: "APPROVED",
+        // "APPROVED" is not a valid media_status enum member (UPLOADING | PROCESSING |
+        // READY | FAILED | REJECTED) — the file is already uploaded to storage by the
+        // time we get here, so it's READY. moderation_status is the separate lifecycle
+        // that actually gates visibility: videos await admin review per the marketplace
+        // video policy, while photos have no moderation requirement and go live immediately.
+        status: "READY",
+        moderation_status: mediaType === "video" ? "pending" : "approved",
       };
     });
 

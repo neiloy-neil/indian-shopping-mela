@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe-server";
 import { postLedgerEntry } from "./ledger";
+import { requireFinanceAdminSession, requireVerifiedSellerAccess } from "./server-auth";
 import type { Database, PayoutStatus } from "@/lib/supabase/types";
 
 export interface PayoutEligibilityResult {
@@ -46,6 +47,9 @@ export interface SellerStatementItem {
 export const getSellerPayoutEligibilityServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string }) => data)
   .handler(async ({ data }) => {
+    // Exposes net payout amount, Stripe Connect account id, and eligible sub-order ids —
+    // same ownership check as getSellerPayoutStatementServerFn, for the same reason.
+    await requireVerifiedSellerAccess(data.sellerId, "finance:view");
     return getSellerPayoutEligibility(data.sellerId);
   });
 
@@ -54,15 +58,10 @@ export const getSellerPayoutEligibilityServerFn = createServerFn({ method: "POST
  * Requires Finance Admin authorization and verified MFA.
  */
 export const executeSellerPayoutTransferServerFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      sellerId: string;
-      isMfaVerified?: boolean | undefined;
-      adminId?: string | undefined;
-    }) => data,
-  )
+  .validator((data: { sellerId: string }) => data)
   .handler(async ({ data }) => {
-    return executeSellerPayoutTransfer(data.sellerId, data.isMfaVerified ?? false, data.adminId);
+    const admin = await requireFinanceAdminSession();
+    return executeSellerPayoutTransfer(data.sellerId, true, admin.id);
   });
 
 /**
@@ -71,6 +70,10 @@ export const executeSellerPayoutTransferServerFn = createServerFn({ method: "POS
 export const getSellerPayoutStatementServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string }) => data)
   .handler(async ({ data }) => {
+    // Payout statements contain financial data (transfer amounts, Stripe transfer ids,
+    // ledger entries) for one seller — without this check, any caller could pass any
+    // sellerId and read another seller's confidential payout history.
+    await requireVerifiedSellerAccess(data.sellerId, "finance:view");
     return getSellerPayoutStatement(data.sellerId);
   });
 
@@ -78,11 +81,10 @@ export const getSellerPayoutStatementServerFn = createServerFn({ method: "POST" 
  * Server Function: Apply manual finance hold on a sub-order.
  */
 export const setManualFinanceHoldServerFn = createServerFn({ method: "POST" })
-  .validator(
-    (data: { subOrderId: string; holdReason: string; adminId?: string | undefined }) => data,
-  )
+  .validator((data: { subOrderId: string; holdReason: string }) => data)
   .handler(async ({ data }) => {
-    return setManualFinanceHold(data.subOrderId, data.holdReason, data.adminId);
+    const admin = await requireFinanceAdminSession();
+    return setManualFinanceHold(data.subOrderId, data.holdReason, admin.id);
   });
 
 /**
@@ -180,6 +182,25 @@ export async function getSellerPayoutEligibility(
       totalCommissionCents: 0,
       totalNetPayoutCents: 0,
       totalNetPayoutAud: 0,
+    };
+  }
+
+  // A seller can have a stripe_account_id before finishing Stripe's own identity/bank
+  // verification — payouts_enabled is the flag Stripe actually sets (via account.updated
+  // webhook) once that onboarding is genuinely complete. Without this check a seller could
+  // show as "eligible" here yet still fail at actual transfer time.
+  if (!seller.payouts_enabled) {
+    return {
+      sellerId,
+      isEligibleForPayout: false,
+      ineligibilityReason: "Seller's Stripe Connect account has not completed onboarding (payouts not yet enabled).",
+      eligibleSubOrderIds: [],
+      heldSubOrderIds: [],
+      totalEligibleGrossCents: 0,
+      totalCommissionCents: 0,
+      totalNetPayoutCents: 0,
+      totalNetPayoutAud: 0,
+      stripeAccountId: seller.stripe_account_id,
     };
   }
 
@@ -293,7 +314,27 @@ export async function executeSellerPayoutTransfer(
 
   const amountAud = eligibility.totalNetPayoutAud;
   const amountCents = eligibility.totalNetPayoutCents;
-  const stripeAccountId = eligibility.stripeAccountId!;
+
+  // 1b. Re-verify the destination account directly against sellers, fresh, right before
+  // committing to a transfer — don't rely solely on the value threaded through from the
+  // eligibility check moments earlier. This closes two gaps: (a) a stale/cached
+  // stripeAccountId if the seller's Connect account changed between the two calls, and
+  // (b) the eligibility check never actually verified payouts_enabled (Stripe's own
+  // "onboarding actually completed" flag) — only that a stripe_account_id existed, which
+  // a seller can have before finishing identity/bank verification.
+  const { data: sellerAccount } = await supabaseAdmin
+    .from("sellers")
+    .select("stripe_account_id, payouts_enabled")
+    .eq("id", sellerId)
+    .maybeSingle();
+
+  const stripeAccountId = sellerAccount?.stripe_account_id ?? undefined;
+
+  if (!stripeAccountId || !stripeAccountId.startsWith("acct_") || !sellerAccount?.payouts_enabled) {
+    throw new Error(
+      `Cannot execute payout for seller ${sellerId}: Stripe Connect account is missing, invalid, or has not completed onboarding (payouts_enabled must be true).`,
+    );
+  }
 
   // 2. Create PAYOUT_PROCESSING payout batch record in DB
   const payoutBatchId = `PO-${Date.now().toString().slice(-8)}`;
@@ -348,22 +389,8 @@ export async function executeSellerPayoutTransfer(
     }
   }
 
-  // 5. Initiate real Stripe Connect Transfer
+  // 5. Initiate real Stripe Connect Transfer (destination account already validated above)
   const isProduction = process.env["NODE_ENV"] === "production";
-  if (!stripeAccountId && isProduction) {
-    await supabaseAdmin
-      .from("payouts")
-      .update({
-        status: "CANCELLED",
-        failure_reason: "Seller does not have an active, verified Stripe Connect account.",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", payoutId);
-
-    throw new Error(
-      `Cannot execute payout for seller ${sellerId}: Missing active Stripe Connect account.`,
-    );
-  }
 
   let transferId: string;
   const idempotencyKey = `payout_transfer_${payoutId}`;

@@ -1,6 +1,13 @@
+import crypto from "crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { supabase } from "@/lib/supabase/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import {
+  requireVerifiedSellerAccess,
+  getVerifiedSessionUserId,
+  requireFinanceAdminSession,
+} from "./server-auth";
+import { sendSellerStaffInviteEmail } from "./notifications";
 import type { Database, SellerStatus, Address } from "@/lib/supabase/types";
 
 export type SellerRow = Database["public"]["Tables"]["sellers"]["Row"];
@@ -100,6 +107,11 @@ export const adminReviewSellerApplicationServerFn = createServerFn({ method: "PO
     }) => data,
   )
   .handler(async ({ data }) => {
+    // Seller approval + commission-rate changes are platform-admin actions — this had no
+    // authorization check at all, so any caller could approve/reject/suspend any seller
+    // or change their commission rate.
+    const admin = await requireFinanceAdminSession();
+
     const { data: seller, error: fetchErr } = await (supabaseAdmin as any)
       .from("sellers")
       .select("id, status, owner_id")
@@ -136,10 +148,12 @@ export const adminReviewSellerApplicationServerFn = createServerFn({ method: "PO
     }
 
     await (supabaseAdmin as any).from("audit_logs").insert({
+      actor_id: admin.id,
+      actor_role: admin.role,
       action: `SELLER_STATUS_${data.newStatus.toUpperCase()}`,
       entity_type: "SELLER",
       entity_id: data.sellerId,
-      payload: {
+      after_data: {
         previousStatus: currentStatus,
         newStatus: data.newStatus,
         reviewerNote: data.reviewerNote,
@@ -156,7 +170,14 @@ export const adminReviewSellerApplicationServerFn = createServerFn({ method: "PO
 export const saveSellerOnboardingServerFn = createServerFn({ method: "POST" })
   .validator((data: SaveSellerOnboardingInput) => data)
   .handler(async ({ data }) => {
-    return saveSellerOnboardingTransactional(data);
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to save your seller onboarding details.");
+    }
+    // The verified session is the only trustworthy owner id — a client-supplied userId
+    // would let anyone create (or, via the slug-collision upsert below) take over an
+    // existing seller row under an arbitrary owner.
+    return saveSellerOnboardingTransactional({ ...data, userId: verifiedUserId });
   });
 
 export async function saveSellerOnboardingTransactional(
@@ -168,7 +189,7 @@ export async function saveSellerOnboardingTransactional(
   // Check existing status to prevent self-approving or invalid jumps
   const { data: existingSeller } = await (supabaseAdmin as any)
     .from("sellers")
-    .select("id, status")
+    .select("id, status, owner_id")
     .eq("slug", cleanSlug)
     .maybeSingle();
 
@@ -176,6 +197,11 @@ export async function saveSellerOnboardingTransactional(
     const currentStatus = existingSeller.status as SellerStatus;
     if (!isValidSellerStatusTransition(currentStatus, targetStatus)) {
       throw new Error(`Invalid status transition from ${currentStatus} to ${targetStatus}`);
+    }
+    // A slug collision with a seller owned by someone else must never fall through to the
+    // upsert below — that would silently edit another seller's live business details.
+    if (payload.userId && existingSeller.owner_id && existingSeller.owner_id !== payload.userId) {
+      throw new Error("This store URL is already taken by another seller.");
     }
   }
 
@@ -257,6 +283,8 @@ export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "PO
     }) => data,
   )
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "documents:manage");
+
     const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
     if (!allowedMimeTypes.includes(data.mimeType)) {
       throw new Error(`Invalid file type: ${data.mimeType}. Only PDF and images are allowed.`);
@@ -267,16 +295,18 @@ export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "PO
       throw new Error(`File size exceeds the 10MB limit.`);
     }
 
+    // Real columns are file_path/file_size_bytes and the enum is uppercase
+    // ('PENDING'/'VERIFIED'/'REJECTED'/'EXPIRED') — not file_url/file_size/"pending".
     const { data: doc, error } = await (supabaseAdmin as any)
       .from("seller_documents")
       .insert({
         seller_id: data.sellerId,
         document_type: data.documentType,
-        file_url: data.fileUrl,
+        file_path: data.fileUrl,
         file_name: data.fileName,
-        file_size: data.fileSize,
+        file_size_bytes: data.fileSize,
         mime_type: data.mimeType,
-        status: "pending",
+        status: "PENDING",
         created_at: new Date().toISOString(),
       })
       .select()
@@ -290,7 +320,7 @@ export const uploadSellerDocumentMetadataServerFn = createServerFn({ method: "PO
       action: "SELLER_DOCUMENT_UPLOADED",
       entity_type: "SELLER_DOCUMENT",
       entity_id: doc.id,
-      payload: {
+      after_data: {
         sellerId: data.sellerId,
         documentType: data.documentType,
         fileName: data.fileName,
@@ -312,10 +342,15 @@ export const recordSellerAgreementAcceptanceServerFn = createServerFn({ method: 
     }) => data,
   )
   .handler(async ({ data }) => {
+    // Agreement acceptance is a legal act tied to a specific person — it must be the
+    // verified caller, and they must actually be this seller's owner/staff (or an admin).
+    const verifiedUserId = await requireVerifiedSellerAccess(data.sellerId, "documents:manage");
+
     const { data: agreement, error } = await (supabaseAdmin as any)
       .from("seller_agreements")
       .insert({
         seller_id: data.sellerId,
+        user_id: verifiedUserId,
         agreement_type: data.agreementType,
         version: data.version,
         accepted_at: new Date().toISOString(),
@@ -328,10 +363,11 @@ export const recordSellerAgreementAcceptanceServerFn = createServerFn({ method: 
     }
 
     await (supabaseAdmin as any).from("audit_logs").insert({
+      actor_id: verifiedUserId,
       action: "SELLER_AGREEMENT_ACCEPTED",
       entity_type: "SELLER_AGREEMENT",
       entity_id: data.sellerId,
-      payload: { agreementType: data.agreementType, version: data.version },
+      after_data: { agreementType: data.agreementType, version: data.version },
     });
 
     return { success: true, agreementId: agreement?.id };
@@ -346,9 +382,10 @@ export async function getCurrentSellerProfile(): Promise<SellerRow | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // public.sellers has no user_id column — the owning user is `owner_id`.
   const { data, error } = await (supabase.from("sellers") as any)
     .select("*")
-    .eq("user_id", user.id)
+    .eq("owner_id", user.id)
     .maybeSingle();
 
   if (error) {
@@ -359,35 +396,22 @@ export async function getCurrentSellerProfile(): Promise<SellerRow | null> {
 }
 
 /**
- * Client save helper bridging to server function / client SDK
+ * Seller-facing routes across this app pass the authenticated user's auth.users.id as
+ * "sellerId" (e.g. `sellerId: user?.id` in sell.index.tsx, sell.bulk-stock.tsx). But
+ * public.sellers.id is a separate generated UUID — the owning user's id lives on
+ * public.sellers.owner_id. Any code comparing a caller-supplied "sellerId" directly
+ * against a seller_id foreign key column must resolve it through this helper first,
+ * or the comparison will never match a real seller row.
+ *
+ * Falls back to the input unchanged if no owner match is found, so callers that
+ * already pass a genuine sellers.id (internal/admin callers) keep working.
  */
-export async function saveSellerOnboarding(payload: {
-  businessName: string;
-  legalName?: string | undefined;
-  storeName?: string | undefined;
-  abn: string;
-  businessType?: string | undefined;
-  slug: string;
-  dispatchAddress: Address;
-  returnAddress: Address;
-  termsAcceptedVersion?: string | undefined;
-  status?: SellerStatus | undefined;
-}): Promise<SellerRow> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  return saveSellerOnboardingTransactional({
-    userId: user?.id,
-    storeName: payload.storeName || payload.businessName,
-    businessName: payload.businessName,
-    abn: payload.abn,
-    slug: payload.slug,
-    dispatchAddress: payload.dispatchAddress,
-    returnAddress: payload.returnAddress,
-    status: payload.status,
-    email: user?.email,
-  });
+export async function resolveSellerRowId(sellerIdOrOwnerId: string): Promise<string> {
+  const { data: owned } = await (supabaseAdmin.from("sellers") as any)
+    .select("id")
+    .eq("owner_id", sellerIdOrOwnerId)
+    .maybeSingle();
+  return owned?.id ?? sellerIdOrOwnerId;
 }
 
 /**
@@ -432,8 +456,11 @@ export async function getSellerTeamMembers(sellerId: string): Promise<SellerMemb
 export const getSellerTeamMembersServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string }) => data)
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "team:manage");
     return getSellerTeamMembers(data.sellerId);
   });
+
+const STAFF_INVITE_EXPIRY_DAYS = 7;
 
 /**
  * Server Function: Invite a new staff member to seller team
@@ -449,12 +476,21 @@ export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const inviteToken = `inv_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    const actorId = await requireVerifiedSellerAccess(data.sellerId, "team:manage");
+    const normalizedEmail = data.email.trim().toLowerCase();
 
-    // Lookup profile by email if user is already registered
+    const [{ data: seller }, { data: inviter }] = await Promise.all([
+      (supabaseAdmin.from("sellers") as any).select("business_name").eq("id", data.sellerId).maybeSingle(),
+      (supabaseAdmin.from("profiles") as any).select("full_name").eq("id", actorId).maybeSingle(),
+    ]);
+    const sellerBusinessName = seller?.business_name ?? "your seller team";
+    const inviterName = inviter?.full_name ?? "The team owner";
+
+    // Lookup profile by email if user is already registered — add them immediately,
+    // no accept step needed since their account already exists and is verified.
     const { data: profile } = await (supabaseAdmin.from("profiles") as any)
       .select("id")
-      .eq("email", data.email.trim().toLowerCase())
+      .eq("email", normalizedEmail)
       .maybeSingle();
 
     if (profile?.id) {
@@ -468,55 +504,123 @@ export const inviteSellerStaffServerFn = createServerFn({ method: "POST" })
         },
         { onConflict: "seller_id,user_id" },
       );
+
+      await sendSellerStaffInviteEmail({
+        inviteeEmail: normalizedEmail,
+        inviteeName: data.name,
+        sellerBusinessName,
+        inviterName,
+        role: data.role,
+        acceptUrl: `https://indianshoppingmela.com.au/sell/team`,
+        expiresInDays: STAFF_INVITE_EXPIRY_DAYS,
+        idempotencyKey: `staff_added_${data.sellerId}_${profile.id}`,
+      });
+
+      await (supabaseAdmin.from("audit_logs") as any).insert({
+        actor_id: actorId,
+        action: "SELLER_MEMBER_ADDED",
+        entity_type: "SELLER_MEMBER",
+        entity_id: data.sellerId,
+        after_data: { email: normalizedEmail, role: data.role, permissions: data.permissions },
+      });
+
+      return { success: true, alreadyRegistered: true };
     }
 
-    await (supabaseAdmin as any).from("audit_logs").insert({
+    // No account yet — create a real, expiring invite record and email the invite link.
+    const inviteToken = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + STAFF_INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+    const { error: inviteErr } = await (supabaseAdmin.from("seller_staff_invites") as any).insert({
+      seller_id: data.sellerId,
+      email: normalizedEmail,
+      invited_name: data.name,
+      staff_role: data.role.toLowerCase(),
+      permissions: data.permissions,
+      invite_token: inviteToken,
+      status: "pending",
+      invited_by: actorId,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    if (inviteErr) {
+      throw new Error(`Failed to create staff invite: ${inviteErr.message}`);
+    }
+
+    await sendSellerStaffInviteEmail({
+      inviteeEmail: normalizedEmail,
+      inviteeName: data.name,
+      sellerBusinessName,
+      inviterName,
+      role: data.role,
+      acceptUrl: `https://indianshoppingmela.com.au/sell/team/accept?token=${inviteToken}`,
+      expiresInDays: STAFF_INVITE_EXPIRY_DAYS,
+      idempotencyKey: `staff_invite_${inviteToken}`,
+    });
+
+    await (supabaseAdmin.from("audit_logs") as any).insert({
+      actor_id: actorId,
       action: "SELLER_MEMBER_INVITED",
       entity_type: "SELLER_MEMBER",
       entity_id: data.sellerId,
-      new_data: { email: data.email, role: data.role, permissions: data.permissions, inviteToken },
+      after_data: { email: normalizedEmail, role: data.role, permissions: data.permissions },
     });
 
-    return { success: true, inviteToken };
+    return { success: true, alreadyRegistered: false };
   });
 
 /**
  * Server Function: Accept staff invite
  */
 export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" })
-  .validator((data: { inviteToken: string; userId: string }) => data)
+  .validator((data: { inviteToken: string }) => data)
   .handler(async ({ data }) => {
-    const { data: log } = await (supabaseAdmin.from("audit_logs") as any)
+    const userId = await getVerifiedSessionUserId();
+    if (!userId) {
+      throw new Error("UNAUTHORIZED: Sign in before accepting a staff invite.");
+    }
+
+    const { data: invite, error } = await (supabaseAdmin.from("seller_staff_invites") as any)
       .select("*")
-      .eq("action", "SELLER_MEMBER_INVITED")
-      .filter("new_data->>inviteToken", "eq", data.inviteToken)
+      .eq("invite_token", data.inviteToken)
+      .eq("status", "pending")
       .maybeSingle();
 
-    if (!log) throw new Error("Invalid or expired staff invite token");
+    if (error || !invite) {
+      throw new Error("Invalid or already-used staff invite token.");
+    }
 
-    const sellerId = log.entity_id;
-    const role = log.new_data?.role || "staff";
-    const permissions = log.new_data?.permissions || ["products", "orders"];
+    if (new Date(invite.expires_at).getTime() < Date.now()) {
+      await (supabaseAdmin.from("seller_staff_invites") as any)
+        .update({ status: "expired" })
+        .eq("id", invite.id);
+      throw new Error("This staff invite has expired. Ask the seller to send a new one.");
+    }
 
     await (supabaseAdmin.from("seller_staff") as any).upsert(
       {
-        seller_id: sellerId,
-        user_id: data.userId,
-        staff_role: role.toLowerCase(),
-        permissions,
+        seller_id: invite.seller_id,
+        user_id: userId,
+        staff_role: invite.staff_role,
+        permissions: invite.permissions,
         is_active: true,
       },
       { onConflict: "seller_id,user_id" },
     );
 
+    await (supabaseAdmin.from("seller_staff_invites") as any)
+      .update({ status: "accepted", accepted_at: new Date().toISOString(), accepted_by: userId })
+      .eq("id", invite.id);
+
     await (supabaseAdmin.from("audit_logs") as any).insert({
+      actor_id: userId,
       action: "SELLER_MEMBER_ACCEPTED",
       entity_type: "SELLER_MEMBER",
-      entity_id: sellerId,
-      new_data: { userId: data.userId, role },
+      entity_id: invite.seller_id,
+      after_data: { userId, role: invite.staff_role },
     });
 
-    return { success: true, sellerId };
+    return { success: true, sellerId: invite.seller_id };
   });
 
 /**
@@ -525,6 +629,7 @@ export const acceptSellerStaffInviteServerFn = createServerFn({ method: "POST" }
 export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string; memberEmail: string; permissions: string[] }) => data)
   .handler(async ({ data }) => {
+    const actorId = await requireVerifiedSellerAccess(data.sellerId, "team:manage");
     // Find profile
     const { data: profile } = await (supabaseAdmin.from("profiles") as any)
       .select("id")
@@ -541,10 +646,11 @@ export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "PO
     }
 
     await (supabaseAdmin as any).from("audit_logs").insert({
+      actor_id: actorId,
       action: "SELLER_PERMISSIONS_UPDATED",
       entity_type: "SELLER_MEMBER",
       entity_id: data.sellerId,
-      new_data: { memberEmail: data.memberEmail, permissions: data.permissions },
+      after_data: { memberEmail: data.memberEmail, permissions: data.permissions },
     });
 
     return { success: true };
@@ -556,6 +662,7 @@ export const updateSellerStaffPermissionsServerFn = createServerFn({ method: "PO
 export const removeSellerStaffServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string; memberEmail: string }) => data)
   .handler(async ({ data }) => {
+    const actorId = await requireVerifiedSellerAccess(data.sellerId, "team:manage");
     const { data: profile } = await (supabaseAdmin.from("profiles") as any)
       .select("id")
       .eq("email", data.memberEmail.trim().toLowerCase())
@@ -569,10 +676,11 @@ export const removeSellerStaffServerFn = createServerFn({ method: "POST" })
     }
 
     await (supabaseAdmin as any).from("audit_logs").insert({
+      actor_id: actorId,
       action: "SELLER_MEMBER_REMOVED",
       entity_type: "SELLER_MEMBER",
       entity_id: data.sellerId,
-      new_data: { memberEmail: data.memberEmail },
+      after_data: { memberEmail: data.memberEmail },
     });
 
     return { success: true };

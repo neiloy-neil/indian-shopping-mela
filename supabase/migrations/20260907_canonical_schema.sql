@@ -323,6 +323,26 @@ CREATE TABLE IF NOT EXISTS public.seller_staff (
     UNIQUE(seller_id, user_id)
 );
 
+-- Pending seller staff invitations (for invitees without an existing account yet, or
+-- who simply haven't accepted). Real invite table with expiry — a token that only ever
+-- lived in an audit_logs JSON blob has no expiry and no reliable lookup path.
+CREATE TABLE IF NOT EXISTS public.seller_staff_invites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    seller_id UUID NOT NULL REFERENCES public.sellers(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    invited_name TEXT,
+    staff_role TEXT NOT NULL DEFAULT 'staff',
+    permissions TEXT[] NOT NULL DEFAULT '{}',
+    invite_token TEXT UNIQUE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- 'pending' | 'accepted' | 'revoked' | 'expired'
+    invited_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_at TIMESTAMPTZ,
+    accepted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_seller_staff_invites_token ON public.seller_staff_invites(invite_token);
+
 CREATE OR REPLACE FUNCTION public.is_seller_member(seller_uuid UUID, user_uuid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -464,6 +484,9 @@ CREATE TABLE IF NOT EXISTS public.products (
     return_eligible BOOLEAN NOT NULL DEFAULT TRUE,
     -- Catalogue
     status product_status NOT NULL DEFAULT 'DRAFT',
+    -- Denormalised rating summary (maintained by app on review submission)
+    rating_average NUMERIC(2,1) NOT NULL DEFAULT 0 CHECK (rating_average >= 0 AND rating_average <= 5),
+    rating_count INT NOT NULL DEFAULT 0 CHECK (rating_count >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1338,6 +1361,10 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     provider_message_id TEXT,
     error_message TEXT,
     idempotency_key TEXT,
+    -- Render inputs preserved so a failed send can actually be retried with identical
+    -- content, not just re-attempted with nothing to send.
+    payload JSONB,
+    attempts INT NOT NULL DEFAULT 0,
     sent_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1454,6 +1481,7 @@ ON CONFLICT (id) DO UPDATE SET
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sellers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_staff ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seller_staff_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_addresses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seller_agreements ENABLE ROW LEVEL SECURITY;
@@ -1527,6 +1555,10 @@ WITH CHECK (auth.uid() = owner_id);
 -- Seller staff
 CREATE POLICY "Seller members manage own staff"
 ON public.seller_staff FOR ALL
+USING (public.is_seller_member(seller_id) OR public.is_admin());
+
+CREATE POLICY "Seller members manage own staff invites"
+ON public.seller_staff_invites FOR ALL
 USING (public.is_seller_member(seller_id) OR public.is_admin());
 
 -- Seller documents
@@ -1809,9 +1841,17 @@ CREATE POLICY "Authenticated sellers upload product media"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'product-media' AND auth.role() = 'authenticated');
 
-CREATE POLICY "Authenticated users upload documents"
+-- Upload is scoped to the caller's own folder, matching the SELECT policies below —
+-- "any authenticated user" with no folder check would let anyone plant a file inside
+-- another user's private evidence/document folder (they couldn't read it back given the
+-- SELECT policy, but it's still an unauthorized write into someone else's private space).
+CREATE POLICY "Users upload own seller documents"
 ON storage.objects FOR INSERT
-WITH CHECK (bucket_id IN ('seller-documents', 'return-evidence') AND auth.role() = 'authenticated');
+WITH CHECK (bucket_id = 'seller-documents' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Users upload own return evidence"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'return-evidence' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 CREATE POLICY "Restricted access to seller documents"
 ON storage.objects FOR SELECT

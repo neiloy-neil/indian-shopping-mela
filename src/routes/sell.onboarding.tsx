@@ -11,7 +11,7 @@ import {
   type OnboardingStatus,
 } from "@/lib/ism-ops";
 import { CATEGORIES } from "@/lib/ism-data";
-import { saveSellerOnboarding } from "@/lib/api/sellers";
+import { saveSellerOnboardingServerFn } from "@/lib/api/sellers";
 
 export const Route = createFileRoute("/sell/onboarding")({
   head: () => ({
@@ -96,28 +96,30 @@ function OnboardingPage() {
   const handleSaveDraft = async () => {
     setIsSubmitting(true);
     try {
-      await saveSellerOnboarding({
-        businessName: tradingName,
-        legalName,
-        abn,
-        businessType: sellerType,
-        slug: tradingName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        dispatchAddress: {
-          line1: dispatchStreet,
-          suburb: dispatchSuburb,
-          state: dispatchState,
-          postcode: dispatchPostcode,
-          country: "Australia",
+      await saveSellerOnboardingServerFn({
+        data: {
+          businessName: tradingName,
+          legalName,
+          abn,
+          businessType: sellerType,
+          slug: tradingName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          dispatchAddress: {
+            line1: dispatchStreet,
+            suburb: dispatchSuburb,
+            state: dispatchState,
+            postcode: dispatchPostcode,
+            country: "Australia",
+          },
+          returnAddress: {
+            line1: dispatchStreet,
+            suburb: dispatchSuburb,
+            state: dispatchState,
+            postcode: dispatchPostcode,
+            country: "Australia",
+          },
+          termsAcceptedVersion: "V1_2026",
+          status: "DRAFT",
         },
-        returnAddress: {
-          line1: dispatchStreet,
-          suburb: dispatchSuburb,
-          state: dispatchState,
-          postcode: dispatchPostcode,
-          country: "Australia",
-        },
-        termsAcceptedVersion: "V1_2026",
-        status: "DRAFT",
       });
       toast.success("Draft saved successfully", {
         description: "You can resume your onboarding anytime.",
@@ -132,28 +134,30 @@ function OnboardingPage() {
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
     try {
-      await saveSellerOnboarding({
-        businessName: tradingName,
-        legalName,
-        abn,
-        businessType: sellerType,
-        slug: tradingName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        dispatchAddress: {
-          line1: dispatchStreet,
-          suburb: dispatchSuburb,
-          state: dispatchState,
-          postcode: dispatchPostcode,
-          country: "Australia",
+      await saveSellerOnboardingServerFn({
+        data: {
+          businessName: tradingName,
+          legalName,
+          abn,
+          businessType: sellerType,
+          slug: tradingName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          dispatchAddress: {
+            line1: dispatchStreet,
+            suburb: dispatchSuburb,
+            state: dispatchState,
+            postcode: dispatchPostcode,
+            country: "Australia",
+          },
+          returnAddress: {
+            line1: dispatchStreet,
+            suburb: dispatchSuburb,
+            state: dispatchState,
+            postcode: dispatchPostcode,
+            country: "Australia",
+          },
+          termsAcceptedVersion: "V1_2026",
+          status: "SUBMITTED",
         },
-        returnAddress: {
-          line1: dispatchStreet,
-          suburb: dispatchSuburb,
-          state: dispatchState,
-          postcode: dispatchPostcode,
-          country: "Australia",
-        },
-        termsAcceptedVersion: "V1_2026",
-        status: "SUBMITTED",
       });
       setStatus("SUBMITTED");
       setStep(STEPS.length - 1);

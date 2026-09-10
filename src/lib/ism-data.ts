@@ -501,6 +501,7 @@ export type Product = {
   stock: number;
   tags: string[];
   hasVideo?: boolean | undefined;
+  videoUrl?: string | undefined;
 };
 
 const p = (

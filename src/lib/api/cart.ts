@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { mapDbProductToIsm } from "./catalogue";
+import type { Product } from "@/lib/ism-data";
 
 export interface CartItemDto {
   lineId: string;
@@ -93,6 +95,8 @@ export const getCartServerFn = createServerFn({ method: "POST" })
           title,
           price,
           sale_price,
+          sale_start_at,
+          sale_end_at,
           stock_quantity,
           weight_kg_override,
           images,
@@ -104,12 +108,11 @@ export const getCartServerFn = createServerFn({ method: "POST" })
             weight_kg,
             seller:sellers (
               id,
-              business_name,
-              store_name
+              business_name
             ),
             media:product_media (
               url,
-              is_primary
+              sort_order
             )
           )
         )
@@ -127,10 +130,16 @@ export const getCartServerFn = createServerFn({ method: "POST" })
         const variant = l.variant;
         const product = variant.product;
         const seller = product?.seller;
-        const primaryMedia =
-          (product?.media || []).find((m: any) => m.is_primary) ?? product?.media?.[0];
-        const rawPrice = variant.price ?? variant.sale_price ?? 0;
-        const priceAud = Number(rawPrice);
+        const sortedMedia = [...(product?.media || [])].sort(
+          (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+        );
+        const primaryMedia = sortedMedia[0];
+        const now = new Date();
+        const hasActiveSale =
+          variant.sale_price != null &&
+          (!variant.sale_start_at || new Date(variant.sale_start_at) <= now) &&
+          (!variant.sale_end_at || new Date(variant.sale_end_at) >= now);
+        const priceAud = Number(hasActiveSale ? variant.sale_price : (variant.price ?? 0));
         const availableStock = Math.max(0, Number(variant.stock_quantity) || 0);
         const fallbackImg =
           variant.images && variant.images.length > 0 ? variant.images[0] : undefined;
@@ -142,7 +151,7 @@ export const getCartServerFn = createServerFn({ method: "POST" })
           productId: product?.id ?? variant.product_id,
           variantId: variant.id,
           sellerId: product?.seller_id ?? "unknown-seller",
-          sellerName: seller?.store_name ?? seller?.business_name ?? "Marketplace Seller",
+          sellerName: seller?.business_name ?? "Marketplace Seller",
           productName: product?.title ?? "Product",
           variantTitle: variant.title ?? "Standard",
           sku: variant.seller_sku ?? "SKU-STD",
@@ -388,4 +397,37 @@ export const toggleWishlistServerFn = createServerFn({ method: "POST" })
       });
       return { wishlisted: true };
     }
+  });
+
+/**
+ * Server Function: Get full product data for a user's wishlisted items.
+ * getWishlistServerFn above returns bare product ids (used for the lightweight
+ * heart-icon "is this wishlisted" state site-wide); this returns real, live product
+ * records for display — account.tsx's wishlist tab previously filtered the static
+ * PRODUCTS fixture by these ids, which only ever matched demo products, never a real
+ * database-backed product (whose id is a UUID that never appears in that fixture).
+ */
+export const getWishlistProductsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { userId: string }) => data)
+  .handler(async ({ data }): Promise<Product[]> => {
+    const { data: rows, error } = await (supabaseAdmin.from("wishlists") as any)
+      .select(
+        `
+        product_id,
+        product:products (
+          *,
+          variants:product_variants(*),
+          media:product_media(url, media_type, moderation_status, sort_order),
+          seller:sellers(business_name, slug, dispatch_address)
+        )
+      `,
+      )
+      .eq("user_id", data.userId)
+      .order("created_at", { ascending: false });
+
+    if (error || !rows) return [];
+
+    return rows
+      .filter((r: any) => r.product && r.product.status === "LIVE")
+      .map((r: any) => mapDbProductToIsm(r.product));
   });

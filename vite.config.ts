@@ -23,13 +23,13 @@ export default defineConfig({
     }),
   ],
   ssr: {
-    // @stripe/react-stripe-js ships both a CJS ("main") and ESM ("module") build.
-    // Left externalized, Nitro's Rollup-based chunk splitter (Vercel preset) was
-    // producing a shared SSR chunk whose CJS→ESM interop helper (__commonJSMin) landed
-    // in a different chunk than the code that calls it, crashing every SSR request —
-    // checkout.tsx's top-level import pulls this into the shared route-tree bundle even
-    // for pages that never render it. Forcing it through Vite's own SSR transform avoids
-    // that broken split.
-    noExternal: ["@stripe/react-stripe-js", "@stripe/stripe-js"],
+    // This is not specific to Stripe: Nitro's Rollup-based chunk splitter (Vercel preset)
+    // was found breaking multiple different externalized-dependency shared chunks in
+    // production — first @stripe/react-stripe-js, then react+@tanstack/react-query —
+    // each crashing every SSR request with "TypeError: __commonJSMin is not a function"
+    // because the chunk split separated a package's CJS→ESM interop helper from the code
+    // that calls it. Rather than allowlist packages one at a time as each one breaks,
+    // bundle everything through Vite's own SSR transform instead of externalizing.
+    noExternal: true,
   },
 });

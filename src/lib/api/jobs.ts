@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { sendTransactionalNotification } from "./notifications";
+import { retryNotificationSend } from "./notifications";
+import { requireAdminSession } from "./server-auth";
 
 export interface BackgroundJobRunResult {
   jobName: string;
@@ -80,7 +81,7 @@ export async function executeBackgroundJob(
         action: `JOB_RUN_${jobName.toUpperCase()}`,
         entity_type: "SYSTEM_JOB",
         entity_id: correlationId,
-        new_data: {
+        after_data: {
           jobName,
           correlationId,
           processedCount: result.processedCount,
@@ -111,7 +112,7 @@ export async function executeBackgroundJob(
         action: `JOB_FAILED_${jobName.toUpperCase()}`,
         entity_type: "SYSTEM_JOB",
         entity_id: correlationId,
-        new_data: { jobName, correlationId, error: err.message },
+        after_data: { jobName, correlationId, error: err.message },
       })
       .catch(() => null);
 
@@ -216,9 +217,13 @@ export async function runPayoutEligibilityJob(): Promise<BackgroundJobRunResult>
  */
 export async function runNotificationRetryWorkerJob(): Promise<BackgroundJobRunResult> {
   return executeBackgroundJob("notification_retry", async (correlationId) => {
+    // Real outbox columns are status/error_message/payload/attempts — there is no
+    // type/metadata/title/message/user_id here (that shape belongs to the separate
+    // in-app user_notifications table). `payload` carries the original render inputs
+    // (toEmail/toName/subject/htmlContent) so a failed send can actually be resent.
     const { data: failedNotifications, error } = await (supabaseAdmin.from("notifications") as any)
       .select("*")
-      .eq("type", "FAILED_RETRY_PENDING")
+      .eq("status", "failed")
       .limit(20);
 
     if (error || !failedNotifications) {
@@ -229,42 +234,58 @@ export async function runNotificationRetryWorkerJob(): Promise<BackgroundJobRunR
     let errorCount = 0;
 
     for (const notif of failedNotifications) {
-      const attempts = (notif.metadata?.attempts || 0) + 1;
+      const attempts = (notif.attempts || 0) + 1;
 
       if (attempts > 3) {
         // Move to Dead-Letter Queue
         await (supabaseAdmin.from("notifications") as any)
-          .update({
-            type: "DEAD_LETTER",
-            metadata: { ...notif.metadata, attempts, exhaustedAt: new Date().toISOString() },
-          })
+          .update({ status: "bounced", attempts })
           .eq("id", notif.id);
         errorCount++;
         continue;
       }
 
-      const res = await sendTransactionalNotification({
-        toEmail: notif.metadata?.toEmail || "customer@example.com.au",
-        toName: notif.metadata?.toName || "Customer",
-        subject: notif.title,
-        htmlContent: notif.message,
-        idempotencyKey: notif.metadata?.idempotency_key,
-        userId: notif.user_id,
+      const payload = notif.payload as {
+        toEmail?: string;
+        toName?: string;
+        subject?: string;
+        htmlContent?: string;
+        userId?: string;
+      } | null;
+
+      if (!payload?.toEmail || !payload?.htmlContent) {
+        // Nothing to resend — this row predates the payload column being populated.
+        await (supabaseAdmin.from("notifications") as any)
+          .update({ status: "bounced", attempts, error_message: "No stored payload to retry" })
+          .eq("id", notif.id);
+        errorCount++;
+        continue;
+      }
+
+      // Retries the raw send in place and updates THIS row — must not call
+      // sendTransactionalNotification, which always inserts a brand-new outbox row on
+      // success and would leave a duplicate alongside this one for the same notification.
+      const res = await retryNotificationSend({
+        toEmail: payload.toEmail,
+        toName: payload.toName || "Customer",
+        subject: payload.subject || notif.template_name,
+        htmlContent: payload.htmlContent,
       });
 
       if (res.success) {
         await (supabaseAdmin.from("notifications") as any)
           .update({
-            type: "order_update",
-            metadata: { ...notif.metadata, attempts, retriedAt: new Date().toISOString() },
+            status: "sent",
+            attempts,
+            provider_message_id: res.messageId,
+            error_message: null,
+            sent_at: new Date().toISOString(),
           })
           .eq("id", notif.id);
         processedCount++;
       } else {
         await (supabaseAdmin.from("notifications") as any)
-          .update({
-            metadata: { ...notif.metadata, attempts, lastError: res.error },
-          })
+          .update({ attempts, error_message: res.error })
           .eq("id", notif.id);
         errorCount++;
       }
@@ -304,21 +325,22 @@ export async function runBulkImportWorkerJob(batchId?: string): Promise<Backgrou
       .update({ status: "IMPORTING" })
       .eq("id", batch.id);
 
-    // Fetch batch rows
+    // Fetch batch rows. bulk_import_rows has no status/errors columns — the per-row
+    // outcome is `is_valid` (boolean), and the batch rollup columns are
+    // created_count/updated_count/failed_count, not valid_rows/error_rows.
     const { data: rows } = await (supabaseAdmin.from("bulk_import_rows") as any)
       .select("*")
       .eq("batch_id", batch.id)
-      .eq("status", "PENDING")
       .limit(100);
 
-    const validCount = rows?.filter((r: any) => !r.errors || r.errors.length === 0).length || 0;
-    const errorCount = rows?.filter((r: any) => r.errors && r.errors.length > 0).length || 0;
+    const validCount = rows?.filter((r: any) => r.is_valid).length || 0;
+    const errorCount = rows?.filter((r: any) => !r.is_valid).length || 0;
 
     await (supabaseAdmin.from("bulk_import_batches") as any)
       .update({
         status: "COMPLETED",
-        valid_rows: validCount,
-        error_rows: errorCount,
+        created_count: validCount,
+        failed_count: errorCount,
         completed_at: new Date().toISOString(),
       })
       .eq("id", batch.id);
@@ -389,6 +411,7 @@ export const runSystemJobServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    await requireAdminSession();
     switch (data.jobName) {
       case "reservation_expiry":
         return runReservationExpiryJob();
@@ -406,6 +429,7 @@ export const runSystemJobServerFn = createServerFn({ method: "POST" })
   });
 
 export const getDeadLetterQueueServerFn = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdminSession();
   const { data: webhookDeadLetters } = await (supabaseAdmin.from("webhook_events") as any)
     .select("*")
     .eq("status", "DEAD_LETTER")
@@ -414,7 +438,7 @@ export const getDeadLetterQueueServerFn = createServerFn({ method: "GET" }).hand
 
   const { data: notifDeadLetters } = await (supabaseAdmin.from("notifications") as any)
     .select("*")
-    .eq("type", "DEAD_LETTER")
+    .eq("status", "bounced")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -427,13 +451,14 @@ export const getDeadLetterQueueServerFn = createServerFn({ method: "GET" }).hand
 export const retryDeadLetterItemServerFn = createServerFn({ method: "POST" })
   .validator((data: { itemType: "webhook" | "notification"; itemId: string }) => data)
   .handler(async ({ data }) => {
+    await requireAdminSession();
     if (data.itemType === "webhook") {
       await (supabaseAdmin.from("webhook_events") as any)
         .update({ status: "PENDING", attempts: 0, last_error: null })
         .eq("id", data.itemId);
     } else {
       await (supabaseAdmin.from("notifications") as any)
-        .update({ type: "FAILED_RETRY_PENDING" })
+        .update({ status: "failed", attempts: 0, error_message: null })
         .eq("id", data.itemId);
     }
 

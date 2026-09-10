@@ -40,7 +40,7 @@ export async function uploadProductImage(file: File, sellerId: string): Promise<
 /**
  * T142 — Upload a private seller KYC / business verification document (PDF, JPG, PNG).
  */
-export async function uploadSellerVerificationDoc(file: File, sellerId: string): Promise<string> {
+export async function uploadSellerVerificationDoc(file: File): Promise<string> {
   const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png"];
   if (!allowedMimeTypes.includes(file.type)) {
     throw new Error(`Unsupported document format: ${file.type}. Please upload PDF, JPG, or PNG.`);
@@ -51,8 +51,19 @@ export async function uploadSellerVerificationDoc(file: File, sellerId: string):
     throw new Error(`File exceeds maximum 20MB limit.`);
   }
 
+  // The storage RLS policy requires the first path segment to be the uploader's own
+  // auth.uid() — a caller-supplied sellerId (which is sellers.id, not the owning user's
+  // id) would both violate that policy and let a client choose an arbitrary folder to
+  // upload into.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("You must be signed in to upload a seller verification document.");
+  }
+
   const fileExt = file.name.split(".").pop() || "pdf";
-  const filePath = `${sellerId}/kyc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+  const filePath = `${user.id}/kyc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
   const { data, error } = await supabase.storage.from("seller-documents").upload(filePath, file, {
     upsert: false,
@@ -68,10 +79,24 @@ export async function uploadSellerVerificationDoc(file: File, sellerId: string):
 
 /**
  * T142 — Upload customer return photo/video evidence.
+ *
+ * No returnId parameter — a return doesn't exist yet at upload time (evidence is staged
+ * before the return request is created), and accepting an arbitrary caller-supplied folder
+ * name here was the actual IDOR: the storage RLS policy requires the first path segment to
+ * equal the uploader's own auth.uid(), so any other value either gets rejected now (correct)
+ * or, before that policy existed, would have let a client write into (or previously, even
+ * read from an incorrectly-matching) another user's evidence folder.
  */
-export async function uploadReturnEvidenceMedia(file: File, returnId: string): Promise<string> {
+export async function uploadReturnEvidenceMedia(file: File): Promise<string> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("You must be signed in to upload return evidence.");
+  }
+
   const fileExt = file.name.split(".").pop() || "jpg";
-  const filePath = `${returnId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+  const filePath = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
   const { data, error } = await supabase.storage.from("return-evidence").upload(filePath, file, {
     upsert: false,

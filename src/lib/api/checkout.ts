@@ -123,7 +123,6 @@ interface VariantJoinedRow {
     seller: {
       id: string;
       business_name: string;
-      store_name?: string | null;
       status: string;
       dispatch_address: unknown;
     } | null;
@@ -214,7 +213,7 @@ interface VariantJoinedRow {
             Array.isArray(variant.images) && variant.images.length > 0
               ? variant.images[0]
               : undefined,
-          sellerBusinessName: seller?.business_name ?? seller?.store_name ?? "Marketplace Seller",
+          sellerBusinessName: seller?.business_name ?? "Marketplace Seller",
           sellerDispatchAddress: seller?.dispatch_address as Address | undefined,
         });
       }

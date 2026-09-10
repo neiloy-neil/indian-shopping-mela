@@ -18,7 +18,7 @@ import {
 import { ShopLayout } from "@/components/ism/ShopLayout";
 import { LogoMark } from "@/components/ism/Logo";
 import { ProductGrid } from "@/components/ism/Rail";
-import { PRODUCTS, formatAUD } from "@/lib/ism-data";
+import { formatAUD, type Product } from "@/lib/ism-data";
 import { useIsm } from "@/lib/ism-store";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -31,6 +31,7 @@ import {
   type CustomerAddressDto,
   type CustomerOrderSummaryDto,
 } from "@/lib/api/account";
+import { getWishlistProductsServerFn } from "@/lib/api/cart";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
@@ -73,7 +74,7 @@ function AccountPage() {
   const { tab = "overview" } = Route.useSearch();
   const { wishlist } = useIsm();
   const { user, loading, signOut } = useAuth();
-  const wishProducts = PRODUCTS.filter((p) => wishlist.includes(p.id));
+  const [wishProducts, setWishProducts] = useState<Product[]>([]);
   const navigate = Route.useNavigate();
 
   const [orders, setOrders] = useState<CustomerOrderSummaryDto[]>([]);
@@ -85,9 +86,9 @@ function AccountPage() {
     if (user?.id) {
       setIsLoadingData(true);
       Promise.all([
-        getCustomerOrdersServerFn({ data: { userId: user.id } }).catch(() => []),
-        getCustomerAddressesServerFn({ data: { userId: user.id } }).catch(() => []),
-        getCustomerReturnsServerFn({ data: { userId: user.id } }).catch(() => []),
+        getCustomerOrdersServerFn().catch(() => []),
+        getCustomerAddressesServerFn().catch(() => []),
+        getCustomerReturnsServerFn().catch(() => []),
       ])
         .then(([ord, addr, ret]) => {
           if (ord) setOrders(ord);
@@ -97,6 +98,20 @@ function AccountPage() {
         .finally(() => setIsLoadingData(false));
     }
   }, [user?.id]);
+
+  // Live wishlist product records — `wishlist` from useIsm() is just the id list used
+  // for the site-wide heart-icon state; the account tab needs real product data, which
+  // must come from the database (wishlisted ids are real product UUIDs, never present
+  // in the static demo PRODUCTS fixture).
+  useEffect(() => {
+    if (!user?.id) {
+      setWishProducts([]);
+      return;
+    }
+    getWishlistProductsServerFn({ data: { userId: user.id } })
+      .then(setWishProducts)
+      .catch(() => setWishProducts([]));
+  }, [user?.id, wishlist]);
 
   if (!loading && !user) {
     return (
@@ -208,7 +223,7 @@ function AccountPage() {
                 addresses={addresses}
                 onRefresh={() => {
                   if (user?.id) {
-                    getCustomerAddressesServerFn({ data: { userId: user.id } }).then(setAddresses);
+                    getCustomerAddressesServerFn().then(setAddresses);
                   }
                 }}
               />
@@ -499,7 +514,6 @@ function Addresses({
     try {
       await saveCustomerAddressServerFn({
         data: {
-          userId,
           tag,
           recipientName,
           phone,
@@ -517,7 +531,7 @@ function Addresses({
 
   const handleDelete = async (addressId: string) => {
     try {
-      await deleteCustomerAddressServerFn({ data: { userId, addressId } });
+      await deleteCustomerAddressServerFn({ data: { addressId } });
       toast.success("Address removed");
       onRefresh();
     } catch (err: any) {
@@ -696,7 +710,7 @@ function Profile() {
     setIsSaving(true);
     try {
       await updateCustomerProfileServerFn({
-        data: { userId: user.id, fullName, phone },
+        data: { fullName, phone },
       });
       toast.success("Profile updated successfully!");
     } catch (err: any) {

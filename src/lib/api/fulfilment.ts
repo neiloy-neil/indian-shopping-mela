@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveSellerRowId } from "./sellers";
 import { AusPostShippingProvider, type ParcelDetails } from "./shipping";
 
 /**
@@ -12,13 +13,14 @@ export const acceptSubOrderServerFn = createServerFn({ method: "POST" })
   });
 
 export async function acceptSubOrder(subOrderId: string, sellerId: string): Promise<boolean> {
+  const resolvedSellerId = await resolveSellerRowId(sellerId);
   const { error } = await (supabaseAdmin.from("sub_orders") as any)
     .update({
       status: "PREPARING",
       updated_at: new Date().toISOString(),
     })
     .eq("id", subOrderId)
-    .eq("seller_id", sellerId);
+    .eq("seller_id", resolvedSellerId);
 
   if (error) {
     console.error(`Error accepting sub-order ${subOrderId}:`, error);
@@ -54,11 +56,13 @@ export async function generateShippingLabelForSubOrder(params: {
   parcel: ParcelDetails;
   manualTrackingNumber?: string | undefined;
 }): Promise<{ trackingNumber: string; labelPdfUrl: string }> {
+  const resolvedSellerId = await resolveSellerRowId(params.sellerId);
+
   // 1. Fetch sub-order & master order customer address
   const { data: subOrder } = await (supabaseAdmin.from("sub_orders") as any)
     .select("*, master_order:orders(*), seller:sellers(*)")
     .eq("id", params.subOrderId)
-    .eq("seller_id", params.sellerId)
+    .eq("seller_id", resolvedSellerId)
     .single();
 
   if (!subOrder) throw new Error("Sub-order not found or unauthorized.");
@@ -154,13 +158,14 @@ export async function processCarrierDeliveryConfirmation(
 export const markSubOrderPackedServerFn = createServerFn({ method: "POST" })
   .validator((data: { subOrderId: string; sellerId: string }) => data)
   .handler(async ({ data }) => {
+    const resolvedSellerId = await resolveSellerRowId(data.sellerId);
     const { error } = await (supabaseAdmin.from("sub_orders") as any)
       .update({
         status: "READY_TO_SHIP",
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.subOrderId)
-      .eq("seller_id", data.sellerId);
+      .eq("seller_id", resolvedSellerId);
 
     if (error) {
       throw new Error(`Failed to update sub-order status: ${error.message}`);
@@ -200,14 +205,15 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
           carrier,
           tracking_number,
           created_at,
-          items:order_items(id, quantity, title),
+          items:order_items(id, quantity, product_name),
           master_order:orders(order_number, customer_name, shipping_address)
         `,
         )
         .order("created_at", { ascending: false });
 
       if (data.sellerId) {
-        query = query.eq("seller_id", data.sellerId);
+        const resolvedSellerId = await resolveSellerRowId(data.sellerId);
+        query = query.eq("seller_id", resolvedSellerId);
       }
 
       const { data: subOrders, error } = await query.limit(50);

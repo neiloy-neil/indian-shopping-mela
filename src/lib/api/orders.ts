@@ -253,7 +253,6 @@ interface OrderTrackingJoinedRow {
     can_return_until: string | null;
     seller: {
       business_name: string | null;
-      store_name: string | null;
       slug: string | null;
     } | null;
     items: Array<{
@@ -265,7 +264,6 @@ interface OrderTrackingJoinedRow {
       quantity: number;
       unit_price: number;
       total_price: number;
-      image_url: string | null;
     }> | null;
   }> | null;
 }
@@ -506,7 +504,6 @@ export async function getOrderTrackingDetails(orderId: string) {
           can_return_until,
           seller:sellers (
             business_name,
-            store_name,
             slug
           ),
           items:order_items (
@@ -517,8 +514,7 @@ export async function getOrderTrackingDetails(orderId: string) {
             variant_name,
             quantity,
             unit_price,
-            total_price,
-            image_url
+            total_price
           )
         )
       `,
@@ -551,8 +547,7 @@ export async function getOrderTrackingDetails(orderId: string) {
           ? `${address.line1}, ${address.suburb} ${address.state} ${address.postcode}`
           : "Sydney NSW 2000, Australia",
         subOrders: subOrdersList.map((so, idx: number) => {
-          const sellerName =
-            so.seller?.business_name ?? so.seller?.store_name ?? "Marketplace Boutique";
+          const sellerName = so.seller?.business_name ?? "Marketplace Boutique";
           const sellerSlug = so.seller?.slug ?? "mumbai-mirror-boutique";
           const isDelivered = so.status === "DELIVERED";
           const isShipped = so.status === "SHIPPED" || isDelivered;

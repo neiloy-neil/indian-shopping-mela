@@ -3,13 +3,17 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe-server";
 import { postLedgerEntry } from "./ledger";
 import { restockVariantInventory } from "./inventory";
+import {
+  getVerifiedSessionUserId,
+  requireFinanceAdminSession,
+  requireVerifiedSellerAccess,
+} from "./server-auth";
 import type { Database, ReturnReasonCode, ReturnStatus } from "@/lib/supabase/types";
 
 export interface CreateReturnPayload {
   subOrderId: string;
-  orderItemId: string;
+  items: Array<{ orderItemId: string; quantity: number }>;
   customerId: string;
-  quantity: number;
   reason: string;
   reasonCode:
     | "CHANGED_MIND"
@@ -20,6 +24,120 @@ export interface CreateReturnPayload {
     | "NOT_AS_DESCRIBED";
   customerNotes?: string | undefined;
   evidenceUrls?: string[] | undefined;
+}
+
+export interface ReturnableOrderItem {
+  orderItemId: string;
+  productId: string | null;
+  variantId: string | null;
+  productName: string;
+  variantName: string;
+  sku: string | null;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface ReturnableSubOrder {
+  subOrderId: string;
+  masterOrderId: string;
+  sellerId: string;
+  sellerName: string;
+  deliveredAt: string;
+  canReturnUntil: string | null;
+  items: ReturnableOrderItem[];
+}
+
+/**
+ * Server Function: Fetch a customer's delivered sub-orders and their line items,
+ * eligible for a return request. Optionally scoped to a single sub-order.
+ */
+export const getReturnableOrderItemsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { subOrderId?: string | undefined }) => data)
+  .handler(async ({ data }) => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view your returnable orders.");
+    }
+    return getReturnableOrderItems(verifiedUserId, data.subOrderId);
+  });
+
+export async function getReturnableOrderItems(
+  customerId: string,
+  subOrderId?: string | undefined,
+): Promise<ReturnableSubOrder[]> {
+  let query = supabaseAdmin
+    .from("sub_orders")
+    .select(
+      `
+      id,
+      master_order_id,
+      seller_id,
+      delivered_at,
+      can_return_until,
+      status,
+      orders:master_order_id!inner (
+        customer_id
+      ),
+      seller:seller_id (
+        business_name
+      ),
+      order_items (
+        id,
+        product_id,
+        variant_id,
+        product_name,
+        variant_name,
+        sku,
+        unit_price,
+        quantity
+      )
+    `,
+    )
+    .eq("orders.customer_id", customerId)
+    .eq("status", "DELIVERED");
+
+  if (subOrderId) {
+    query = query.eq("id", subOrderId);
+  }
+
+  const { data: rows, error } = await query;
+  if (error || !rows) return [];
+
+  return (rows as unknown as Array<{
+    id: string;
+    master_order_id: string;
+    seller_id: string;
+    delivered_at: string;
+    can_return_until: string | null;
+    seller: { business_name: string | null } | null;
+    order_items: Array<{
+      id: string;
+      product_id: string | null;
+      variant_id: string | null;
+      product_name: string;
+      variant_name: string;
+      sku: string | null;
+      unit_price: number;
+      quantity: number;
+    }> | null;
+  }>).map((row) => ({
+    subOrderId: row.id,
+    masterOrderId: row.master_order_id,
+    sellerId: row.seller_id,
+    sellerName: row.seller?.business_name ?? "Marketplace Seller",
+    deliveredAt: row.delivered_at,
+    canReturnUntil: row.can_return_until,
+    items: (row.order_items ?? []).map((item) => ({
+      orderItemId: item.id,
+      productId: item.product_id,
+      variantId: item.variant_id,
+      productName: item.product_name,
+      variantName: item.variant_name,
+      sku: item.sku,
+      quantity: item.quantity,
+      unitPrice: Number(item.unit_price),
+    })),
+  }));
 }
 
 export interface ReturnDetail {
@@ -56,8 +174,45 @@ export interface ReturnDetail {
 export const createCustomerReturnRequestServerFn = createServerFn({ method: "POST" })
   .validator((data: CreateReturnPayload) => data)
   .handler(async ({ data }) => {
-    return createCustomerReturnRequest(data);
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in before submitting a return request.");
+    }
+    // The verified session is authoritative — a client-supplied customerId that didn't
+    // match would previously only fail the sub-order ownership check below, but nothing
+    // stopped a client from supplying someone else's real customerId along with that
+    // customer's real subOrderId/orderItemIds to file a return "as" them.
+    return createCustomerReturnRequest({ ...data, customerId: verifiedUserId });
   });
+
+/**
+ * Resolve the seller_id (via sub_orders) and customer_id for a return, for authorization
+ * checks. Every seller/admin-facing return action below needs to verify the caller is
+ * actually the seller involved (or an admin) before acting on someone else's return.
+ */
+async function getReturnPartyIds(
+  returnId: string,
+): Promise<{ sellerId: string | null; customerId: string | null }> {
+  const { data } = await (supabaseAdmin.from("returns") as any)
+    .select("customer_id, sub_orders:sub_order_id(seller_id)")
+    .eq("id", returnId)
+    .maybeSingle();
+
+  return {
+    sellerId: data?.sub_orders?.seller_id ?? null,
+    customerId: data?.customer_id ?? null,
+  };
+}
+
+async function requireSellerOrAdminForReturn(returnId: string): Promise<void> {
+  const { sellerId } = await getReturnPartyIds(returnId);
+  if (!sellerId) {
+    // Return not found — let the underlying function's own "not found" error surface
+    // rather than a confusing authorization error for a nonexistent resource.
+    return;
+  }
+  await requireVerifiedSellerAccess(sellerId, "returns:manage");
+}
 
 /**
  * Server Function: Admin or Seller approves return request.
@@ -65,6 +220,7 @@ export const createCustomerReturnRequestServerFn = createServerFn({ method: "POS
 export const approveReturnServerFn = createServerFn({ method: "POST" })
   .validator((data: { returnId: string; adminNotes?: string | undefined }) => data)
   .handler(async ({ data }) => {
+    await requireSellerOrAdminForReturn(data.returnId);
     return approveReturn(data.returnId, data.adminNotes);
   });
 
@@ -74,6 +230,7 @@ export const approveReturnServerFn = createServerFn({ method: "POST" })
 export const rejectReturnServerFn = createServerFn({ method: "POST" })
   .validator((data: { returnId: string; rejectionReason: string }) => data)
   .handler(async ({ data }) => {
+    await requireSellerOrAdminForReturn(data.returnId);
     return rejectReturn(data.returnId, data.rejectionReason);
   });
 
@@ -83,6 +240,7 @@ export const rejectReturnServerFn = createServerFn({ method: "POST" })
 export const markReturnInTransitServerFn = createServerFn({ method: "POST" })
   .validator((data: { returnId: string; trackingNumber?: string | undefined }) => data)
   .handler(async ({ data }) => {
+    await requireSellerOrAdminForReturn(data.returnId);
     return markReturnInTransit(data.returnId, data.trackingNumber);
   });
 
@@ -98,11 +256,13 @@ export const markReturnReceivedServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    await requireSellerOrAdminForReturn(data.returnId);
     return markReturnReceived(data.returnId, data.condition, data.notes);
   });
 
 /**
  * Server Function: Execute Stripe refund and ledger reconciliation upon return inspection.
+ * Money-moving — requires platform admin (finance/super), not just the seller involved.
  */
 export const executeReturnRefundServerFn = createServerFn({ method: "POST" })
   .validator(
@@ -113,6 +273,9 @@ export const executeReturnRefundServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    // Real Stripe refund — same tier as executeSellerPayoutTransfer/setManualFinanceHold,
+    // not just any admin_support/admin_catalogue role.
+    await requireFinanceAdminSession();
     return executeReturnRefund(data.returnId, data.refundAmount, data.restockItems ?? true);
   });
 
@@ -122,17 +285,30 @@ export const executeReturnRefundServerFn = createServerFn({ method: "POST" })
 export const getReturnDetailServerFn = createServerFn({ method: "POST" })
   .validator((data: { returnId: string }) => data)
   .handler(async ({ data }) => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view this return.");
+    }
+    const { sellerId, customerId } = await getReturnPartyIds(data.returnId);
+    if (customerId && customerId !== verifiedUserId) {
+      // Not the customer who filed it — must be the seller involved, or an admin.
+      await requireVerifiedSellerAccess(sellerId ?? "", "returns:manage");
+    }
     return getReturnDetail(data.returnId);
   });
 
 /**
  * Server Function: Fetch all returns for a customer.
  */
-export const getReturnsForCustomerServerFn = createServerFn({ method: "POST" })
-  .validator((data: { customerId: string }) => data)
-  .handler(async ({ data }) => {
-    return getReturnsForCustomer(data.customerId);
-  });
+export const getReturnsForCustomerServerFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view your returns.");
+    }
+    return getReturnsForCustomer(verifiedUserId);
+  },
+);
 
 /**
  * Server Function: Fetch all returns for a seller.
@@ -140,6 +316,7 @@ export const getReturnsForCustomerServerFn = createServerFn({ method: "POST" })
 export const getReturnsForSellerServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId: string }) => data)
   .handler(async ({ data }) => {
+    await requireVerifiedSellerAccess(data.sellerId, "returns:manage");
     return getReturnsForSeller(data.sellerId);
   });
 
@@ -246,20 +423,34 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     throw new Error("Returns are only permitted on confirmed delivered orders.");
   }
 
-  // 2. Fetch the target order item
-  const { data: orderItem, error: itemErr } = await supabaseAdmin
-    .from("order_items")
-    .select("id, unit_price, quantity, variant_id, product_name")
-    .eq("id", payload.orderItemId)
-    .single();
-
-  if (itemErr || !orderItem) {
-    throw new Error(`Order item ${payload.orderItemId} not found.`);
+  // 2. Fetch the target order items (supports partial/multi-item returns)
+  if (!payload.items || payload.items.length === 0) {
+    throw new Error("At least one item must be selected for return.");
   }
 
-  const returnQty = Math.min(payload.quantity || 1, orderItem.quantity || 1);
-  const refundAmount = Number((Number(orderItem.unit_price) * returnQty).toFixed(2));
-  const refundAmountCents = Math.round(refundAmount * 100);
+  const orderItemIds = payload.items.map((i) => i.orderItemId);
+  const { data: orderItems, error: itemErr } = await supabaseAdmin
+    .from("order_items")
+    .select("id, unit_price, quantity, variant_id, product_name, sub_order_id")
+    .in("id", orderItemIds);
+
+  if (itemErr || !orderItems || orderItems.length !== orderItemIds.length) {
+    throw new Error("One or more selected order items could not be found.");
+  }
+
+  if (orderItems.some((item) => item.sub_order_id !== payload.subOrderId)) {
+    throw new Error("Selected items do not belong to this sub-order.");
+  }
+
+  const returnLines = payload.items.map((requested) => {
+    const orderItem = orderItems.find((i) => i.id === requested.orderItemId)!;
+    const returnQty = Math.min(requested.quantity || 1, orderItem.quantity || 1);
+    const lineRefundCents = Math.round(Number(orderItem.unit_price) * returnQty * 100);
+    return { orderItem, returnQty, lineRefundCents };
+  });
+
+  const refundAmountCents = returnLines.reduce((sum, l) => sum + l.lineRefundCents, 0);
+  const refundAmount = Number((refundAmountCents / 100).toFixed(2));
 
   // 3. Validate 7-day return window for CHANGE_OF_MIND / WRONG_SIZE
   const deliveredAt = new Date(subOrder.delivered_at);
@@ -285,6 +476,22 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     }
   }
 
+  // 4b. Defense in depth: the return-evidence storage bucket's RLS already restricts
+  // uploads to the caller's own auth.uid() folder, but verify it here too rather than
+  // trusting a client-supplied evidence_urls array to only ever contain the caller's own
+  // paths — a client could otherwise reference any storage path (guessed, leaked, or an
+  // admin/unrelated file) and have it recorded as "evidence" on their return.
+  const validatedEvidenceUrls = (payload.evidenceUrls ?? []).filter((path) => {
+    const ownFolder = `${payload.customerId}/`;
+    if (!path.startsWith(ownFolder)) {
+      console.warn(
+        `Rejected evidence path not owned by customer ${payload.customerId}: ${path}`,
+      );
+      return false;
+    }
+    return true;
+  });
+
   // 5. Insert return record in canonical public.returns table
   const { data: returnRecord, error: returnError } = await supabaseAdmin
     .from("returns")
@@ -293,7 +500,7 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
       customer_id: payload.customerId,
       reason: payload.reason || payload.reasonCode,
       reason_code: payload.reasonCode,
-      evidence_urls: payload.evidenceUrls ?? null,
+      evidence_urls: validatedEvidenceUrls.length > 0 ? validatedEvidenceUrls : null,
       status: "RETURN_REQUESTED",
       seller_notes: null,
       admin_notes: payload.customerNotes ?? null,
@@ -309,14 +516,16 @@ export async function createCustomerReturnRequest(payload: CreateReturnPayload):
     throw new Error(`Failed to create return record: ${returnError?.message}`);
   }
 
-  // 6. Insert return item in canonical public.return_items table
-  const { error: itemInsertErr } = await supabaseAdmin.from("return_items").insert({
-    return_id: returnRecord.id,
-    order_item_id: payload.orderItemId,
-    quantity: returnQty,
-    condition_reported: payload.reasonCode,
-    refund_amount_cents: refundAmountCents,
-  });
+  // 6. Insert one return_items row per selected order item (partial/multi-item support)
+  const { error: itemInsertErr } = await supabaseAdmin.from("return_items").insert(
+    returnLines.map((line) => ({
+      return_id: returnRecord.id,
+      order_item_id: line.orderItem.id,
+      quantity: line.returnQty,
+      condition_reported: payload.reasonCode,
+      refund_amount_cents: line.lineRefundCents,
+    })),
+  );
 
   if (itemInsertErr) {
     console.error("Error creating return items:", itemInsertErr);

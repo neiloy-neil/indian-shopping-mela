@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getServerEnv } from "@/lib/config/env";
+import { getVerifiedSessionUserId, requireAdminSession } from "./server-auth";
 
 export interface TransactionalEmailPayload {
   toEmail: string;
@@ -10,6 +11,8 @@ export interface TransactionalEmailPayload {
   idempotencyKey?: string | undefined;
   userId?: string | undefined;
   notificationType?: string | undefined;
+  entityType?: string | undefined;
+  entityId?: string | undefined;
 }
 
 export interface NotificationSendResult {
@@ -23,75 +26,36 @@ export interface NotificationSendResult {
 // In-memory deduplication set for fast serverless idempotency protection
 const processedNotificationKeys = new Set<string>();
 
+interface BrevoDispatchResult {
+  success: boolean;
+  messageId?: string | undefined;
+  error?: string | undefined;
+  /** True when no BREVO_API_KEY is configured outside production (dev/local no-op send). */
+  isDevNoop?: boolean | undefined;
+}
+
 /**
- * Brevo / Transactional Email Dispatcher with Idempotency, Retry Backoff & Fail-Closed Guards
+ * Raw Brevo HTTP dispatch with fail-closed provider check and exponential-backoff retry.
+ * Pure send — does NOT touch the database. Callers own writing the outbox row: a fresh
+ * send (sendTransactionalNotification) inserts a new row, while a retry of an existing
+ * failed row (see jobs.ts) must update that same row rather than insert a second one.
  */
-export async function sendTransactionalNotification(
-  payload: TransactionalEmailPayload,
-): Promise<NotificationSendResult> {
+async function dispatchViaBrevo(payload: TransactionalEmailPayload): Promise<BrevoDispatchResult> {
   const env = typeof process !== "undefined" && process.env ? process.env : {};
   const apiKey = env["BREVO_API_KEY"];
   const senderEmail = env["BREVO_SENDER_EMAIL"] ?? "orders@indianshoppingmela.com.au";
   const senderName = env["BREVO_SENDER_NAME"] ?? "Indian Shopping Mela";
   const isProduction = env["NODE_ENV"] === "production";
 
-  // 1. Idempotency Check: Prevent duplicate email sends on retried webhooks / concurrent jobs
-  const key = payload.idempotencyKey || `notif_${payload.toEmail}_${Date.now()}`;
-  if (payload.idempotencyKey && processedNotificationKeys.has(payload.idempotencyKey)) {
-    return {
-      success: true,
-      idempotencyKey: payload.idempotencyKey,
-      messageId: `idempotent-dedup-${payload.idempotencyKey}`,
-      alreadySent: true,
-    };
-  }
-
-  // 2. Check Database Outbox / Notification History
-  if (payload.idempotencyKey) {
-    try {
-      const { data: existing } = await (supabaseAdmin.from("notifications") as any)
-        .select("id, metadata")
-        .filter("metadata->>idempotency_key", "eq", payload.idempotencyKey)
-        .abortSignal(AbortSignal.timeout(500))
-        .maybeSingle();
-
-      if (existing) {
-        processedNotificationKeys.add(payload.idempotencyKey);
-        return {
-          success: true,
-          idempotencyKey: payload.idempotencyKey,
-          messageId: existing.id,
-          alreadySent: true,
-        };
-      }
-    } catch {
-      // Non-blocking query failure
-    }
-  }
-
-  // 3. Provider Check (Fail-Closed)
   if (!apiKey) {
     if (isProduction) {
       console.error("[Notifications] CRITICAL: Missing BREVO_API_KEY in production.");
-      return {
-        success: false,
-        idempotencyKey: key,
-        error: "EMAIL_PROVIDER_NOT_CONFIGURED",
-      };
+      return { success: false, error: "EMAIL_PROVIDER_NOT_CONFIGURED" };
     }
-    // Local / development logging only
-    console.log(
-      `[Brevo Email Dev] To: ${payload.toEmail} | Subject: ${payload.subject} | Key: ${key}`,
-    );
-    processedNotificationKeys.add(key);
-    return {
-      success: true,
-      idempotencyKey: key,
-      messageId: `dev-notif-${Date.now()}`,
-    };
+    console.log(`[Brevo Email Dev] To: ${payload.toEmail} | Subject: ${payload.subject}`);
+    return { success: true, messageId: `dev-notif-${Date.now()}`, isDevNoop: true };
   }
 
-  // 4. HTTP Post to Brevo with Exponential Backoff (3 Retries)
   let lastError = "";
   const maxAttempts = 3;
 
@@ -115,7 +79,6 @@ export async function sendTransactionalNotification(
         const errBody = await response.text();
         lastError = `Brevo API ${response.status}: ${errBody}`;
         if (response.status >= 500 && attempt < maxAttempts) {
-          // Exponential delay before retry: 200ms, 400ms...
           await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt) * 100));
           continue;
         }
@@ -123,36 +86,7 @@ export async function sendTransactionalNotification(
       }
 
       const resData = (await response.json()) as any;
-      const messageId = resData?.messageId || `msg_${Date.now()}`;
-      processedNotificationKeys.add(key);
-
-      // 5. Record in Supabase notifications table if userId provided
-      if (payload.userId) {
-        try {
-          await (supabaseAdmin.from("notifications") as any)
-            .insert({
-              user_id: payload.userId,
-              title: payload.subject,
-              message: payload.subject,
-              type: payload.notificationType || "order_update",
-              metadata: {
-                idempotency_key: key,
-                message_id: messageId,
-                channel: "email",
-                sent_at: new Date().toISOString(),
-              },
-            })
-            .abortSignal(AbortSignal.timeout(500));
-        } catch (dbErr: any) {
-          console.warn("[Notifications] Failed to persist in-app record:", dbErr.message);
-        }
-      }
-
-      return {
-        success: true,
-        messageId,
-        idempotencyKey: key,
-      };
+      return { success: true, messageId: resData?.messageId || `msg_${Date.now()}` };
     } catch (netErr: any) {
       lastError = netErr.message;
       if (attempt < maxAttempts) {
@@ -161,11 +95,158 @@ export async function sendTransactionalNotification(
     }
   }
 
+  return { success: false, error: lastError || "Failed to send email after retries" };
+}
+
+/**
+ * Brevo / Transactional Email Dispatcher with Idempotency, Retry Backoff & Fail-Closed Guards.
+ * Use this for a fresh, application-triggered send (order confirmation, shipped, etc) — it
+ * both sends and writes the outbox row. To retry an existing failed outbox row, use
+ * jobs.ts's runNotificationRetryWorkerJob instead, which updates that row in place.
+ */
+export async function sendTransactionalNotification(
+  payload: TransactionalEmailPayload,
+): Promise<NotificationSendResult> {
+  // 1. Idempotency Check: Prevent duplicate email sends on retried webhooks / concurrent jobs
+  const key = payload.idempotencyKey || `notif_${payload.toEmail}_${Date.now()}`;
+  if (payload.idempotencyKey && processedNotificationKeys.has(payload.idempotencyKey)) {
+    return {
+      success: true,
+      idempotencyKey: payload.idempotencyKey,
+      messageId: `idempotent-dedup-${payload.idempotencyKey}`,
+      alreadySent: true,
+    };
+  }
+
+  // 2. Check Database Outbox / Notification History. public.notifications is the outbound
+  // send-log table — idempotency_key is its own column, there is no metadata column here
+  // (that shape belongs to the separate public.user_notifications in-app bell table).
+  if (payload.idempotencyKey) {
+    try {
+      const { data: existing } = await (supabaseAdmin.from("notifications") as any)
+        .select("id, provider_message_id, status")
+        .eq("idempotency_key", payload.idempotencyKey)
+        .eq("status", "sent")
+        .abortSignal(AbortSignal.timeout(500))
+        .maybeSingle();
+
+      if (existing) {
+        processedNotificationKeys.add(payload.idempotencyKey);
+        return {
+          success: true,
+          idempotencyKey: payload.idempotencyKey,
+          messageId: existing.provider_message_id ?? existing.id,
+          alreadySent: true,
+        };
+      }
+    } catch {
+      // Non-blocking query failure
+    }
+  }
+
+  const result = await dispatchViaBrevo(payload);
+
+  if (result.success) {
+    processedNotificationKeys.add(key);
+
+    if (!result.isDevNoop) {
+      // Record in the real outbox table (public.notifications). Real columns are
+      // entity_type/entity_id/template_name/channel/recipient_email/status/
+      // provider_message_id/idempotency_key/sent_at — there is no user_id/title/
+      // message/type/metadata here (that shape belongs to user_notifications, the
+      // separate in-app bell table, written to below only when userId is provided).
+      try {
+        await (supabaseAdmin.from("notifications") as any)
+          .insert({
+            entity_type: payload.entityType ?? "notification",
+            entity_id: payload.entityId ?? key,
+            template_name: payload.notificationType || "GENERIC",
+            channel: "email",
+            recipient_email: payload.toEmail,
+            status: "sent",
+            provider_message_id: result.messageId,
+            idempotency_key: key,
+            sent_at: new Date().toISOString(),
+          })
+          .abortSignal(AbortSignal.timeout(500));
+      } catch (dbErr: any) {
+        console.warn("[Notifications] Failed to persist outbox record:", dbErr.message);
+      }
+
+      if (payload.userId) {
+        try {
+          await (supabaseAdmin.from("user_notifications") as any)
+            .insert({
+              user_id: payload.userId,
+              title: payload.subject,
+              message: payload.subject,
+              type: payload.notificationType || "order_update",
+              metadata: {
+                idempotency_key: key,
+                message_id: result.messageId,
+                channel: "email",
+                sent_at: new Date().toISOString(),
+              },
+            })
+            .abortSignal(AbortSignal.timeout(500));
+        } catch (dbErr: any) {
+          console.warn("[Notifications] Failed to persist in-app bell record:", dbErr.message);
+        }
+      }
+    }
+
+    return { success: true, messageId: result.messageId, idempotencyKey: key };
+  }
+
+  // Record the failed send in the outbox too — the outbox pattern exists specifically to
+  // give real visibility into failures, not just successes. `payload` preserves the exact
+  // render inputs so the retry worker can actually resend this notification later, rather
+  // than having a dead-letter row with nothing left to retry.
+  try {
+    await (supabaseAdmin.from("notifications") as any).insert({
+      entity_type: payload.entityType ?? "notification",
+      entity_id: payload.entityId ?? key,
+      template_name: payload.notificationType || "GENERIC",
+      channel: "email",
+      recipient_email: payload.toEmail,
+      status: "failed",
+      error_message: result.error || "Failed to send email after retries",
+      idempotency_key: key,
+      payload: {
+        toEmail: payload.toEmail,
+        toName: payload.toName,
+        subject: payload.subject,
+        htmlContent: payload.htmlContent,
+        userId: payload.userId,
+      },
+      attempts: 1,
+    });
+  } catch {
+    // Non-blocking — do not let outbox logging failure mask the real send failure below.
+  }
+
   return {
     success: false,
     idempotencyKey: key,
-    error: lastError || "Failed to send email after retries",
+    error: result.error || "Failed to send email after retries",
   };
+}
+
+/**
+ * Retry an existing failed outbox row in place — sends via Brevo directly (no idempotency
+ * short-circuit, no new outbox insert) and returns the raw result for the caller to apply
+ * to that same row. This is what jobs.ts's retry worker uses; it must NOT go through
+ * sendTransactionalNotification, which always inserts a brand-new outbox row on success —
+ * that would leave two rows (the updated original plus a fresh duplicate) for one logical
+ * notification.
+ */
+export async function retryNotificationSend(payload: TransactionalEmailPayload): Promise<{
+  success: boolean;
+  messageId?: string | undefined;
+  error?: string | undefined;
+}> {
+  const result = await dispatchViaBrevo(payload);
+  return { success: result.success, messageId: result.messageId, error: result.error };
 }
 
 /**
@@ -214,6 +295,8 @@ export async function sendOrderConfirmationEmail(params: {
     idempotencyKey: params.idempotencyKey || `order_confirm_${params.masterOrderId}`,
     userId: params.userId,
     notificationType: "ORDER_CONFIRMATION",
+    entityType: "order",
+    entityId: params.masterOrderId,
   });
 }
 
@@ -256,6 +339,8 @@ export async function sendSellerNewOrderEmail(params: {
     idempotencyKey: params.idempotencyKey || `seller_new_order_${params.subOrderId}`,
     userId: params.sellerUserId,
     notificationType: "SELLER_NEW_ORDER",
+    entityType: "sub_order",
+    entityId: params.subOrderId,
   });
 }
 
@@ -287,6 +372,8 @@ export async function sendDispatchDeadlineReminderEmail(params: {
     idempotencyKey:
       params.idempotencyKey || `deadline_remind_${params.subOrderId}_${params.hoursRemaining}h`,
     notificationType: "DISPATCH_DEADLINE_REMINDER",
+    entityType: "sub_order",
+    entityId: params.subOrderId,
   });
 }
 
@@ -329,6 +416,8 @@ export async function sendPackageDispatchedEmail(params: {
     idempotencyKey: params.idempotencyKey || `shipped_${params.subOrderId}`,
     userId: params.userId,
     notificationType: "PACKAGE_SHIPPED",
+    entityType: "sub_order",
+    entityId: params.subOrderId,
   });
 }
 
@@ -368,6 +457,8 @@ export async function sendPackageDeliveredEmail(params: {
     idempotencyKey: params.idempotencyKey || `delivered_${params.subOrderId}`,
     userId: params.userId,
     notificationType: "PACKAGE_DELIVERED",
+    entityType: "sub_order",
+    entityId: params.subOrderId,
   });
 }
 
@@ -405,6 +496,8 @@ export async function sendReturnUpdateEmail(params: {
     idempotencyKey: params.idempotencyKey || `return_${params.returnId}_${params.status}`,
     userId: params.userId,
     notificationType: "RETURN_UPDATE",
+    entityType: "return",
+    entityId: params.returnId,
   });
 }
 
@@ -439,6 +532,8 @@ export async function sendRefundConfirmationEmail(params: {
     idempotencyKey: params.idempotencyKey || `refund_${params.orderId}_${params.refundAmountAud}`,
     userId: params.userId,
     notificationType: "REFUND_CONFIRMED",
+    entityType: "order",
+    entityId: params.orderId,
   });
 }
 
@@ -473,32 +568,82 @@ export async function sendSellerPayoutEmail(params: {
     idempotencyKey: params.idempotencyKey || `payout_${params.payoutId}`,
     userId: params.sellerUserId,
     notificationType: "SELLER_PAYOUT_SETTLED",
+    entityType: "payout",
+    entityId: params.payoutId,
+  });
+}
+
+/**
+ * 9. Send Seller Staff Team Invite Email
+ */
+export async function sendSellerStaffInviteEmail(params: {
+  inviteeEmail: string;
+  inviteeName: string;
+  sellerBusinessName: string;
+  inviterName: string;
+  role: string;
+  acceptUrl: string;
+  expiresInDays: number;
+  idempotencyKey?: string | undefined;
+}): Promise<NotificationSendResult> {
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a1a;">
+      <h1 style="color: #b91c1c;">Indian Shopping Mela — Seller Centre</h1>
+      <h2>You've Been Invited to Join a Seller Team</h2>
+      <p>Dear ${params.inviteeName || "there"},</p>
+      <p><strong>${params.inviterName}</strong> has invited you to join <strong>${params.sellerBusinessName}</strong>'s seller team on Indian Shopping Mela as a <strong>${params.role}</strong>.</p>
+      <p><a href="${params.acceptUrl}" style="background-color: #b91c1c; color: white; padding: 10px 18px; text-decoration: none; border-radius: 4px; display: inline-block;">Accept Invitation</a></p>
+      <p style="font-size: 12px; color: #6b7280; margin-top: 20px;">This invitation expires in ${params.expiresInDays} days. If you did not expect this invitation, you can safely ignore this email.</p>
+    </div>
+  `;
+
+  return sendTransactionalNotification({
+    toEmail: params.inviteeEmail,
+    toName: params.inviteeName || params.inviteeEmail,
+    subject: `You're invited to join ${params.sellerBusinessName} on Indian Shopping Mela`,
+    htmlContent,
+    idempotencyKey: params.idempotencyKey,
+    notificationType: "SELLER_STAFF_INVITE",
+    entityType: "seller_staff_invite",
+    entityId: params.acceptUrl,
   });
 }
 
 /**
  * Server Functions for in-app client retrieval
  */
-export const getUserNotificationsServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string }) => data)
-  .handler(async ({ data }) => {
-    const { data: notifs, error } = await (supabaseAdmin.from("notifications") as any)
+export const getUserNotificationsServerFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    // In-app bell notifications live in user_notifications, not notifications
+    // (the latter is the outbound send-log/outbox and has no user_id column at all).
+    // Verified session is authoritative — a client-supplied userId would let anyone
+    // read another user's notification history (order/return/payout content).
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view your notifications.");
+    }
+    const { data: notifs, error } = await (supabaseAdmin.from("user_notifications") as any)
       .select("*")
-      .eq("user_id", data.userId)
+      .eq("user_id", verifiedUserId)
       .order("created_at", { ascending: false })
       .limit(30);
 
     if (error) return [];
     return notifs || [];
-  });
+  },
+);
 
 export const markNotificationReadServerFn = createServerFn({ method: "POST" })
-  .validator((data: { notificationId: string; userId: string }) => data)
+  .validator((data: { notificationId: string }) => data)
   .handler(async ({ data }) => {
-    await (supabaseAdmin.from("notifications") as any)
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to update your notifications.");
+    }
+    await (supabaseAdmin.from("user_notifications") as any)
       .update({ is_read: true })
       .eq("id", data.notificationId)
-      .eq("user_id", data.userId);
+      .eq("user_id", verifiedUserId);
 
     return { success: true };
   });
@@ -516,6 +661,11 @@ export const sendOrderConfirmationEmailServerFn = createServerFn({ method: "POST
     }) => data,
   )
   .handler(async ({ data }) => {
+    // Unauthenticated callers could otherwise use this to send unlimited freeform
+    // "order confirmed" emails, impersonating ISM, to any address via the marketplace's
+    // own Brevo account — real order emails are triggered server-side from the Stripe
+    // webhook, not by a directly client-callable RPC.
+    await requireAdminSession();
     const res = await sendOrderConfirmationEmail(data);
     return res.success;
   });
@@ -533,6 +683,7 @@ export const sendPackageDispatchedEmailServerFn = createServerFn({ method: "POST
     }) => data,
   )
   .handler(async ({ data }) => {
+    await requireAdminSession();
     const res = await sendPackageDispatchedEmail(data);
     return res.success;
   });

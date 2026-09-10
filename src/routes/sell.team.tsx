@@ -7,6 +7,7 @@ import { SELLER_PERMISSIONS, type SellerPermission, type StaffMember } from "@/l
 import { useAuth } from "@/hooks/use-auth";
 
 import {
+  getCurrentSellerProfile,
   getSellerTeamMembersServerFn,
   inviteSellerStaffServerFn,
   updateSellerStaffPermissionsServerFn,
@@ -70,7 +71,8 @@ const DEFAULT_MEMBERS: StaffMember[] = [
 
 function TeamPage() {
   const { user } = useAuth();
-  const sellerId = user?.id || "mumbai-mirror-boutique";
+  const [resolvedSellerId, setResolvedSellerId] = useState<string | null>(null);
+  const sellerId = resolvedSellerId;
   const [staff, setStaff] = useState<StaffMember[]>(DEFAULT_MEMBERS);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -86,6 +88,15 @@ function TeamPage() {
   const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
+    getCurrentSellerProfile()
+      .then((seller) => {
+        if (seller?.id) setResolvedSellerId(seller.id);
+      })
+      .catch(() => null);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!sellerId) return;
     getSellerTeamMembersServerFn({ data: { sellerId } })
       .then((members) => {
         if (members && members.length > 0) {
@@ -107,7 +118,7 @@ function TeamPage() {
 
   const toggle = async (email: string, perm: SellerPermission) => {
     const member = staff.find((m) => m.email === email);
-    if (!member || member.role === "Owner") return;
+    if (!member || member.role === "Owner" || !sellerId) return;
 
     const nextPermissions = member.permissions.includes(perm)
       ? member.permissions.filter((p) => p !== perm)
@@ -138,6 +149,7 @@ function TeamPage() {
       toast.error("Cannot revoke store owner");
       return;
     }
+    if (!sellerId) return;
 
     try {
       await revokeSellerStaffMemberServerFn({
@@ -157,6 +169,12 @@ function TeamPage() {
     e.preventDefault();
     if (!inviteEmail || !inviteName) {
       toast.error("Please provide email and name");
+      return;
+    }
+    if (!sellerId) {
+      toast.error("Seller account required", {
+        description: "Complete seller onboarding before inviting team members.",
+      });
       return;
     }
 

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getVerifiedSessionUserId } from "./server-auth";
 import type { Address } from "@/lib/supabase/types";
 
 export interface CustomerAddressDto {
@@ -39,9 +40,12 @@ export interface CustomerOrderSummaryDto {
 /**
  * Server Function: Get customer's live orders with seller packages & tracking
  */
-export const getCustomerOrdersServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string }) => data)
-  .handler(async ({ data }): Promise<CustomerOrderSummaryDto[]> => {
+export const getCustomerOrdersServerFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<CustomerOrderSummaryDto[]> => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view your orders.");
+    }
     const { data: rows, error } = await (supabaseAdmin.from("orders") as any)
       .select(
         `
@@ -58,20 +62,18 @@ export const getCustomerOrdersServerFn = createServerFn({ method: "POST" })
           tracking_number,
           seller:sellers (
             business_name,
-            store_name,
             slug
           ),
           order_items (
             id,
-            title,
+            product_name,
             unit_price,
-            quantity,
-            image_url
+            quantity
           )
         )
       `,
       )
-      .eq("customer_id", data.userId)
+      .eq("customer_id", verifiedUserId)
       .order("created_at", { ascending: false });
 
     if (error || !rows || rows.length === 0) {
@@ -88,32 +90,35 @@ export const getCustomerOrdersServerFn = createServerFn({ method: "POST" })
       packagesCount: order.sub_orders?.length || 0,
       packages: (order.sub_orders || []).map((sub: any) => ({
         subOrderId: sub.id,
-        sellerName: sub.seller?.store_name || sub.seller?.business_name || "ISM Seller",
+        sellerName: sub.seller?.business_name || "ISM Seller",
         sellerSlug: sub.seller?.slug || "seller",
         status: sub.status,
         carrier: sub.carrier,
         trackingNumber: sub.tracking_number,
         items: (sub.order_items || []).map((item: any) => ({
           id: item.id,
-          title: item.title,
+          title: item.product_name,
           unitPriceAud: Number(item.unit_price),
           quantity: item.quantity,
-          imageUrl: item.image_url,
         })),
       })),
     }));
-  });
+  },
+);
 
 /**
  * Server Function: Get customer saved addresses
  */
-export const getCustomerAddressesServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string }) => data)
-  .handler(async ({ data }): Promise<CustomerAddressDto[]> => {
+export const getCustomerAddressesServerFn = createServerFn({ method: "POST" }).handler(
+  async (): Promise<CustomerAddressDto[]> => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view your addresses.");
+    }
     const { data: rows } = await (supabaseAdmin as any)
       .from("customer_addresses")
       .select("*")
-      .eq("user_id", data.userId)
+      .eq("user_id", verifiedUserId)
       .order("is_default", { ascending: false });
 
     if (!rows || rows.length === 0) {
@@ -150,7 +155,8 @@ export const getCustomerAddressesServerFn = createServerFn({ method: "POST" })
       },
       isDefault: r.is_default ?? false,
     }));
-  });
+  },
+);
 
 /**
  * Server Function: Save or update customer address
@@ -158,7 +164,6 @@ export const getCustomerAddressesServerFn = createServerFn({ method: "POST" })
 export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
   .validator(
     (data: {
-      userId: string;
       addressId?: string | undefined;
       tag: string;
       recipientName: string;
@@ -168,15 +173,22 @@ export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to save an address.");
+    }
+
     if (data.isDefault) {
       // Unset previous defaults
       await (supabaseAdmin as any)
         .from("customer_addresses")
         .update({ is_default: false })
-        .eq("user_id", data.userId);
+        .eq("user_id", verifiedUserId);
     }
 
     if (data.addressId && data.addressId !== "addr_default") {
+      // Scoping the update to user_id too (not just id) is the ownership check — without
+      // it, a client-supplied addressId belonging to another customer would be editable.
       await (supabaseAdmin as any)
         .from("customer_addresses")
         .update({
@@ -193,10 +205,10 @@ export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
           updated_at: new Date().toISOString(),
         })
         .eq("id", data.addressId)
-        .eq("user_id", data.userId);
+        .eq("user_id", verifiedUserId);
     } else {
       await (supabaseAdmin as any).from("customer_addresses").insert({
-        user_id: data.userId,
+        user_id: verifiedUserId,
         address_type: data.tag,
         full_name: data.recipientName,
         phone: data.phone,
@@ -217,12 +229,16 @@ export const saveCustomerAddressServerFn = createServerFn({ method: "POST" })
  * Server Function: Delete customer address
  */
 export const deleteCustomerAddressServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string; addressId: string }) => data)
+  .validator((data: { addressId: string }) => data)
   .handler(async ({ data }) => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to delete an address.");
+    }
     await (supabaseAdmin.from("customer_addresses") as any)
       .delete()
       .eq("id", data.addressId)
-      .eq("user_id", data.userId);
+      .eq("user_id", verifiedUserId);
 
     return { success: true };
   });
@@ -230,33 +246,41 @@ export const deleteCustomerAddressServerFn = createServerFn({ method: "POST" })
 /**
  * Server Function: Get customer returns list
  */
-export const getCustomerReturnsServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string }) => data)
-  .handler(async ({ data }) => {
-    const { data: rows, error } = await (supabaseAdmin.from("returns") as any)
-      .select(
-        "*, return_items(*), sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))",
-      )
-      .eq("customer_id", data.userId)
-      .order("created_at", { ascending: false });
+export const getCustomerReturnsServerFn = createServerFn({ method: "POST" }).handler(async () => {
+  // Verified session is authoritative — a client-supplied userId here would let anyone
+  // read another customer's return history (reasons, evidence, refund amounts).
+  const verifiedUserId = await getVerifiedSessionUserId();
+  if (!verifiedUserId) {
+    throw new Error("UNAUTHORIZED: Sign in to view your returns.");
+  }
+  const { data: rows, error } = await (supabaseAdmin.from("returns") as any)
+    .select(
+      "*, return_items(*), sub_order:sub_orders(id, master_order_id, seller:sellers(business_name))",
+    )
+    .eq("customer_id", verifiedUserId)
+    .order("created_at", { ascending: false });
 
-    if (error || !rows) return [];
-    return rows;
-  });
+  if (error || !rows) return [];
+  return rows;
+});
 
 /**
  * Server Function: Update customer profile details
  */
 export const updateCustomerProfileServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string; fullName: string; phone?: string | undefined }) => data)
+  .validator((data: { fullName: string; phone?: string | undefined }) => data)
   .handler(async ({ data }) => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to update your profile.");
+    }
     const { error } = await (supabaseAdmin.from("profiles") as any)
       .update({
         full_name: data.fullName,
         phone: data.phone ?? null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", data.userId);
+      .eq("id", verifiedUserId);
 
     if (error) {
       throw new Error(`Failed to update profile: ${error.message}`);
@@ -268,12 +292,15 @@ export const updateCustomerProfileServerFn = createServerFn({ method: "POST" })
 /**
  * Server Function: Get customer notification preferences
  */
-export const getCustomerNotificationPreferencesServerFn = createServerFn({ method: "POST" })
-  .validator((data: { userId: string }) => data)
-  .handler(async ({ data }) => {
+export const getCustomerNotificationPreferencesServerFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const verifiedUserId = await getVerifiedSessionUserId();
+    if (!verifiedUserId) {
+      throw new Error("UNAUTHORIZED: Sign in to view your notification preferences.");
+    }
     const { data: profile } = await (supabaseAdmin.from("profiles") as any)
       .select("avatar_url, phone")
-      .eq("id", data.userId)
+      .eq("id", verifiedUserId)
       .maybeSingle();
 
     return {
@@ -282,4 +309,5 @@ export const getCustomerNotificationPreferencesServerFn = createServerFn({ metho
       promotionsEmail: false,
       returnAlerts: true,
     };
-  });
+  },
+);

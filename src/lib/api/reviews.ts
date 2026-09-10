@@ -123,7 +123,7 @@ export const submitProductReviewServerFn = createServerFn({ method: "POST" })
       const avg = allReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / allReviews.length;
       await (supabaseAdmin.from("products") as any)
         .update({
-          rating_avg: Number(avg.toFixed(2)),
+          rating_average: Number(avg.toFixed(2)),
           rating_count: allReviews.length,
           updated_at: new Date().toISOString(),
         })

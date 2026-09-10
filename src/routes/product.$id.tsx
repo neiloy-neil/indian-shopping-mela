@@ -146,10 +146,7 @@ function ProductPage() {
                   />
                 </button>
               ))}
-              {Boolean(
-                (product as any).videoUrl ||
-                (product as any).media?.some((m: any) => m.media_type === "video"),
-              ) && (
+              {Boolean(product.videoUrl) && (
                 <button
                   onClick={() => setView("video")}
                   className={`relative overflow-hidden rounded-sm border-2 transition-colors ${
@@ -196,11 +193,7 @@ function ProductPage() {
                 ) : (
                   <div className="relative aspect-square w-full bg-black">
                     <video
-                      src={
-                        (product as any).videoUrl ||
-                        (product as any).media?.find((m: any) => m.media_type === "video")?.url ||
-                        ""
-                      }
+                      src={product.videoUrl ?? ""}
                       controls
                       muted
                       playsInline
@@ -213,10 +206,7 @@ function ProductPage() {
                   </div>
                 )}
               </div>
-              {Boolean(
-                (product as any).videoUrl ||
-                (product as any).media?.some((m: any) => m.media_type === "video"),
-              ) && (
+              {Boolean(product.videoUrl) && (
                 <div className="mt-3 flex gap-2">
                   {(["image", "video"] as const).map((v) => (
                     <button
