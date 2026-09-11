@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveSellerRowId } from "./sellers";
+import { requireVerifiedSellerAccess } from "./server-auth";
 import { AusPostShippingProvider, type ParcelDetails } from "./shipping";
 
 /**
@@ -14,6 +15,7 @@ export const acceptSubOrderServerFn = createServerFn({ method: "POST" })
 
 export async function acceptSubOrder(subOrderId: string, sellerId: string): Promise<boolean> {
   const resolvedSellerId = await resolveSellerRowId(sellerId);
+  await requireVerifiedSellerAccess(resolvedSellerId, "orders:fulfill");
   const { error } = await (supabaseAdmin.from("sub_orders") as any)
     .update({
       status: "PREPARING",
@@ -57,6 +59,7 @@ export async function generateShippingLabelForSubOrder(params: {
   manualTrackingNumber?: string | undefined;
 }): Promise<{ trackingNumber: string; labelPdfUrl: string }> {
   const resolvedSellerId = await resolveSellerRowId(params.sellerId);
+  await requireVerifiedSellerAccess(resolvedSellerId, "orders:fulfill");
 
   // 1. Fetch sub-order & master order customer address
   const { data: subOrder } = await (supabaseAdmin.from("sub_orders") as any)
@@ -159,6 +162,7 @@ export const markSubOrderPackedServerFn = createServerFn({ method: "POST" })
   .validator((data: { subOrderId: string; sellerId: string }) => data)
   .handler(async ({ data }) => {
     const resolvedSellerId = await resolveSellerRowId(data.sellerId);
+    await requireVerifiedSellerAccess(resolvedSellerId, "orders:fulfill");
     const { error } = await (supabaseAdmin.from("sub_orders") as any)
       .update({
         status: "READY_TO_SHIP",
@@ -194,7 +198,13 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
   .validator((data: { sellerId?: string | undefined }) => data)
   .handler(async ({ data }): Promise<SellerSubOrderRow[]> => {
     try {
-      let query = (supabaseAdmin.from("sub_orders") as any)
+      if (!data.sellerId) {
+        throw new Error("UNAUTHORIZED: sellerId is required.");
+      }
+      const resolvedSellerId = await resolveSellerRowId(data.sellerId);
+      await requireVerifiedSellerAccess(resolvedSellerId, "orders:view");
+
+      const { data: subOrders, error } = await (supabaseAdmin.from("sub_orders") as any)
         .select(
           `
           id,
@@ -209,14 +219,9 @@ export const getSellerSubOrdersServerFn = createServerFn({ method: "POST" })
           master_order:orders(order_number, customer_name, shipping_address)
         `,
         )
-        .order("created_at", { ascending: false });
-
-      if (data.sellerId) {
-        const resolvedSellerId = await resolveSellerRowId(data.sellerId);
-        query = query.eq("seller_id", resolvedSellerId);
-      }
-
-      const { data: subOrders, error } = await query.limit(50);
+        .eq("seller_id", resolvedSellerId)
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (error || !subOrders || subOrders.length === 0) {
         return [];
       }

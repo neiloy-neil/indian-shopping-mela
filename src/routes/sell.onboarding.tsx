@@ -192,6 +192,19 @@ function OnboardingPage() {
       }
     >
       <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3 text-xs">
+          <span className="text-muted-foreground">
+            Already registered as an approved seller or store manager on Indian Shopping Mela?
+          </span>
+          <Link
+            to="/signin"
+            search={{ redirect: "/sell" }}
+            className="font-bold text-rani hover:underline"
+          >
+            Sign in to Seller Centre →
+          </Link>
+        </div>
+
         <Card title="Application status">
           <div className="flex flex-wrap items-center gap-2">
             {ONBOARDING_STATUSES.map((s) => (

@@ -193,14 +193,20 @@ export const createCustomerReturnRequestServerFn = createServerFn({ method: "POS
 async function getReturnPartyIds(
   returnId: string,
 ): Promise<{ sellerId: string | null; customerId: string | null }> {
-  const { data } = await (supabaseAdmin.from("returns") as any)
+  const { data } = await supabaseAdmin
+    .from("returns")
     .select("customer_id, sub_orders:sub_order_id(seller_id)")
     .eq("id", returnId)
     .maybeSingle();
 
+  const row = data as unknown as {
+    customer_id?: string | null;
+    sub_orders?: { seller_id?: string | null } | null;
+  } | null;
+
   return {
-    sellerId: data?.sub_orders?.seller_id ?? null,
-    customerId: data?.customer_id ?? null,
+    sellerId: row?.sub_orders?.seller_id ?? null,
+    customerId: row?.customer_id ?? null,
   };
 }
 

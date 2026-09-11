@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Truck, Upload, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Badge,
   Button,
@@ -11,7 +12,7 @@ import {
   SellerShell,
   type SellerSection,
 } from "@/components/ism/SellerShell";
-import { IMAGES, formatAUD, productsBySeller } from "@/lib/ism-data";
+import { formatAUD } from "@/lib/ism-data";
 import { DEMO_NOTE, PAYOUT_RULE, PAYOUT_STAGES, BACKEND_REQUIRED_NOTES } from "@/lib/ism-ops";
 import {
   acceptSubOrderServerFn,
@@ -19,7 +20,10 @@ import {
   getSellerSubOrdersServerFn,
   markSubOrderPackedServerFn,
 } from "@/lib/api/fulfilment";
-import { useAuth } from "@/hooks/use-auth";
+import { getSellerProductsServerFn } from "@/lib/api/products";
+import { getSellerPayoutStatementServerFn } from "@/lib/api/payouts";
+import { getCurrentSellerProfile } from "@/lib/api/sellers";
+import type { PayoutStatus } from "@/lib/supabase/types";
 
 export const Route = createFileRoute("/sell/")({
   head: () => ({
@@ -55,7 +59,7 @@ type OrderItemType = {
   labelPdfUrl?: string | undefined;
 };
 
-const TRANSACTIONS: Array<{
+type TransactionRow = {
   order: string;
   date: string;
   gross: number;
@@ -63,37 +67,67 @@ const TRANSACTIONS: Array<{
   net: number;
   status: string;
   tone: "primary" | "teal" | "marigold" | "rani" | "neutral";
-}> = [
-  {
-    order: "ORD-2026-0812",
-    date: "08 Sep 2026",
-    gross: 249.0,
-    fee: 28.64,
-    net: 220.36,
-    status: "Delivered · Maturing in 13 days",
-    tone: "marigold",
-  },
-  {
-    order: "ORD-2026-0799",
-    date: "01 Sep 2026",
-    gross: 189.0,
-    fee: 21.74,
-    net: 167.26,
-    status: "Settled via Stripe Connect",
-    tone: "teal",
-  },
-];
+};
+
+type SellerProductRow = {
+  id: string;
+  name: string;
+  image: string;
+  price: number;
+  stock: number;
+};
+
+const FALLBACK_PRODUCT_IMAGE =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' fill='%23e5e7eb'/%3E%3C/svg%3E";
+
+function payoutStatusTone(status: PayoutStatus): TransactionRow["tone"] {
+  switch (status) {
+    case "PAID_TO_SELLER":
+      return "teal";
+    case "PAYOUT_PROCESSING":
+      return "primary";
+    case "PAYOUT_ELIGIBLE":
+      return "marigold";
+    case "PAYOUT_HOLD":
+      return "rani";
+    default:
+      return "neutral";
+  }
+}
 
 function SellerDashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [section, setSection] = useState<SellerSection>("dashboard");
   const [orders, setOrders] = useState<OrderItemType[]>([]);
-  const products = productsBySeller("mumbai-mirror-boutique");
+  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [products, setProducts] = useState<SellerProductRow[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      navigate({ to: "/signin", search: { redirect: "/sell" } });
+    }
+  }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getCurrentSellerProfile()
+      .then((seller) => {
+        if (isMounted) setSellerId(seller?.id ?? null);
+      })
+      .catch((err) => console.error("Error loading seller profile:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sellerId) return;
     async function loadLiveOrders() {
       try {
-        const liveSubOrders = await getSellerSubOrdersServerFn({ data: { sellerId: user?.id } });
+        const liveSubOrders = await getSellerSubOrdersServerFn({ data: { sellerId: sellerId! } });
         if (liveSubOrders && liveSubOrders.length > 0) {
           const mapped: OrderItemType[] = liveSubOrders.map((so) => {
             let tone: "new" | "prep" | "ready" | "ship" | "done" = "new";
@@ -139,16 +173,60 @@ function SellerDashboard() {
       }
     }
     loadLiveOrders();
-  }, [user?.id]);
+  }, [sellerId]);
+
+  useEffect(() => {
+    if (!sellerId) return;
+    getSellerProductsServerFn({ data: { sellerId } })
+      .then((rows) => {
+        setProducts(
+          rows.map((p) => {
+            const firstVariant = p.variants?.[0];
+            const price = firstVariant
+              ? Number(firstVariant.price ?? 0)
+              : 0;
+            const stock =
+              p.variants?.reduce((sum, v) => sum + (v.stock_quantity ?? 0), 0) ?? 0;
+            return {
+              id: p.id,
+              name: p.title,
+              image: p.media?.[0]?.url || p.media?.[0]?.thumbnail_url || FALLBACK_PRODUCT_IMAGE,
+              price,
+              stock,
+            };
+          }),
+        );
+      })
+      .catch((err) => console.error("Error loading seller products:", err));
+  }, [sellerId]);
+
+  useEffect(() => {
+    if (!sellerId) return;
+    getSellerPayoutStatementServerFn({ data: { sellerId } })
+      .then((result) => {
+        setTransactions(
+          result.statementItems.map((t) => ({
+            order: t.payoutBatchId || t.payoutId,
+            date: t.date,
+            gross: t.grossAud,
+            fee: t.commissionAud,
+            net: t.netAud,
+            status: t.status,
+            tone: payoutStatusTone(t.status),
+          })),
+        );
+      })
+      .catch((err) => console.error("Error loading seller payout statement:", err));
+  }, [sellerId]);
 
   const handleOrderAction = async (orderId: string) => {
     const currentOrder = orders.find((o) => o.id === orderId);
-    if (!currentOrder) return;
+    if (!currentOrder || !sellerId) return;
 
     if (currentOrder.status === "New Order") {
       try {
         await acceptSubOrderServerFn({
-          data: { subOrderId: orderId, sellerId: user?.id ?? "mumbai-mirror-boutique" },
+          data: { subOrderId: orderId, sellerId },
         });
 
         setOrders((prev) =>
@@ -167,7 +245,7 @@ function SellerDashboard() {
     } else if (currentOrder.status === "Preparing") {
       try {
         await markSubOrderPackedServerFn({
-          data: { subOrderId: orderId, sellerId: user?.id ?? "mumbai-mirror-boutique" },
+          data: { subOrderId: orderId, sellerId },
         });
 
         setOrders((prev) =>
@@ -188,7 +266,7 @@ function SellerDashboard() {
         const res = await generateShippingLabelServerFn({
           data: {
             subOrderId: orderId,
-            sellerId: user?.id ?? "mumbai-mirror-boutique",
+            sellerId,
             parcel: { weightKg: 0.5 },
           },
         });
@@ -232,7 +310,7 @@ function SellerDashboard() {
     const csvContent =
       "data:text/csv;charset=utf-8," +
       "Order,Date,Gross AUD,Marketplace Fee AUD,Net AUD,Payout Status\n" +
-      TRANSACTIONS.map(
+      transactions.map(
         (t) => `${t.order},${t.date},${t.gross},${t.fee},${t.net},"${t.status}"`,
       ).join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -367,7 +445,7 @@ function SellerDashboard() {
                     <td className="py-2.5">
                       <div className="flex items-center gap-2.5">
                         <img
-                          src={IMAGES[p.image]}
+                          src={p.image}
                           alt=""
                           loading="lazy"
                           width={900}
@@ -583,7 +661,7 @@ function SellerDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {TRANSACTIONS.map((t) => (
+                  {transactions.map((t) => (
                     <tr key={t.order}>
                       <td className="py-2.5 font-medium">{t.order}</td>
                       <td className="text-muted-foreground">{t.date}</td>

@@ -4,18 +4,29 @@ import { toast } from "sonner";
 import { ShopLayout } from "@/components/ism/ShopLayout";
 import { useAuth } from "@/hooks/use-auth";
 
+type SignInSearch = {
+  redirect?: string | undefined;
+};
+
 export const Route = createFileRoute("/signin")({
+  validateSearch: (s: Record<string, unknown>): SignInSearch => ({
+    redirect:
+      typeof s["redirect"] === "string" && s["redirect"].startsWith("/")
+        ? s["redirect"]
+        : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sign In — Indian Shopping Mela" },
       {
         name: "description",
-        content: "Sign in to your Indian Shopping Mela customer account, orders and wishlist.",
+        content:
+          "Sign in to your Indian Shopping Mela customer account, seller portal, or admin governance.",
       },
       { property: "og:title", content: "Sign In — Indian Shopping Mela" },
       {
         property: "og:description",
-        content: "Access your ISM orders, tracking, returns and wishlist.",
+        content: "Access your ISM orders, seller dashboard, tracking, returns and wishlist.",
       },
     ],
   }),
@@ -24,6 +35,7 @@ export const Route = createFileRoute("/signin")({
 
 function SignInPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const { signIn, signUp, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
@@ -39,16 +51,38 @@ function SignInPage() {
 
     try {
       if (mode === "signin") {
-        await signIn(email, password);
+        const user = await signIn(email, password);
         toast.success(`Welcome back!`);
-        navigate({ to: "/account", search: { tab: "overview" } });
+
+        if (search.redirect) {
+          navigate({ to: search.redirect as any });
+          return;
+        }
+
+        // Smart role-based routing when no explicit redirect is supplied
+        if (
+          user.role === "admin_super" ||
+          user.role === "admin_finance" ||
+          user.role === "admin_catalogue" ||
+          user.role === "admin_support"
+        ) {
+          navigate({ to: "/admin" });
+        } else if (user.role === "seller_owner" || user.role === "seller_staff") {
+          navigate({ to: "/sell" });
+        } else {
+          navigate({ to: "/account", search: { tab: "overview" } });
+        }
       } else if (mode === "signup") {
         const result = await signUp(email, password, fullName, phone);
         if (result.requiresEmailVerification) {
           toast.success("Account created! Please check your email to verify.");
         } else {
           toast.success("Account created successfully!");
-          navigate({ to: "/account", search: { tab: "overview" } });
+          if (search.redirect) {
+            navigate({ to: search.redirect as any });
+          } else {
+            navigate({ to: "/account", search: { tab: "overview" } });
+          }
         }
       } else if (mode === "forgot") {
         await resetPassword(email);
@@ -195,14 +229,33 @@ function SignInPage() {
             </div>
           )}
 
-          <div className="mt-6 space-y-2 border-t border-border pt-5 text-sm">
-            <p className="text-xs text-muted-foreground">Seller & Admin portals:</p>
-            <Link to="/sell" className="block text-xs font-semibold text-primary hover:text-rani">
-              → Seller dashboard & store onboarding
-            </Link>
-            <Link to="/admin" className="block text-xs font-semibold text-primary hover:text-rani">
-              → Marketplace admin governance
-            </Link>
+          <div className="mt-6 space-y-2.5 border-t border-border pt-5 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Portals & Onboarding
+            </p>
+            <div className="grid gap-2 text-xs">
+              <Link
+                to="/sell/onboarding"
+                className="flex items-center justify-between rounded-sm border border-border bg-surface px-3 py-2 font-semibold text-primary transition-colors hover:border-rani hover:text-rani"
+              >
+                <span>🚀 Apply to Sell on ISM (New Seller Onboarding)</span>
+                <span>→</span>
+              </Link>
+              <Link
+                to="/sell"
+                className="flex items-center justify-between rounded-sm border border-border bg-surface px-3 py-2 font-semibold text-primary transition-colors hover:border-rani hover:text-rani"
+              >
+                <span>🏬 Existing Seller Centre</span>
+                <span>→</span>
+              </Link>
+              <Link
+                to="/admin"
+                className="flex items-center justify-between rounded-sm border border-border bg-surface px-3 py-2 font-semibold text-primary transition-colors hover:border-rani hover:text-rani"
+              >
+                <span>🛡️ Marketplace Admin Governance</span>
+                <span>→</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

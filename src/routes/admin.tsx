@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Bell,
   ClipboardCheck,
@@ -180,7 +181,11 @@ function Pagination({
   );
 }
 
+const ADMIN_ROLES = ["admin_support", "admin_catalogue", "admin_finance", "admin_super"];
+
 function AdminPage() {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [section, setSection] = useState<Section>("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
@@ -209,6 +214,15 @@ function AdminPage() {
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const [pendingMfaAction, setPendingMfaAction] = useState<(() => Promise<void>) | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || !ADMIN_ROLES.includes(user.role)) {
+      navigate({ to: "/signin", search: { redirect: "/admin" } });
+    }
+  }, [authLoading, user, navigate]);
+
+  const isAuthorizedAdmin = !authLoading && !!user && ADMIN_ROLES.includes(user.role);
 
   const refreshAll = () => {
     getMarketplaceFinanceMetricsServerFn()
@@ -247,10 +261,11 @@ function AdminPage() {
   };
 
   useEffect(() => {
+    if (!isAuthorizedAdmin) return;
     refreshAll();
     setPage(1);
     setSearchTerm("");
-  }, [section]);
+  }, [section, isAuthorizedAdmin]);
 
   const executeWithMfaProtection = (action: () => Promise<void>) => {
     setPendingMfaAction(() => action);
@@ -351,6 +366,14 @@ function AdminPage() {
       refreshAll();
     });
   };
+
+  if (!isAuthorizedAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        {authLoading ? "Loading…" : "Redirecting to sign in…"}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
