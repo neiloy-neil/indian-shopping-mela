@@ -120,7 +120,7 @@ function SellerDashboard() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      navigate({ to: "/signin", search: { redirect: "/sell" } });
+      navigate({ to: "/signin", search: { portal: "seller", redirect: "/sell" } });
     }
   }, [authLoading, user, navigate]);
 

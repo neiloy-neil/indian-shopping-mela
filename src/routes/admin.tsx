@@ -218,7 +218,7 @@ function AdminPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user || !ADMIN_ROLES.includes(user.role)) {
-      navigate({ to: "/signin", search: { redirect: "/admin" } });
+      navigate({ to: "/signin", search: { portal: "admin", redirect: "/admin" } });
     }
   }, [authLoading, user, navigate]);
 

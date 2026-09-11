@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { CheckCircle2, Circle, ShieldCheck } from "lucide-react";
 import { Badge, Button, Card, Field, SellerShell } from "@/components/ism/SellerShell";
+import { useAuth } from "@/hooks/use-auth";
 import {
   DEMO_NOTE,
   ONBOARDING_STATUSES,
@@ -74,6 +75,9 @@ function Select({
 }
 
 function OnboardingPage() {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+
   const [step, setStep] = useState(0);
   const [status, setStatus] = useState<OnboardingStatus>("DRAFT");
   const [sameAsDispatch, setSameAsDispatch] = useState(true);
@@ -82,14 +86,46 @@ function OnboardingPage() {
   const [agreed, setAgreed] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form states
+  // Form states - Contact & Business
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [contactName, setContactName] = useState("");
   const [legalName, setLegalName] = useState("");
   const [tradingName, setTradingName] = useState("");
   const [abn, setAbn] = useState("");
+  const [gstRegistered, setGstRegistered] = useState("Yes");
+
+  // Form states - Addresses
   const [dispatchStreet, setDispatchStreet] = useState("");
   const [dispatchSuburb, setDispatchSuburb] = useState("");
   const [dispatchState, setDispatchState] = useState("NSW");
   const [dispatchPostcode, setDispatchPostcode] = useState("");
+
+  const [returnStreet, setReturnStreet] = useState("");
+  const [returnSuburb, setReturnSuburb] = useState("");
+  const [returnState, setReturnState] = useState("NSW");
+  const [returnPostcode, setReturnPostcode] = useState("");
+
+  // Payout states
+  const [bankBsb, setBankBsb] = useState("062-000");
+  const [bankAccountNumber, setBankAccountNumber] = useState("1029 4821");
+  const [bankAccountName, setBankAccountName] = useState("");
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      navigate({ to: "/signin", search: { portal: "seller", redirect: "/sell/onboarding" } });
+      return;
+    }
+    if (user) {
+      if (!email && user.email) setEmail(user.email);
+      if (!phone && user.phone) setPhone(user.phone);
+      if (!contactName && user.fullName) setContactName(user.fullName);
+      if (!bankAccountName && (tradingName || user.fullName)) {
+        setBankAccountName(tradingName || user.fullName || "");
+      }
+    }
+  }, [authLoading, user, navigate]);
 
   const allAgreed = agreed.length === SELLER_AGREEMENTS.length;
 
@@ -98,25 +134,35 @@ function OnboardingPage() {
     try {
       await saveSellerOnboardingServerFn({
         data: {
-          businessName: tradingName,
-          legalName,
-          abn,
+          email,
+          phone,
+          businessName: tradingName || `${contactName || "Seller"}'s Store`,
+          legalName: legalName || tradingName || contactName,
+          abn: abn.replace(/\s+/g, ""),
           businessType: sellerType,
-          slug: tradingName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          slug: (tradingName || "seller-store").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
           dispatchAddress: {
-            line1: dispatchStreet,
-            suburb: dispatchSuburb,
-            state: dispatchState,
-            postcode: dispatchPostcode,
+            line1: dispatchStreet || "123 Dispatch St",
+            suburb: dispatchSuburb || "Sydney",
+            state: dispatchState || "NSW",
+            postcode: dispatchPostcode || "2000",
             country: "Australia",
           },
-          returnAddress: {
-            line1: dispatchStreet,
-            suburb: dispatchSuburb,
-            state: dispatchState,
-            postcode: dispatchPostcode,
-            country: "Australia",
-          },
+          returnAddress: sameAsDispatch
+            ? {
+                line1: dispatchStreet || "123 Dispatch St",
+                suburb: dispatchSuburb || "Sydney",
+                state: dispatchState || "NSW",
+                postcode: dispatchPostcode || "2000",
+                country: "Australia",
+              }
+            : {
+                line1: returnStreet || dispatchStreet || "123 Return St",
+                suburb: returnSuburb || dispatchSuburb || "Sydney",
+                state: returnState || dispatchState || "NSW",
+                postcode: returnPostcode || dispatchPostcode || "2000",
+                country: "Australia",
+              },
           termsAcceptedVersion: "V1_2026",
           status: "DRAFT",
         },
@@ -136,9 +182,11 @@ function OnboardingPage() {
     try {
       await saveSellerOnboardingServerFn({
         data: {
+          email,
+          phone,
           businessName: tradingName,
           legalName,
-          abn,
+          abn: abn.replace(/\s+/g, ""),
           businessType: sellerType,
           slug: tradingName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
           dispatchAddress: {
@@ -148,13 +196,21 @@ function OnboardingPage() {
             postcode: dispatchPostcode,
             country: "Australia",
           },
-          returnAddress: {
-            line1: dispatchStreet,
-            suburb: dispatchSuburb,
-            state: dispatchState,
-            postcode: dispatchPostcode,
-            country: "Australia",
-          },
+          returnAddress: sameAsDispatch
+            ? {
+                line1: dispatchStreet,
+                suburb: dispatchSuburb,
+                state: dispatchState,
+                postcode: dispatchPostcode,
+                country: "Australia",
+              }
+            : {
+                line1: returnStreet,
+                suburb: returnSuburb,
+                state: returnState,
+                postcode: returnPostcode,
+                country: "Australia",
+              },
           termsAcceptedVersion: "V1_2026",
           status: "SUBMITTED",
         },
@@ -176,6 +232,11 @@ function OnboardingPage() {
       active="onboarding"
       title="Become a Seller"
       subtitle="Onboarding application · Australian marketplace registration"
+      brand={{
+        storeName: tradingName || (user?.fullName ? `${user.fullName}'s Store` : "Seller Onboarding"),
+        location: dispatchSuburb ? `${dispatchSuburb}, ${dispatchState}` : "Australia",
+        verified: false,
+      }}
       actions={
         <>
           <Button variant="outline" disabled={isSubmitting} onClick={handleSaveDraft}>
@@ -198,7 +259,7 @@ function OnboardingPage() {
           </span>
           <Link
             to="/signin"
-            search={{ redirect: "/sell" }}
+            search={{ portal: "seller", redirect: "/sell" }}
             className="font-bold text-rani hover:underline"
           >
             Sign in to Seller Centre →
@@ -253,17 +314,38 @@ function OnboardingPage() {
         {step === 0 && (
           <Card title="Verify email and mobile">
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Email" defaultValue="seller@store.com.au" required readOnly />
-              <Field label="Mobile" defaultValue="+61 4•• ••• 218" required readOnly />
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Email Address <span className="text-rani">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seller@store.com.au"
+                  className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Mobile Number <span className="text-rani">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0400 000 000"
+                  className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Badge tone="teal">
-                <ShieldCheck size={12} /> Email verified
+                <ShieldCheck size={12} /> Contact Information Editable
               </Badge>
-              <Badge tone="teal">
-                <ShieldCheck size={12} /> Mobile verified
-              </Badge>
-              <Badge tone="marigold">MFA recommended</Badge>
+              <Badge tone="marigold">MFA Recommended</Badge>
             </div>
           </Card>
         )}
@@ -279,39 +361,36 @@ function OnboardingPage() {
               />
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Legal entity name
+                  Legal entity name <span className="text-rani">*</span>
                 </label>
                 <input
                   value={legalName}
                   onChange={(e) => setLegalName(e.target.value)}
+                  placeholder="e.g. Melbourne Sari Palace Pty Ltd"
                   className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                   required
                 />
               </div>
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Trading name
+                  Trading name (Store Name) <span className="text-rani">*</span>
                 </label>
                 <input
                   value={tradingName}
                   onChange={(e) => setTradingName(e.target.value)}
+                  placeholder="e.g. Mumbai Mirror Boutique"
                   className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                   required
                 />
               </div>
-              <Field
-                label="Store name (shown to customers)"
-                defaultValue={tradingName}
-                required
-                readOnly
-              />
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  ABN
+                  Australian Business Number (ABN) <span className="text-rani">*</span>
                 </label>
                 <input
                   value={abn}
                   onChange={(e) => setAbn(e.target.value)}
+                  placeholder="11-digit ABN (e.g. 51 824 753 556)"
                   className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                   required
                 />
@@ -319,9 +398,31 @@ function OnboardingPage() {
                   Verified against the Australian Business Register (ABR)
                 </p>
               </div>
-              <Field label="GST registered" defaultValue="Yes" required />
-              <Field label="Contact name" defaultValue="Meera Shah" required />
-              <Field label="Contact phone" defaultValue="+61 4•• ••• 218" required />
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  GST Registered
+                </label>
+                <select
+                  value={gstRegistered}
+                  onChange={(e) => setGstRegistered(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                >
+                  <option value="Yes">Yes (10% GST Inclusive)</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Primary Contact Name <span className="text-rani">*</span>
+                </label>
+                <input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  placeholder="Contact Name"
+                  className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
             </div>
           </Card>
         )}
@@ -332,11 +433,12 @@ function OnboardingPage() {
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Street
+                    Street Address <span className="text-rani">*</span>
                   </label>
                   <input
                     value={dispatchStreet}
                     onChange={(e) => setDispatchStreet(e.target.value)}
+                    placeholder="e.g. 45 Wigram Street"
                     className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                     required
                   />
@@ -344,39 +446,44 @@ function OnboardingPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                      Suburb
+                      Suburb <span className="text-rani">*</span>
                     </label>
                     <input
                       value={dispatchSuburb}
                       onChange={(e) => setDispatchSuburb(e.target.value)}
+                      placeholder="e.g. Harris Park"
                       className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                       required
                     />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                      State
+                      State <span className="text-rani">*</span>
                     </label>
-                    <input
+                    <select
                       value={dispatchState}
                       onChange={(e) => setDispatchState(e.target.value)}
                       className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
-                      required
-                    />
+                    >
+                      {["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"].map((st) => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                      Postcode
+                      Postcode <span className="text-rani">*</span>
                     </label>
                     <input
                       value={dispatchPostcode}
                       onChange={(e) => setDispatchPostcode(e.target.value)}
+                      placeholder="2150"
                       className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
                       required
                     />
                   </div>
                 </div>
-                <Field label="Handling time" defaultValue="1–2 business days" required />
+                <Field label="Handling time SLA" defaultValue="1–2 business days" required readOnly />
               </div>
             </Card>
             <Card title="Return address">
@@ -391,17 +498,63 @@ function OnboardingPage() {
               </label>
               {!sameAsDispatch && (
                 <div className="space-y-3">
-                  <Field label="Street" placeholder="Return street address" required />
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      Return Street Address
+                    </label>
+                    <input
+                      value={returnStreet}
+                      onChange={(e) => setReturnStreet(e.target.value)}
+                      placeholder="Return street address"
+                      className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                      required
+                    />
+                  </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <Field label="Suburb" placeholder="Suburb" required />
-                    <Field label="State" placeholder="NSW" required />
-                    <Field label="Postcode" placeholder="2000" required />
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                        Suburb
+                      </label>
+                      <input
+                        value={returnSuburb}
+                        onChange={(e) => setReturnSuburb(e.target.value)}
+                        placeholder="Suburb"
+                        className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                        State
+                      </label>
+                      <select
+                        value={returnState}
+                        onChange={(e) => setReturnState(e.target.value)}
+                        className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                      >
+                        {["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"].map((st) => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                        Postcode
+                      </label>
+                      <input
+                        value={returnPostcode}
+                        onChange={(e) => setReturnPostcode(e.target.value)}
+                        placeholder="2000"
+                        className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
               )}
               {sameAsDispatch && (
                 <p className="text-sm text-muted-foreground">
-                  Returns will be addressed to {dispatchStreet}, {dispatchSuburb} {dispatchState}{" "}
+                  Returns will be addressed to {dispatchStreet || "Your Dispatch Address"}, {dispatchSuburb || ""} {dispatchState}{" "}
                   {dispatchPostcode}.
                 </p>
               )}
@@ -411,33 +564,47 @@ function OnboardingPage() {
 
         {step === 3 && (
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Stripe Connect Payouts (AUD)">
+            <Card title="Direct Bank & Stripe Payouts (AUD)">
               <p className="text-sm text-muted-foreground">
                 Sellers are paid in AUD directly to their Australian bank account via Stripe Connect
                 14 days post-delivery.
               </p>
-              <div className="mt-3 space-y-2 text-sm">
-                <p>
-                  Account on file: <span className="font-semibold">•••• •••• 4821</span> (BSB:
-                  062-000)
-                </p>
+              <div className="mt-3 space-y-3 text-sm">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    BSB
+                  </label>
+                  <input
+                    value={bankBsb}
+                    onChange={(e) => setBankBsb(e.target.value)}
+                    placeholder="062-000"
+                    className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Account Number
+                  </label>
+                  <input
+                    value={bankAccountNumber}
+                    onChange={(e) => setBankAccountNumber(e.target.value)}
+                    placeholder="1234 5678"
+                    className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Account Name
+                  </label>
+                  <input
+                    value={bankAccountName}
+                    onChange={(e) => setBankAccountName(e.target.value)}
+                    placeholder="Account Name"
+                    className="mt-1 h-10 w-full rounded-sm border border-input bg-surface px-3 text-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
                 <Badge tone="teal">Stripe Connect Ready (AU)</Badge>
               </div>
-              <Button
-                className="mt-4"
-                variant="primary"
-                onClick={async () => {
-                  try {
-                    toast.success("Connecting Stripe Account...", {
-                      description: "Opening secure Australian KYC onboarding window.",
-                    });
-                  } catch (err: any) {
-                    toast.error("Stripe Onboarding error", { description: err.message });
-                  }
-                }}
-              >
-                Connect Stripe Payout Account
-              </Button>
             </Card>
 
             <Card title="Verification documents">
