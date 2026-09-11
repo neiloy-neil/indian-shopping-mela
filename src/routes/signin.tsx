@@ -136,7 +136,7 @@ function SignInPage() {
         ...search,
         portal: newPortal,
         mode: newPortal === "admin" && mode === "signup" ? "signin" : mode,
-      },
+      } as any,
     });
   };
 
@@ -147,7 +147,7 @@ function SignInPage() {
         ...search,
         portal,
         mode: newMode,
-      },
+      } as any,
     });
   };
 
