@@ -1027,18 +1027,36 @@ function OnboardingPage() {
         <div className="flex justify-between gap-2">
           <Button
             variant="outline"
-            disabled={step === 0}
+            disabled={step === 0 || isSubmitting}
             onClick={() => setStep((s) => Math.max(0, s - 1))}
           >
             Back
           </Button>
-          <Button
-            variant="primary"
-            disabled={step === STEPS.length - 1}
-            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-          >
-            Continue
-          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button
+              variant="primary"
+              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+            >
+              Continue
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              disabled={isSubmitting || status === "SUBMITTED"}
+              onClick={handleSubmitApplication}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting Application...
+                </>
+              ) : status === "SUBMITTED" ? (
+                "Application Submitted"
+              ) : (
+                "Submit Application"
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </SellerShell>

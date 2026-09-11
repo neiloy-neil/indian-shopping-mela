@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Hardened SECURITY DEFINER functions with explicit search_path
+-- Hardened SECURITY DEFINER functions with explicit search_path and row_security disabled to eliminate RLS recursion
 CREATE OR REPLACE FUNCTION public.is_admin(user_uuid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -256,7 +256,7 @@ BEGIN
           AND role IN ('admin_support', 'admin_catalogue', 'admin_finance', 'admin_super')
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp SET row_security = off;
 
 CREATE OR REPLACE FUNCTION public.is_super_admin(user_uuid UUID DEFAULT auth.uid())
 RETURNS BOOLEAN AS $$
@@ -266,7 +266,35 @@ BEGIN
         WHERE id = user_uuid AND role = 'admin_super'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp SET row_security = off;
+
+-- Automatic User Profile Provisioning Trigger
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, full_name, role)
+    VALUES (
+        NEW.id,
+        COALESCE(NEW.email, ''),
+        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''),
+        COALESCE(
+            NULLIF(NEW.raw_app_meta_data->>'role', '')::user_role,
+            NULLIF(NEW.raw_user_meta_data->>'role', '')::user_role,
+            'customer'::user_role
+        )
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        email = EXCLUDED.email,
+        full_name = COALESCE(NULLIF(EXCLUDED.full_name, ''), public.profiles.full_name),
+        updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp SET row_security = off;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 -- ----------------------------------------------------------------------------
 -- 3. SELLERS, STAFF, AGREEMENTS, ADDRESSES, DOCUMENTS
