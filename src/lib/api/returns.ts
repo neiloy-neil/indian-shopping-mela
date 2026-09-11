@@ -3,12 +3,26 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe-server";
 import { postLedgerEntry } from "./ledger";
 import { restockVariantInventory } from "./inventory";
+import { resolveSellerRowId } from "./sellers";
 import {
   getVerifiedSessionUserId,
   requireFinanceAdminSession,
   requireVerifiedSellerAccess,
 } from "./server-auth";
 import type { Database, ReturnReasonCode, ReturnStatus } from "@/lib/supabase/types";
+
+export interface SellerReturnRow {
+  id: string;
+  subOrderId: string;
+  orderNumber?: string | undefined;
+  productName: string;
+  reason: string;
+  reasonCode: string;
+  status: string;
+  refundAmountAud: number;
+  customerNotes?: string | undefined;
+  createdAt: string;
+}
 
 export interface CreateReturnPayload {
   subOrderId: string;
@@ -184,6 +198,87 @@ export const createCustomerReturnRequestServerFn = createServerFn({ method: "POS
     // customer's real subOrderId/orderItemIds to file a return "as" them.
     return createCustomerReturnRequest({ ...data, customerId: verifiedUserId });
   });
+
+/**
+ * Server Function: Fetch return requests for a specific seller's sub-orders.
+ */
+export const getSellerReturnsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { sellerId: string }) => data)
+  .handler(async ({ data }): Promise<SellerReturnRow[]> => {
+    const resolvedSellerId = await resolveSellerRowId(data.sellerId);
+    await requireVerifiedSellerAccess(resolvedSellerId, "returns:view");
+    return getSellerReturns(resolvedSellerId);
+  });
+
+export async function getSellerReturns(sellerId: string): Promise<SellerReturnRow[]> {
+  const { data: returns, error } = await supabaseAdmin
+    .from("returns")
+    .select(
+      `
+      id,
+      sub_order_id,
+      reason,
+      reason_code,
+      status,
+      customer_notes,
+      refund_amount,
+      created_at,
+      sub_orders:sub_order_id!inner(
+        id,
+        seller_id,
+        orders:master_order_id(order_number)
+      ),
+      return_items(
+        quantity,
+        order_items(product_name, variant_name)
+      )
+    `,
+    )
+    .eq("sub_orders.seller_id", sellerId)
+    .order("created_at", { ascending: false });
+
+  if (error || !returns) return [];
+
+  const rawList = returns as unknown as Array<{
+    id: string;
+    sub_order_id: string;
+    reason: string | null;
+    reason_code: string | null;
+    status: string | null;
+    customer_notes: string | null;
+    refund_amount: number | null;
+    created_at: string;
+    sub_orders?: {
+      id: string;
+      seller_id: string;
+      orders?: { order_number?: string | null } | null;
+    } | null;
+    return_items?: Array<{
+      quantity: number;
+      order_items?: { product_name?: string | null; variant_name?: string | null } | null;
+    }> | null;
+  }>;
+
+  return rawList.map((r) => {
+    const firstItem = r.return_items?.[0]?.order_items;
+    const productName = firstItem
+      ? `${firstItem.product_name || "Item"}${firstItem.variant_name ? ` (${firstItem.variant_name})` : ""}`
+      : "Order item";
+
+    return {
+      id: r.id,
+      subOrderId: r.sub_order_id,
+      orderNumber: r.sub_orders?.orders?.order_number || undefined,
+      productName,
+      reason: r.reason || r.reason_code || "Customer return",
+      reasonCode: r.reason_code || "CHANGED_MIND",
+      status: r.status || "REQUESTED",
+      refundAmountAud: Number(r.refund_amount ?? 0),
+      customerNotes: r.customer_notes || undefined,
+      createdAt: r.created_at,
+    };
+  });
+}
 
 /**
  * Resolve the seller_id (via sub_orders) and customer_id for a return, for authorization

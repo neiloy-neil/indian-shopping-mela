@@ -44,15 +44,27 @@ export const SELLER_SECTIONS = [
 
 export type SellerSection = (typeof SELLER_SECTIONS)[number]["id"];
 
-function SidebarBrand() {
+export interface SellerBrandInfo {
+  storeName?: string | undefined;
+  location?: string | undefined;
+  verified?: boolean | undefined;
+}
+
+function SidebarBrand({ brand }: { brand?: SellerBrandInfo | undefined }) {
+  const storeName = brand?.storeName || "Indian Shopping Mela";
+  const location = brand?.location || "Seller Centre";
+  const isVerified = brand?.verified ?? false;
+
   return (
     <div className="rounded-sm bg-sidebar-accent p-3">
       <Logo compact onDark />
       <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
         Seller Centre
       </p>
-      <p className="mt-1 text-sm font-semibold text-sidebar-foreground">Mumbai Mirror Boutique</p>
-      <p className="text-[11px] text-sidebar-foreground/70">Harris Park, NSW · Verified</p>
+      <p className="mt-1 truncate text-sm font-semibold text-sidebar-foreground">{storeName}</p>
+      <p className="truncate text-[11px] text-sidebar-foreground/70">
+        {location} {isVerified ? "· Verified" : ""}
+      </p>
     </div>
   );
 }
@@ -134,6 +146,7 @@ export function SellerShell({
   onSelect,
   title,
   subtitle,
+  brand,
   actions,
   children,
 }: {
@@ -141,6 +154,7 @@ export function SellerShell({
   onSelect?: ((id: SellerSection) => void) | undefined;
   title: string;
   subtitle?: string;
+  brand?: SellerBrandInfo | undefined;
   actions?: ReactNode;
   children: ReactNode;
 }) {
@@ -157,7 +171,7 @@ export function SellerShell({
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden w-64 shrink-0 flex-col bg-sidebar p-4 lg:flex">
-        <SidebarBrand />
+        <SidebarBrand brand={brand} />
         <SidebarNav active={active} onSelect={onSelect} />
         <Link
           to="/"
@@ -177,7 +191,7 @@ export function SellerShell({
           <div className="relative flex h-full w-72 max-w-[85vw] flex-col bg-sidebar p-4 shadow-xl">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <SidebarBrand />
+                <SidebarBrand brand={brand} />
               </div>
               <button
                 aria-label="Close menu"
