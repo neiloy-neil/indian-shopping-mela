@@ -1,11 +1,10 @@
 -- ============================================================================
--- INDIAN SHOPPING MELA — GOTRUE TOKEN SCAN ERROR FIX
--- Fixes: sql: Scan error on column index 3, name "confirmation_token": converting NULL to string is unsupported
+-- INDIAN SHOPPING MELA — GOTRUE TOKEN SCAN ERROR FIX (V3 - NO GENERATED COLUMNS)
 -- Run this in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/njqejotcqldimlyxwfrn/sql/new
 -- ============================================================================
 
--- 1. Fix all NULL token columns across auth.users to empty string '' (GoTrue requirement)
+-- 1. Fix all NULL token columns in auth.users to empty string '' (GoTrue requirement)
 UPDATE auth.users
 SET
     confirmation_token = COALESCE(confirmation_token, ''),
@@ -16,8 +15,7 @@ SET
     email_change = COALESCE(email_change, ''),
     phone_change = COALESCE(phone_change, ''),
     phone_change_token = COALESCE(phone_change_token, ''),
-    email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-    confirmed_at = COALESCE(confirmed_at, NOW())
+    email_confirmed_at = COALESCE(email_confirmed_at, NOW())
 WHERE 
     confirmation_token IS NULL OR 
     recovery_token IS NULL OR 
@@ -36,7 +34,7 @@ BEGIN
     IF v_user_id IS NULL THEN
         v_user_id := '00000000-0000-0000-0000-000000000001';
         INSERT INTO auth.users (
-            id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, confirmed_at,
+            id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
             confirmation_token, recovery_token, email_change_token_new, email_change_token_current,
             reauthentication_token, email_change, phone_change, phone_change_token,
             raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at
@@ -47,7 +45,6 @@ BEGIN
             'authenticated',
             v_email,
             crypt(v_password, gen_salt('bf')),
-            NOW(),
             NOW(),
             '', '', '', '', '', '', '', '',
             '{"provider":"email","providers":["email"],"role":"admin_super"}'::jsonb,
@@ -61,7 +58,6 @@ BEGIN
         SET 
             encrypted_password = crypt(v_password, gen_salt('bf')),
             email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-            confirmed_at = COALESCE(confirmed_at, NOW()),
             confirmation_token = '',
             recovery_token = '',
             email_change_token_new = '',
